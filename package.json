@@ -1,0 +1,36 @@
+{
+  "name": "nullray",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm check && vite build",
+    "preview": "vite preview",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "check": "oxlint --type-aware --type-check --deny-warnings && tsc --project tsconfig.node.json && tsc --project src/render/worker/tsconfig.json",
+    "test": "vitest run --project cpu",
+    "test:gpu": "vitest run --project gpu",
+    "test:ui": "vitest run --project browser",
+    "test:watch": "vitest --project cpu",
+    "bench": "vitest bench --run --project 'cpu*'",
+    "bench:gpu": "vitest bench --run --project 'gpu*'"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "@vitest/browser-playwright": "^5.0.0",
+    "@webgpu/types": "^0.1.72",
+    "fast-check": "^4.9.0",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "playwright": "^1.63.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

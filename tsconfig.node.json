@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "types": ["node"],
+    "lib": ["ESNext"]
+  },
+  "include": [
+    "*.config.ts",
+    "tests/model/**/*.ts",
+    "tests/physics/**/*.ts",
+    "tests/reference/**/*.ts",
+    "benchmarks/cpu.bench.ts"
+  ],
+  "exclude": []
+}

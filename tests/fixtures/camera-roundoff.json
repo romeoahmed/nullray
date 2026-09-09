@@ -1,0 +1,60 @@
+{
+  "provenance": "September 9, 2026 production GPU benchmark, centered scalar screen formula versus camera-basis screen formula. Both use the same centered orthonormal frame and input scene. These are observed coverage changes, not accuracy reference values.",
+  "adapter": {
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "device": "",
+    "description": ""
+  },
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+  "scene": {
+    "space": {
+      "spin": 0.699999988079071,
+      "charge": 0.20000000298023224
+    },
+    "camera": {
+      "forward": [-1, 0, 0],
+      "right": [0, 0, 1],
+      "up": [0, -1, 0]
+    },
+    "observer": {
+      "radius": 18,
+      "inclination": 1.2,
+      "fieldOfView": 1.0808390005411683,
+      "azimuth": 0
+    },
+    "diskInner": 3.304466962814331,
+    "diskOuter": 64
+  },
+  "width": 1280,
+  "height": 720,
+  "primarySamplesPerPixel": 1,
+  "boundarySamplesPerPixel": 16,
+  "jitter": [0, 0],
+  "centeredSourceSHA256": "70d6376c87254886090da691986679d01304d660609b79044cceef5c9d4f4ee8",
+  "cameraSourceSHA256": "4707d8a953d68a7492cec6904dd305c9e4aa4db8a08855084837da99794bf13c",
+  "endpointSHA256": "c40401f4bf17977b71e2bad3bea3b08f7ea613d89f00642b10b049f2df5f5bdc",
+  "centeredRadianceSHA256": "0c09329d8aaf225db1a51d072160505081efb25efccc54332123c99895ea8f73",
+  "cameraRadianceSHA256": "954f85bccf403d20f2114c57495c17941c1ba3b8f3f5f311673247285ce1a0c3",
+  "coverageChanges": [
+    {
+      "x": 275,
+      "y": 26,
+      "centeredResolvedFraction": 1,
+      "cameraResolvedFraction": 0.9375
+    },
+    {
+      "x": 524,
+      "y": 360,
+      "centeredResolvedFraction": 0.875,
+      "cameraResolvedFraction": 0.9375
+    },
+    {
+      "x": 667,
+      "y": 192,
+      "centeredResolvedFraction": 0.9375,
+      "cameraResolvedFraction": 0.875
+    }
+  ],
+  "remainingWork": "Isolate the affected quarter-pixel companion rays and compare their derivatives with converged binary64 references; do not treat either GPU acceptance pattern as an oracle."
+}

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "u": -10,
+  "m": 0.9999998807907104,
+  "component": "dn",
+  "originalAbsoluteError": 0.00007375273017992353,
+  "acceptance": 0.00003,
+  "reference": "binary64 CPU Jacobi evaluation on identical quantized inputs",
+  "browser": "Chromium 153",
+  "adapter": "Apple Metal-3",
+  "originalFormula": "sqrt(max(0, 1 - m * sn * sn))",
+  "reason": "Cancellation near unit m and unit-magnitude sn"
+}

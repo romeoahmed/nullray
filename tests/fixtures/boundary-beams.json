@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "origin": "Remaining unresolved pixels of the deterministic 128 \u00d7 72 production benchmark; 4 \u00d7 4 subpixel centers with (-0.125, +0.125) offsets.",
+  "sourceSHA256": "31db04c9e0fca30324c81aa34d1c84d3af78cbbbe7f54d9b55a98ab786ee08b2",
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+  "adapter": {
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "device": "",
+    "description": ""
+  },
+  "width": 128,
+  "height": 72,
+  "radius": 18,
+  "zoom": 1.2,
+  "inner": 3.304466962814331,
+  "outer": 64,
+  "positions": [
+    [62, 19],
+    [60, 20],
+    [54, 27],
+    [52, 33],
+    [52, 34]
+  ],
+  "referenceStep": 0.001953125,
+  "relativeTolerance": 0.02
+}

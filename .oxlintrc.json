@@ -1,0 +1,54 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "jsdoc"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": {
+    "browser": true,
+    "es2025": true
+  },
+  "rules": {
+    "jsdoc/check-tag-names": ["error", { "typed": true }],
+    "jsdoc/no-blank-blocks": "error",
+    "jsdoc/require-param-description": "error",
+    "jsdoc/require-returns-description": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/consistent-type-imports": "error",
+    "eqeqeq": "error",
+    "curly": "error",
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": ["**/*.css"]
+      }
+    ],
+    "typescript/no-unsafe-call": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "*.config.ts",
+        "tests/model/**/*.ts",
+        "tests/physics/**/*.ts",
+        "tests/reference/**/*.ts",
+        "benchmarks/cpu.bench.ts"
+      ],
+      "env": {
+        "node": true,
+        "browser": false
+      }
+    }
+  ],
+  "options": {
+    "reportUnusedDisableDirectives": "error"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "origin": "1280x720 event-order comparison, pixel 433150",
+  "space": { "spin": 0.699999988079071, "charge": 0.20000000298023224 },
+  "radius": 18,
+  "inclination": 1.2000000476837158,
+  "direction": [-0.976892352104187, -0.03500530868768692, -0.2108459323644638],
+  "diskInner": 3.304466962814331,
+  "diskOuter": 64,
+  "eventTime": 1.3463847183305195,
+  "directRadius": 52.980865478515625,
+  "scannedRadius": 52.97919464111328,
+  "browser": "Chromium 153",
+  "adapter": "Apple Metal-3",
+  "reason": "Absolute radius magnifies inverse-coordinate roundoff at the outer disk; use inverse radius and verify against an independent Hamiltonian."
+}

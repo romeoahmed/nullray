@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "origin": "1280\u00d7720 opaque-event comparison, pixel 257911 (x=631, y=201)",
+  "space": {
+    "spin": 0.699999988079071,
+    "charge": 0.20000000298023224
+  },
+  "radius": 18,
+  "inclination": 1.2000000476837158,
+  "direction": [-0.9667434096336365, -0.25538137555122375, -0.013695531524717808],
+  "expected": "sky",
+  "referenceBoundaryTime": 3.334991131946264,
+  "reference": "Binary64 separated visibility on the same quantized photon launch; not independent Hamiltonian integration to infinity.",
+  "observed": {
+    "inlineCarter": 21.086149215698242,
+    "separatedCarter": 21.08614730834961,
+    "inlineEndpoint": "sky branch 6",
+    "separatedEndpoint": "unresolved disk transport, stage 8",
+    "separatedDiskRadius": 53.43293762207031
+  },
+  "variants": {
+    "inline": "84d45a06487ad31b3a9f28d96a59859c4633f3f1ce62240e4236ae7aec454b76",
+    "separated": "a915b6b5d2d19ae3aa38a4350bd9eadde8f94d05fcc0369205ebbbce307fd76b"
+  },
+  "browser": "Chromium 153",
+  "adapter": "Apple M5 / Metal-3",
+  "date": "2026-09-09",
+  "limitation": "Live diagnostic output preserves the divergent classifications and exposes a one-ULP Carter difference. Isolated truncated kernels agree; this is expression-context sensitivity, not proof of a compiler defect. Keep the full launch in one pure function. Critical primary-ray accuracy remains open."
+}

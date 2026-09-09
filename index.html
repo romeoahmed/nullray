@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="oklch(9% 0.01 270)" />
+    <meta
+      name="description"
+      content="Explore light, gravity, and a thermal disk around a Kerr–Newman black hole."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Nullray — Light in curved space</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas aria-label="Black hole view" aria-describedby="navigation-hint" tabindex="0"></canvas>
+      <header class="masthead">
+        <div class="wordmark">
+          <span class="orbit-mark" aria-hidden="true"></span>
+          <div>
+            <strong>NULLRAY</strong>
+            <p>Light in curved space</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="quiet" popovertarget="about" aria-label="About the model">
+            About
+          </button>
+          <button id="toggle-controls" type="button" popovertarget="controls">
+            Settings <span aria-hidden="true">☷</span>
+          </button>
+        </div>
+      </header>
+
+      <section id="controls" class="panel settings" popover="auto" aria-label="Scene settings">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">OBSERVATORY</p>
+            <h1>Light &amp; gravity</h1>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            popovertarget="controls"
+            popovertargetaction="hide"
+            aria-label="Close settings"
+          >
+            ×
+          </button>
+          <div id="settings-feedback" class="feedback-slot"></div>
+        </div>
+        <fieldset class="controls-grid">
+          <legend class="visually-hidden">Spacetime and exposure</legend>
+          <div class="control">
+            <label for="spin">Spin</label><output id="spin-value" for="spin"></output
+            ><input id="spin" type="range" min="-0.99" max="0.99" step="0.01" />
+          </div>
+          <div class="control">
+            <label for="charge">Charge</label><output id="charge-value" for="charge"></output
+            ><input id="charge" type="range" min="-0.99" max="0.99" step="0.01" />
+          </div>
+          <p class="hint">Spin and charge share a limit: a² + q² &lt; 1.</p>
+          <div class="control">
+            <label for="exposure">Exposure</label
+            ><output id="exposure-value" for="exposure"></output
+            ><input id="exposure" type="range" min="-6" max="6" step="0.1" />
+          </div>
+        </fieldset>
+        <details name="settings-section">
+          <summary>Camera <span>Position &amp; perspective</span></summary>
+          <fieldset class="controls-grid">
+            <legend class="visually-hidden">Camera</legend>
+            <div class="control">
+              <label for="navigation">Navigation</label
+              ><select id="navigation">
+                <option value="orbit">Orbit</option>
+                <option value="free">Free</option>
+              </select>
+            </div>
+            <div class="control">
+              <label for="inclination">Inclination</label
+              ><output id="inclination-value" for="inclination"></output
+              ><input id="inclination" type="range" min="0" max="180" step="0.1" />
+            </div>
+            <div class="control">
+              <label for="distance">Distance</label
+              ><output id="distance-value" for="distance"></output
+              ><input id="distance" type="range" min="2.1" max="200" step="0.1" />
+            </div>
+            <div class="control">
+              <label for="fov">Field of view</label><output id="fov-value" for="fov"></output
+              ><input id="fov" type="range" min="15" max="120" step="1" />
+            </div>
+            <p class="hint">
+              Distance is in gravitational radii, rɢ = GM/c². Navigation changes a stationary
+              observer's placement.
+            </p>
+          </fieldset>
+        </details>
+        <details name="settings-section">
+          <summary>Light <span>Disk &amp; distant sky</span></summary>
+          <fieldset class="controls-grid">
+            <legend class="visually-hidden">Light</legend>
+            <div class="control">
+              <label for="disk-temperature">Disk temperature</label
+              ><output id="disk-temperature-value" for="disk-temperature"></output
+              ><input id="disk-temperature" type="range" min="1000" max="30000" step="100" />
+            </div>
+            <div class="control">
+              <label for="disk-structure">Disk structure</label
+              ><output id="disk-structure-value" for="disk-structure"></output
+              ><input id="disk-structure" type="range" min="0" max="1" step="0.01" />
+            </div>
+            <div class="control">
+              <label for="sky-brightness">Sky brightness</label
+              ><output id="sky-brightness-value" for="sky-brightness"></output
+              ><input id="sky-brightness" type="range" min="0" max="8" step="0.05" />
+            </div>
+            <p class="hint">
+              Temperature sets the peak of a prescribed thin-disk profile. Structure is an animated
+              emission model.
+            </p>
+          </fieldset>
+        </details>
+        <details name="settings-section">
+          <summary>Image <span>Detail &amp; highlights</span></summary>
+          <fieldset class="controls-grid">
+            <legend class="visually-hidden">Image</legend>
+            <div class="control">
+              <label for="bloom">Bloom</label><output id="bloom-value" for="bloom"></output
+              ><input id="bloom" type="range" min="0" max="1" step="0.01" />
+            </div>
+            <div class="control">
+              <label for="exploration-resolution">Exploration resolution</label
+              ><select id="exploration-resolution">
+                <option value="1">100% · Full detail</option>
+                <option value="0.75">75%</option>
+                <option value="0.5">50% · Faster</option>
+              </select>
+            </div>
+            <p class="hint">Photographs always refine at full resolution.</p>
+            <div class="control">
+              <label for="display-mode">Display</label
+              ><select id="display-mode">
+                <option value="auto">Automatic</option>
+                <option value="hdr">HDR</option>
+                <option value="sdr">SDR</option>
+              </select>
+            </div>
+            <p id="display-status" class="hint"></p>
+          </fieldset>
+        </details>
+        <details name="settings-section">
+          <summary>Inspect <span>Frequency &amp; image order</span></summary>
+          <fieldset class="controls-grid">
+            <legend class="visually-hidden">Optical diagnostics</legend>
+            <div class="control">
+              <label for="diagnostic">Diagnostic view</label
+              ><select id="diagnostic">
+                <option value="image">Image</option>
+                <option value="frequency">Frequency shift</option>
+                <option value="order">Image order</option>
+              </select>
+            </div>
+            <p id="diagnostic-status" class="hint"></p>
+          </fieldset>
+        </details>
+      </section>
+
+      <section id="views-panel" class="panel library" popover="auto" aria-label="Views">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">YOUR OBSERVATORY</p>
+            <h2>Views</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            popovertarget="views-panel"
+            popovertargetaction="hide"
+            aria-label="Close views"
+          >
+            ×
+          </button>
+        </div>
+        <p class="section-label">Starting points</p>
+        <div id="presets" class="preset-grid"></div>
+        <details>
+          <summary>Saved views <span>On this browser</span></summary>
+          <div class="library-fields">
+            <label for="saved-name">Name this view</label
+            ><input
+              id="saved-name"
+              type="text"
+              maxlength="80"
+              placeholder="A place to return to"
+              autocomplete="off"
+            />
+            <button id="save-view" type="button">Save current view</button>
+            <label for="saved-views">Saved view</label
+            ><select id="saved-views" disabled></select>
+            <div class="button-row">
+              <button id="load-view" type="button" disabled>Open saved view</button
+              ><button id="delete-view" type="button" class="quiet" disabled>
+                Delete saved view
+              </button>
+            </div>
+            <button id="undo-view" type="button" hidden>Undo deletion</button>
+            <p id="saved-status" class="hint" role="status">Stored only in this browser.</p>
+          </div>
+        </details>
+      </section>
+
+      <section id="about" class="panel about" popover="auto" aria-label="About the model">
+        <p class="eyebrow">NULLRAY</p>
+        <h2>Follow the light.</h2>
+        <p>
+          Vacuum light paths in a Kerr–Newman spacetime, an opaque thermal disk, and a fixed distant
+          sky.
+        </p>
+        <p>
+          The dark shadow and repeated disk images come from the traced paths. Disk structure and
+          brightness are prescribed appearance choices.
+        </p>
+        <p class="hint">
+          Optical prototype. Critical-ray precision and complete stellar-image filtering remain
+          limited. Pink marks unresolved sampling.
+        </p>
+        <hr />
+        <p class="section-label">At the canvas</p>
+        <p>
+          <kbd>Arrows</kbd> turn · <kbd>+</kbd> / <kbd>−</kbd> approach<br /><kbd>Space</kbd> pause
+          · <kbd>R</kbd> reset
+        </p>
+      </section>
+
+      <div class="bottom-ui">
+        <div id="feedback-home" class="feedback-slot">
+          <p id="feedback" class="feedback" role="status"></p>
+        </div>
+        <section id="photo-status" class="photo-card" aria-label="Photograph" hidden>
+          <div class="photo-heading">
+            <strong id="photo-label">Refining light</strong
+            ><button id="export-photo" type="button" disabled>Save PNG (SDR)</button>
+          </div>
+          <progress
+            id="photo-progress"
+            max="64"
+            value="0"
+            aria-label="Photograph samples"
+          ></progress>
+          <p id="sampling-status" class="hint" role="status"></p>
+          <p id="export-status" class="hint" role="status"></p>
+        </section>
+        <nav class="toolbar" aria-label="Explore the scene">
+          <button type="button" popovertarget="views-panel">Views</button>
+          <button id="reset-view" type="button" aria-label="Reset view">Reset</button>
+          <button id="toggle-motion" type="button" aria-label="Pause motion">Pause</button>
+          <button id="photograph" type="button" class="primary" aria-label="Refine still image">
+            Photograph
+          </button>
+          <button
+            id="share-view"
+            type="button"
+            aria-label="Share view"
+            commandfor="view-dialog"
+            command="show-modal"
+          >
+            Share
+          </button>
+        </nav>
+        <p id="navigation-hint" class="navigation-hint"></p>
+      </div>
+      <footer class="telemetry">
+        <p id="status" role="status">Preparing the light field…</p>
+        <button id="retry" type="button" hidden>Retry renderer</button>
+        <p id="render-detail"></p>
+      </footer>
+
+      <dialog id="view-dialog" aria-labelledby="view-title">
+        <header class="panel-heading">
+          <div>
+            <p class="eyebrow">A MOMENT IN SPACETIME</p>
+            <h2 id="view-title">View link</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Close view link"
+            commandfor="view-dialog"
+            command="request-close"
+          >
+            ×
+          </button>
+        </header>
+        <p>Open this link to restore the scene, light, and frozen emission time.</p>
+        <label for="view-link">Link</label
+        ><input id="view-link" type="text" readonly spellcheck="false" autofocus />
+        <div class="dialog-actions">
+          <p id="copy-status" role="status"></p>
+          <button id="copy-view" type="button" class="primary">Copy link</button>
+        </div>
+      </dialog>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

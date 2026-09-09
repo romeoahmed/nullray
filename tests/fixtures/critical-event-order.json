@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "origin": "1280x720 event-order comparison, pixel 353825",
+  "space": { "spin": 0.699999988079071, "charge": 0.20000000298023224 },
+  "radius": 18,
+  "inclination": 1.2000000476837158,
+  "direction": [-0.9786189794540405, -0.13619114458560944, -0.15413248538970947],
+  "diskInner": 3.304466962814331,
+  "diskOuter": 64,
+  "eventTime": 2.41510783079809,
+  "referenceRadius": 3.5945639934649196,
+  "referencePhi": -11.929417010165642,
+  "directRadius": 3.5945324897766113,
+  "scannedRadius": 3.594817876815796,
+  "browser": "Chromium 153",
+  "adapter": "Apple Metal-3",
+  "reference": "Independent metric Hamiltonian, binary64-normalized quantized direction, local tolerance 1e-13",
+  "limitation": "GPU direction normalization and metric initialization have additional f32 error near the critical trajectory."
+}
