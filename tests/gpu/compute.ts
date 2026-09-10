@@ -1,4 +1,3 @@
-import { observerFrameBytes, writeObserverFrame } from "../../src/gpu/observer.ts";
 import { compileShader, requestDevice } from "../../src/gpu/device.ts";
 import { test as baseTest } from "vitest";
 
@@ -6,45 +5,68 @@ import { test as baseTest } from "vitest";
 export const test = baseTest.extend("device", async ({ task }, { onCleanup }) => {
   const device = await requestDevice();
   device.label = task.name;
-  onCleanup(() => device.destroy());
+  device.pushErrorScope("validation");
+  onCleanup(async () => {
+    try {
+      const error = await device.popErrorScope();
+      if (error) {
+        throw new Error(`GPU validation failed: ${error.message}`);
+      }
+    } finally {
+      device.destroy();
+    }
+  });
   return device;
 });
 
 /** Read an owned copy of a floating-point RGBA texture, including padded and one-pixel rows. */
-export async function readPixels(device: GPUDevice, texture: GPUTexture): Promise<Float32Array> {
+export async function readPixels(
+  device: GPUDevice,
+  texture: GPUTexture,
+  mipLevel = 0,
+  layer = 0,
+): Promise<Float32Array> {
+  const width = Math.max(1, texture.width >> mipLevel);
+  const height = Math.max(1, texture.height >> mipLevel);
   if (texture.format !== "rgba16float" && texture.format !== "rgba32float") {
     throw new Error(`Unsupported reference readback format: ${texture.format}`);
   }
   const bytes = texture.format === "rgba16float" ? 2 : 4;
-  const stride = Math.ceil((texture.width * 4 * bytes) / 256) * 256;
+  const stride = Math.ceil((width * 4 * bytes) / 256) * 256;
   using owned = new DisposableStack();
   const staging = owned.adopt(
     device.createBuffer({
-      size: stride * texture.height,
+      size: stride * height,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     }),
     (value) => value.destroy(),
   );
   const encoder = device.createCommandEncoder();
-  encoder.copyTextureToBuffer({ texture }, { buffer: staging, bytesPerRow: stride }, [
-    texture.width,
-    texture.height,
-  ]);
+  encoder.copyTextureToBuffer(
+    { texture, mipLevel, origin: [0, 0, layer] },
+    { buffer: staging, bytesPerRow: stride },
+    [width, height],
+  );
   device.queue.submit([encoder.finish()]);
   await staging.mapAsync(GPUMapMode.READ);
   const data =
     bytes === 2
       ? new Float16Array(staging.getMappedRange())
       : new Float32Array(staging.getMappedRange());
-  const result = new Float32Array(texture.width * texture.height * 4);
-  for (let y = 0; y < texture.height; y++) {
+  const result = new Float32Array(width * height * 4);
+  for (let y = 0; y < height; y++) {
     result.set(
-      data.subarray((y * stride) / bytes, (y * stride) / bytes + texture.width * 4),
-      y * texture.width * 4,
+      data.subarray((y * stride) / bytes, (y * stride) / bytes + width * 4),
+      y * width * 4,
     );
   }
   staging.unmap();
   return result;
+}
+
+interface ComputeResources {
+  readonly entries: readonly GPUBindGroupEntry[];
+  dispose(): void;
 }
 
 /**
@@ -59,11 +81,13 @@ export async function computeReadback(
   workgroups: number,
   extraInputs: readonly Float32Array[] = [],
   entryPoint?: string,
+  resources?: (device: GPUDevice) => ComputeResources | Promise<ComputeResources>,
 ): Promise<Float32Array> {
   const device = await requestDevice();
   device.pushErrorScope("validation");
   using owned = new DisposableStack();
   owned.defer(() => device.destroy());
+  const prepared = resources && owned.adopt(await resources(device), (value) => value.dispose());
   const buffer = (size: number, usage: GPUBufferUsageFlags) =>
     owned.adopt(device.createBuffer({ size, usage }), (value) => value.destroy());
   const module = await compileShader(device, source, "compute-reference-test");
@@ -90,6 +114,7 @@ export async function computeReadback(
       { binding: 0, resource: { buffer: input } },
       { binding: 1, resource: { buffer: output } },
       ...extraBindings,
+      ...(prepared?.entries ?? []),
     ],
   });
   const encoder = device.createCommandEncoder();
@@ -108,11 +133,4 @@ export async function computeReadback(
     throw new Error(`GPU reference execution failed: ${validation.message}`);
   }
   return result;
-}
-
-/** Pack the production observer layout for a quantized test frame. */
-export function observerData(frame: Float32Array): Float64Array {
-  const data = new Float64Array(observerFrameBytes / 8);
-  writeObserverFrame(frame, data);
-  return data;
 }

@@ -5,9 +5,25 @@ import type { Spacetime } from "./spacetime.ts";
 export interface DiskProfile {
   readonly inner: number;
   readonly outer: number;
+  /** Multiplier giving the tapered inverse-square vertical column unit peak. */
+  readonly columnNormalization: number;
   readonly flux: Float64Array<ArrayBuffer>;
   /** Temperature divided by the peak temperature, ready for GPU interpolation. */
   readonly temperature: Float32Array<ArrayBuffer>;
+}
+
+/**
+ * Normalize the tapered inverse-square vertical column to unit peak.
+ * Radii are finite and positive, with outer > inner; this is a source prescription.
+ */
+export function diskColumnNormalization(inner: number, outer: number): number {
+  if (!(inner > 0 && outer > inner) || !Number.isFinite(outer)) {
+    throw new RangeError("A disk column requires ordered positive finite radii.");
+  }
+  const ratio = (outer - inner) / inner;
+  // x(1-x)^2 / (1 + ratio*x)^2 has a single interior maximum.
+  const x = 2 / (3 + ratio + Math.hypot(3 + ratio, 2 * Math.sqrt(ratio)));
+  return (1 + ratio * x) ** 2 / (6.75 * x * (1 - x) ** 2);
 }
 
 /** Analytic charged-orbit derivatives entering the Page–Thorne radial conservation law. */
@@ -39,7 +55,7 @@ function orbitGradient(space: Spacetime, r: number) {
 
 /**
  * Integrate the stationary, axisymmetric thin-disk conservation law with zero inner torque.
- * @param space - Subextremal spacetime with a neutral circular emitter of orientation +1.
+ * @param space - Spacetime with a supported neutral circular emitter of orientation +1.
  * @param inner - Inner edge on the stable exterior orbit branch, in gravitational radii.
  * @param outer - Finite outer edge strictly beyond the inner edge, in gravitational radii.
  * @param size - Number of logarithmically spaced samples, including both edges.
@@ -88,5 +104,11 @@ export function createDiskProfile(
   for (let index = 0; index < size; index++) {
     temperature[index] = ((flux[index] ?? 0) / maximum) ** 0.25;
   }
-  return { inner, outer, flux, temperature };
+  return {
+    inner,
+    outer,
+    flux,
+    temperature,
+    columnNormalization: diskColumnNormalization(inner, outer),
+  };
 }

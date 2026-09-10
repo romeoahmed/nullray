@@ -1,6 +1,7 @@
 @group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var linear_sampler: sampler;
 @group(0) @binding(2) var detail: texture_2d<f32>;
+@group(0) @binding(3) var<uniform> blend: vec4f;
 
 struct Vertex {
   @builtin(position) position: vec4f,
@@ -41,5 +42,5 @@ fn filtered(uv: vec2f) -> vec3f {
 
 @fragment fn upsample(input: Vertex) -> @location(0) vec4f {
   let fine = textureSampleLevel(detail, linear_sampler, input.uv, 0.0).rgb;
-  return vec4f(0.5 * (fine + filtered(input.uv)), 1.0);
+  return vec4f(mix(filtered(input.uv), fine, blend.x), 1.0);
 }

@@ -1,17 +1,27 @@
-import { createBloom } from "./bloom.ts";
-import { createPhotoExporter } from "./photograph.ts";
+import { createBloom } from "./imaging/bloom.ts";
+import { createPhotoExporter } from "./imaging/photograph.ts";
 import presentation from "./wgsl/passes/present.wgsl?raw";
 import { compileShader, requestDevice } from "./device.ts";
 import { initialAppearance } from "../scene/appearance.ts";
 import type { SourceAppearance } from "../scene/appearance.ts";
 import type { Scene } from "../scene/scene.ts";
-import { createOptics } from "./optics.ts";
-import type { OpticalView } from "./optics.ts";
-import { createAccumulation, pixelJitter } from "./accumulation.ts";
-import type { Coverage } from "./coverage.ts";
+import { createOptics } from "./optics/engine.ts";
+import type { OpticalImage } from "./optics/engine.ts";
+import type { SavedView } from "../scene/view.ts";
+import { createPolarimeter } from "./imaging/polarimeter.ts";
+import { createAccumulation, pixelJitter } from "./imaging/accumulation.ts";
+import type { Coverage } from "./imaging/coverage.ts";
+import type { RayPath } from "../physics/ray-path.ts";
+import { blackbodyWhiteBalance } from "../physics/radiation.ts";
+import type { Vec3 } from "../physics/vector.ts";
+
+const opticalView = (value: SavedView["diagnostic"]) =>
+  value === "polarization" || value === "angle" ? "image" : value;
 
 /** Device and canvas owner coordinating optical and photographic resources. */
 export interface Renderer {
+  /** Inspect the last optical frame while the worker holds its submission lock. */
+  inspect(point?: readonly [number, number]): Promise<RayPath>;
   readonly lost: Promise<GPUDeviceLostInfo>;
   /** Set the content-box size in physical display pixels. */
   resize(width: number, height: number): void;
@@ -33,12 +43,14 @@ export interface RenderSettings {
   /** Linear exploration scale in (0, 1]; still-image refinement uses native pixels. */
   readonly resolutionScale?: number;
   readonly exposureEV: number;
+  readonly whiteBalance?: number;
   readonly bloom?: number;
   readonly hdr: boolean;
   /** Observer epoch in geometric time units; navigation does not advance this clock. */
   readonly time: number;
   readonly refine: boolean;
-  readonly view: OpticalView;
+  readonly view: SavedView["diagnostic"];
+  readonly analyzer?: number | null;
 }
 
 /** Own one canvas context and its GPU resources; dispose its previous owner before initialization. */
@@ -64,18 +76,23 @@ export async function createRenderer(
   });
   const bloomFilter = owned.adopt(await createBloom(device), (value) => value.dispose());
   const exportPhoto = await createPhotoExporter(device, displayModule);
-  const optics = owned.adopt(await createOptics(device, { signal }), (value) => value.dispose());
+  const optics = owned.adopt(await createOptics(device), (value) => value.dispose());
   const accumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
+  const qAccumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
+  const uAccumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
+  const polarimeter = owned.adopt(await createPolarimeter(device), (value) => value.dispose());
   const displayUniform = owned.adopt(
     device.createBuffer({
       label: "display",
-      size: 16,
+      size: 32,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     }),
     (buffer) => buffer.destroy(),
   );
   const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
-  const displayFrame = new Float32Array(4);
+  const displayFrame = new Float32Array(8);
+  let calibration: Vec3 = [1, 1, 1];
+  let calibratedTemperature: number | undefined;
   let width = 0;
   let height = 0;
   let requestedWidth = 0;
@@ -87,18 +104,27 @@ export async function createRenderer(
         readonly appearance: SourceAppearance;
         readonly time: number;
         readonly exposureEV: number;
+        readonly whiteBalance: number | undefined;
         readonly bloom: number;
         readonly refine: boolean;
-        readonly view: OpticalView;
+        readonly view: SavedView["diagnostic"];
+        readonly analyzer?: number | null;
       }
     | undefined;
   let scattered: GPUTexture | undefined;
   let samples = 0;
   let coverage: Promise<Coverage> | undefined;
   let displayed: GPUTexture | undefined;
+  let boundDisplay: GPUTexture | undefined;
+  let boundBloom: GPUTexture | undefined;
+  let displayBindings: GPUBindGroup | undefined;
+  let stokes: Pick<OpticalImage, "radiance" | "q" | "u"> | undefined;
   signal?.throwIfAborted();
   const lifetime = owned.move();
   return {
+    inspect(point) {
+      return optics.inspect(point);
+    },
     lost: device.lost,
     finished() {
       return device.queue.onSubmittedWorkDone();
@@ -114,7 +140,14 @@ export async function createRenderer(
       if (!displayed || !previous?.refine || samples !== 64 || lifetime.disposed) {
         throw new Error("Refine a still image before exporting it.");
       }
-      return exportPhoto(displayed, previous.exposureEV, scattered ?? displayed, previous.bloom);
+      return exportPhoto(
+        displayed,
+        previous.exposureEV,
+        scattered ?? displayed,
+        previous.bloom,
+        previous.whiteBalance,
+        previous.view === "image" && !previous.scene.plasma,
+      );
     },
     resize(pixelWidth, pixelHeight) {
       if (
@@ -136,10 +169,12 @@ export async function createRenderer(
       scene,
       {
         exposureEV,
+        whiteBalance,
         hdr,
         time,
         refine,
         view,
+        analyzer = null,
         appearance = initialAppearance,
         bloom = 0,
         resolutionScale = 1,
@@ -155,6 +190,11 @@ export async function createRenderer(
         throw new RangeError("Bloom must be between zero and one.");
       }
       const strength = view === "image" ? bloom : 0;
+      const temperature = view === "image" && !scene.plasma ? whiteBalance : undefined;
+      if (temperature !== calibratedTemperature) {
+        calibration = temperature === undefined ? [1, 1, 1] : blackbodyWhiteBalance(temperature);
+        calibratedTemperature = temperature;
+      }
       if (outputHDR !== hdr) {
         context.configure({
           device,
@@ -183,7 +223,14 @@ export async function createRenderer(
         canvas.width = width;
         canvas.height = height;
       }
-      displayFrame.set([2 ** exposureEV, hdr ? 4 : 1, strength, 0]);
+      displayFrame.set([
+        2 ** exposureEV,
+        hdr ? 4 : 1,
+        strength,
+        view === "image" ? 0 : 1,
+        ...calibration,
+        view === "image" && !scene.plasma ? 1 : 0,
+      ]);
       device.queue.writeBuffer(displayUniform, 0, displayFrame);
       const encoder = device.createCommandEncoder();
       const invalidated =
@@ -192,7 +239,7 @@ export async function createRenderer(
         previous.appearance !== appearance ||
         previous.time !== time ||
         previous.refine !== refine ||
-        previous.view !== view;
+        opticalView(previous.view) !== opticalView(view);
       if (invalidated) {
         samples = 0;
         coverage = undefined;
@@ -201,19 +248,31 @@ export async function createRenderer(
         coverage = undefined;
         const image = optics.encode(encoder, scene, width, height, {
           time,
-          view,
+          view: opticalView(view),
           appearance,
-          antialias: !refine && view === "image",
-          reuse:
-            refine || resized || previous?.scene !== scene || previous.refine !== refine
-              ? "sources"
-              : "geometry",
           jitter: refine ? pixelJitter(samples) : [0, 0],
         });
-        const radiance = refine
-          ? accumulation.encode(encoder, image.radiance, samples++)
-          : image.radiance;
-        displayed = radiance;
+        stokes = refine
+          ? {
+              radiance: accumulation.encode(encoder, image.radiance, samples),
+              q: qAccumulation.encode(encoder, image.q, samples),
+              u: uAccumulation.encode(encoder, image.u, samples),
+            }
+          : image;
+        if (refine) {
+          samples++;
+        }
+        scattered = undefined;
+      }
+      if (stokes) {
+        displayed = polarimeter.encode(
+          encoder,
+          stokes,
+          view === "image" ? analyzer : null,
+          view === "polarization" || view === "angle" ? view : "image",
+        );
+      }
+      if (previous?.analyzer !== analyzer || previous.view !== view) {
         scattered = undefined;
       }
       if (displayed && strength > 0 && !scattered) {
@@ -222,15 +281,20 @@ export async function createRenderer(
       if (!displayed) {
         throw new Error("No radiance is available for presentation.");
       }
-      const displayBindings = device.createBindGroup({
-        layout: display.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: displayed.createView() },
-          { binding: 1, resource: sampler },
-          { binding: 2, resource: { buffer: displayUniform } },
-          { binding: 3, resource: (scattered ?? displayed).createView() },
-        ],
-      });
+      const bloomImage = scattered ?? displayed;
+      if (!displayBindings || boundDisplay !== displayed || boundBloom !== bloomImage) {
+        displayBindings = device.createBindGroup({
+          layout: display.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: displayed.createView() },
+            { binding: 1, resource: sampler },
+            { binding: 2, resource: { buffer: displayUniform } },
+            { binding: 3, resource: bloomImage.createView() },
+          ],
+        });
+        boundDisplay = displayed;
+        boundBloom = bloomImage;
+      }
       const displayPass = encoder.beginRenderPass({
         colorAttachments: [
           {
@@ -246,7 +310,17 @@ export async function createRenderer(
       displayPass.draw(3);
       displayPass.end();
       device.queue.submit([encoder.finish()]);
-      previous = { scene, appearance, time, exposureEV, bloom: strength, refine, view };
+      previous = {
+        scene,
+        appearance,
+        time,
+        exposureEV,
+        whiteBalance: temperature,
+        bloom: strength,
+        refine,
+        view,
+        analyzer,
+      };
       return samples;
     },
     dispose() {

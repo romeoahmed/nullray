@@ -1,7 +1,10 @@
+import { cubeTexelSolidAngle } from "../reference/sky.ts";
 import { describe, expect, test } from "vitest";
-import { createDiskProfile } from "../../src/physics/disk.ts";
+import { readFileSync } from "node:fs";
+import { createDiskProfile, diskColumnNormalization } from "../../src/physics/disk.ts";
 import { isco } from "../../src/physics/spacetime.ts";
 import {
+  blackbodyWhiteBalance,
   blackbodyXYZ,
   createBlackbodyTable,
   diskFrequencyRatio,
@@ -10,7 +13,28 @@ import {
 } from "../../src/physics/radiation.ts";
 import { brightStars } from "../../src/data/bright-stars.ts";
 import { createStarTree } from "../../src/physics/stars.ts";
-import { createSkyMap, createStars, cubeTexelSolidAngle } from "../../src/physics/sky.ts";
+import { createJetTable } from "../../src/physics/synchrotron.ts";
+import { initialJet } from "../../src/scene/jet.ts";
+import { createStars, decodeFaintStars } from "../../src/physics/sky.ts";
+
+test("finite-cutoff synchrotron recovers the analytic isotropic power-law tail", () => {
+  const jet = { ...initialJet, gammaMin: 1 };
+  const observing = 1e14;
+  const table = createJetTable(jet, observing / 1e9);
+  const shift = Math.exp(10) / table.scale;
+  const light = 2.99792458e10;
+  const coefficient =
+    ((((4 * Math.PI) / 9) * 2.307077552e-19 * (2.799248987e6 * jet.field) ** 2) / light) *
+    jet.density *
+    1.476625038e5 *
+    jet.massSolar;
+  const thermal =
+    (2 * 6.62607015e-27 * observing ** 3) /
+    light ** 2 /
+    Math.expm1((6.62607015e-27 * observing) / (1.380649e-16 * 6500));
+  const expected = coefficient / (observing * shift) / thermal;
+  expect(Math.abs((table.data.at(-4) ?? NaN) / expected - 1)).toBeLessThan(0.002);
+});
 
 /** Page–Thorne (1974), equation 15n: independent closed Kerr expression. */
 function kerrFlux(a: number, inner: number, r: number): number {
@@ -31,6 +55,24 @@ function kerrFlux(a: number, inner: number, r: number): number {
 }
 
 describe("Charged thermal disks", () => {
+  test("tapered disk columns retain their peak optical depth for compact and extended annuli", () => {
+    for (const outer of [6.01, 14, 36, 1000]) {
+      const scale = diskColumnNormalization(6, outer);
+      let peak = 0;
+      let minimum = 1;
+      // Uniform source-coordinate sampling supplies an independent maximum estimate.
+      for (let index = 0; index <= 10000; index++) {
+        const x = index / 10000;
+        const r = 6 + (outer - 6) * x;
+        const depth = scale * 6.75 * x * (1 - x) ** 2 * (6 / r) ** 2;
+        minimum = Math.min(minimum, depth);
+        peak = Math.max(peak, depth);
+      }
+      expect(minimum).toBeGreaterThanOrEqual(0);
+      expect(peak).toBeLessThanOrEqual(1 + 1e-12);
+      expect(peak).toBeGreaterThan(0.9999);
+    }
+  });
   test.each([-0.9, -0.4, 0.4, 0.9, 0.99])(
     "disk flux matches the independent closed Kerr profile at spin %s",
     (spin) => {
@@ -85,6 +127,19 @@ describe("Spectral transfer", () => {
     expect(xyz[0] / sum).toBeCloseTo(0.3135, 3);
     expect(xyz[1] / sum).toBeCloseTo(0.3236, 3);
     expect(blackbodyXYZ(13000)[1]).toBeGreaterThan(4 * xyz[1]);
+    for (const temperature of [2500, 5000, 12000]) {
+      const reference = blackbodyXYZ(temperature);
+      const [r, g, b] = xyzToLinearRGB(reference);
+      const p3 = [
+        0.82246197 * r + 0.17753803 * g,
+        0.0331942 * r + 0.9668058 * g,
+        0.01708263 * r + 0.07239744 * g + 0.91051993 * b,
+      ];
+      const gains = blackbodyWhiteBalance(temperature);
+      for (const [channel, value] of p3.entries()) {
+        expect((value * (gains[channel] ?? NaN)) / reference[1]).toBeCloseTo(1, 12);
+      }
+    }
   });
 
   test("log-temperature lookup agrees with direct spectral integration", () => {
@@ -141,33 +196,6 @@ describe("Distant sky", () => {
     }
   });
 
-  test("diffuse radiance retains integrated spectral flux through every mip", () => {
-    const levels = createSkyMap(64);
-    const integrals = levels.map((level) => {
-      const integral = [0, 0, 0];
-      for (let face = 0; face < 6; face++) {
-        for (let row = 0; row < level.size; row++) {
-          for (let col = 0; col < level.size; col++) {
-            const offset = ((face * level.size + row) * level.size + col) * 4;
-            for (let channel = 0; channel < 3; channel++) {
-              integral[channel] =
-                (integral[channel] ?? 0) +
-                (level.data[offset + channel] ?? 0) * cubeTexelSolidAngle(level.size, col, row);
-            }
-          }
-        }
-      }
-      return integral;
-    });
-    for (const integral of integrals) {
-      for (let channel = 0; channel < 3; channel++) {
-        expect(
-          Math.abs((integral[channel] ?? 0) / (integrals[0]?.[channel] ?? Number.NaN) - 1),
-        ).toBeLessThan(0.01);
-      }
-    }
-  });
-
   test("HYG bright stars retain source positions, magnitudes, and missing-color records", () => {
     const stars = createStars();
     expect(stars).toHaveLength(8920);
@@ -197,5 +225,14 @@ describe("Distant sky", () => {
     const tree = createStarTree(stars);
     expect(tree.byteLength).toBeLessThanOrEqual(stars.length * 64);
     expect(tree.every(Number.isFinite)).toBe(true);
+    const data = new Uint8Array(
+      readFileSync(new URL("../../src/data/faint-stars.bin", import.meta.url)),
+    ).buffer;
+    const faint = decodeFaintStars(data);
+    expect(faint).toHaveLength(99151);
+    expect(faint.every((star) => star.flux > 0 && star.flux < 4e-5 * 10 ** (-0.4 * 6.5))).toBe(
+      true,
+    );
+    expect(() => decodeFaintStars(data.slice(0, data.byteLength - 1))).toThrow();
   });
 });

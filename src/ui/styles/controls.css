@@ -1,0 +1,222 @@
+@layer controls {
+  .controls-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px 14px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    & > p,
+    & > .button-row {
+      grid-column: 1 / -1;
+    }
+  }
+  .control {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    align-items: center;
+    gap: 4px 12px;
+    & label {
+      font-size: 13px;
+    }
+  }
+  output {
+    color: var(--accent);
+    font: 12px var(--mono);
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    grid-column: 1 / -1;
+    inline-size: 100%;
+    block-size: 44px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  input[type="file"] {
+    grid-column: 1 / -1;
+    inline-size: 100%;
+    min-inline-size: 0;
+    font-size: 12px;
+    &::file-selector-button {
+      min-block-size: 44px;
+      margin-inline-end: 10px;
+      padding: 8px 12px;
+      color: inherit;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  }
+  #audio-player {
+    grid-column: 1 / -1;
+    inline-size: 100%;
+    block-size: 44px;
+  }
+  #audio-clear {
+    grid-column: 1 / -1;
+  }
+  #audio-status {
+    overflow-wrap: anywhere;
+  }
+  select {
+    appearance: base-select;
+    max-inline-size: 175px;
+    min-inline-size: 0;
+    min-block-size: 44px;
+    padding: 10px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    &::picker(select) {
+      appearance: base-select;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 5px;
+      margin-block: 5px;
+      max-block-size: min(360px, 50dvh);
+      box-shadow: 0 12px 36px oklch(0% 0 none / 35%);
+    }
+    &::picker-icon {
+      color: var(--muted);
+      margin-inline-start: 12px;
+      transition: rotate 140ms;
+    }
+    &:open::picker-icon {
+      rotate: 180deg;
+    }
+    & option {
+      min-block-size: 44px;
+      padding: 10px;
+      border-radius: 6px;
+      white-space: normal;
+      &:checked {
+        color: var(--accent);
+      }
+      &:hover,
+      &:focus-visible {
+        background: var(--raised);
+      }
+      &::checkmark {
+        color: var(--accent);
+      }
+    }
+  }
+  details {
+    border-block-start: 1px solid var(--line);
+    margin-block-start: 10px;
+    &::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size 180ms,
+        content-visibility 180ms allow-discrete;
+    }
+    &[open]::details-content {
+      block-size: auto;
+    }
+  }
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-block-size: 58px;
+    cursor: pointer;
+    font-size: 13px;
+    list-style: none;
+    &::after {
+      content: "+";
+      margin-inline-start: auto;
+      color: var(--accent);
+      font-size: 17px;
+    }
+    & span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+  }
+  details[open] > summary::after {
+    content: "−";
+  }
+  details .controls-grid {
+    padding: 8px 3px 20px;
+  }
+  .topology-map {
+    grid-column: 1 / -1;
+    margin: 8px 0;
+    & svg {
+      display: block;
+      inline-size: 100%;
+    }
+    & text {
+      fill: var(--muted);
+      font-size: 10px;
+    }
+    & path {
+      fill: none;
+    }
+    & .negative-sheet {
+      fill: oklch(55% 0.1 300 / 0.12);
+    }
+    & .map-grid {
+      stroke: var(--line);
+    }
+    & .horizon-surface {
+      stroke: oklch(80% 0.12 190);
+      stroke-width: 1.5;
+    }
+    & .stationary-surface {
+      stroke: oklch(80% 0.12 80);
+      stroke-width: 1.5;
+      stroke-dasharray: 4 3;
+    }
+    & .singular-surface {
+      stroke: oklch(70% 0.2 25);
+      fill: oklch(70% 0.2 25);
+      stroke-width: 2;
+    }
+    & .map-ray {
+      fill: none;
+      stroke: oklch(80% 0.17 145);
+      stroke-width: 1.5;
+    }
+    & .map-observer {
+      fill: white;
+      stroke: var(--surface);
+      stroke-width: 1.5;
+    }
+    & figcaption {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+  }
+  .library-fields {
+    display: grid;
+    gap: 10px;
+    padding-block: 10px;
+    & label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    & input,
+    & select {
+      inline-size: 100%;
+      max-inline-size: none;
+      min-inline-size: 0;
+      padding: 10px;
+    }
+  }
+  .button-row {
+    display: flex;
+    gap: 8px;
+    & button {
+      flex: 1;
+      font-size: 12px;
+    }
+  }
+}

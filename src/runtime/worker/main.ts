@@ -23,11 +23,13 @@ let intent: RenderIntent = {
   appearance: initialSession.view.appearance,
   presentation: {
     exposureEV: initialSession.view.exposureEV,
+    whiteBalance: initialSession.view.whiteBalance,
     bloom: initialSession.view.bloom,
     diagnostic: initialSession.view.diagnostic,
+    analyzer: initialSession.view.analyzer,
   },
   motion: "paused",
-  resolution: 1,
+  resolution: 0.5,
   hdr: false,
   visible: true,
   width: 0,
@@ -37,7 +39,7 @@ let intent: RenderIntent = {
 let initialization: AbortController | undefined;
 let initializationTail = Promise.resolve();
 
-/** Reconstruct clone-lost brands and commit a complete validated rendering intent. */
+/** Prepare source inputs on the worker and commit one complete rendering intent. */
 function prepareIntent(
   current: RenderIntent,
   request: Extract<RenderRequest, { type: "update" }>,
@@ -63,6 +65,7 @@ let time = 0;
 let previousTick: number | undefined;
 let scheduled = 0;
 let pending = false;
+let requestedInspection: Extract<RenderRequest, { type: "inspect" }> | undefined;
 
 const emit = (event: RenderEvent) => port.postMessage(event);
 const message = (error: unknown) => (error instanceof Error ? error.message : "Rendering failed.");
@@ -89,6 +92,7 @@ function schedule() {
   }
   if (
     revision !== completedRevision ||
+    requestedInspection?.revision === revision ||
     motion === "playing" ||
     (motion === "refining" && samples < 64)
   ) {
@@ -124,13 +128,20 @@ async function draw(now: number) {
   }
   previousTick = now;
   const submittedTime = time;
+  const inspect =
+    requestedInspection?.revision === submittedRevision ? requestedInspection : undefined;
+  if (inspect) {
+    requestedInspection = undefined;
+  }
   try {
     submitted.resize(width, height);
     const count = submitted.render(scene, {
       appearance,
       exposureEV: presentation.exposureEV,
+      whiteBalance: presentation.whiteBalance,
       bloom: presentation.bloom,
       view: presentation.diagnostic,
+      analyzer: presentation.analyzer,
       resolutionScale: resolution,
       hdr,
       time: submittedTime,
@@ -139,6 +150,21 @@ async function draw(now: number) {
     await submitted.finished();
     if (renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready") {
       return;
+    }
+    if (inspect) {
+      try {
+        const path = await submitted.inspect(inspect.point);
+        if (renderer === submitted && intent.revision === submittedRevision && phase === "ready") {
+          emit({ type: "ray-path", revision: submittedRevision, path });
+        }
+      } catch (error) {
+        if (renderer === submitted && phase === "ready") {
+          emit({ type: "inspect-error", revision: submittedRevision, message: message(error) });
+        }
+      }
+      if (renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready") {
+        return;
+      }
     }
     const coverage = count === 64 ? await submitted.coverage() : undefined;
     if (renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready") {
@@ -256,6 +282,9 @@ port.addEventListener("message", ({ data }: MessageEvent<RenderRequest>) => {
           previousTick = undefined;
         }
         intent = next;
+        if (requestedInspection?.revision !== intent.revision) {
+          requestedInspection = undefined;
+        }
         schedule();
         break;
       }
@@ -266,6 +295,12 @@ port.addEventListener("message", ({ data }: MessageEvent<RenderRequest>) => {
         break;
       case "export":
         void exportPhoto(data.revision);
+        break;
+      case "inspect":
+        if (data.revision === intent.revision) {
+          requestedInspection = data;
+          schedule();
+        }
         break;
       case "dispose": {
         phase = "disposed";

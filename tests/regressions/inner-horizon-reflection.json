@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "failure": "A nearly horizon-critical radial turn drifted above the inner horizon. The path then returned to the original illuminated exterior and painted bright streaks inside the shadow.",
+  "solver": "Native f32 optical flow with unprojected Bogacki-Shampine radial endpoints",
+  "orbitSourceGitBlob": "d41eb54bebc6acdc4cead45d2112a2662309fefb",
+  "reference": "The null radial potential is P squared minus Delta K. Delta is negative and K is nonnegative between the horizons, so a nondegenerate radial turn cannot occur there.",
+  "width": 1280,
+  "height": 720,
+  "time": 0,
+  "pixels": [
+    [638, 292],
+    [618, 336],
+    [620, 336],
+    [650, 269],
+    [640, 340]
+  ],
+  "space": { "spin": 0.7, "charge": 0 },
+  "observer": { "radius": 55, "inclination": 1.18, "azimuth": 1.45, "fieldOfView": 0.64 },
+  "cameraRoll": -0.45,
+  "disk": { "inner": 4, "outer": 18 }
+}

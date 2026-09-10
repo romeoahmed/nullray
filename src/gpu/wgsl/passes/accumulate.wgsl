@@ -22,7 +22,7 @@ fn accumulate(@builtin(global_invocation_id) id: vec3u) {
   }
   // Each invocation owns one texel. Ordered passes provide inter-frame visibility;
   // no invocation reads another invocation's writes within this pass.
-  // Alpha retains missing weight, including the 4×4 subpixel quadrature.
+  // Alpha retains missing weight, throughout the photographic sequence.
   textureStore(history, pixel, value);
   // Match exploration: resolved light and coverage, without diagnostic color in radiance.
   textureStore(output_image, pixel, vec4f(value.rgb, 1.0 - value.a));

@@ -1,3 +1,4 @@
+import type { Result } from "./decode.ts";
 import { createAppearance } from "./appearance.ts";
 import { initialCamera } from "./camera.ts";
 import { createScene, initialScene } from "./scene.ts";
@@ -18,14 +19,15 @@ export interface Session {
 export const initialSession: Session = {
   view: initialView,
   motion: "playing",
-  resolution: 1,
+  resolution: 0.5,
 };
 
 /** Typed adapter intent. Restored views must already have passed decodeView or scene construction. */
 export type Action =
   | { readonly type: "scene"; readonly value: SceneInput }
+  | { readonly type: "analyzer"; readonly value: number | null }
   | { readonly type: "appearance"; readonly value: unknown }
-  | { readonly type: "exposure" | "bloom" | "resolution"; readonly value: number }
+  | { readonly type: "exposure" | "white-balance" | "bloom" | "resolution"; readonly value: number }
   | { readonly type: "display"; readonly value: SavedView["display"] }
   | { readonly type: "diagnostic"; readonly value: SavedView["diagnostic"] }
   | { readonly type: "navigation"; readonly value: SavedView["navigation"] }
@@ -33,9 +35,7 @@ export type Action =
   | { readonly type: "toggle-motion" | "refine" | "reset-camera" };
 
 /** Complete session replacement, or a validation error with no state change. */
-export type Transition =
-  | { readonly ok: true; readonly value: Session }
-  | { readonly ok: false; readonly error: string };
+export type Transition = Result<Session>;
 
 /** Apply one complete action; rejected input cannot partially alter coupled parameters. */
 export function transition(state: Session, action: Action): Transition {
@@ -47,6 +47,13 @@ export function transition(state: Session, action: Action): Transition {
         ? { ok: true, value: { ...state, view: { ...view, scene: scene.value } } }
         : scene;
     }
+    case "analyzer": {
+      const { value } = action;
+      if (value !== null && (!Number.isFinite(value) || value < 0 || value >= Math.PI)) {
+        return { ok: false, error: "Analyzer angle must lie between 0 and 180 degrees." };
+      }
+      return { ok: true, value: { ...state, view: { ...view, analyzer: value } } };
+    }
     case "appearance": {
       const appearance = createAppearance(action.value);
       return appearance.ok
@@ -54,6 +61,7 @@ export function transition(state: Session, action: Action): Transition {
         : appearance;
     }
     case "exposure":
+    case "white-balance":
     case "bloom":
     case "resolution": {
       const { value } = action;
@@ -61,9 +69,11 @@ export function transition(state: Session, action: Action): Transition {
         Number.isFinite(value) &&
         (action.type === "exposure"
           ? value >= -6 && value <= 6
-          : action.type === "bloom"
-            ? value >= 0 && value <= 1
-            : value > 0 && value <= 1);
+          : action.type === "white-balance"
+            ? value >= 2500 && value <= 12000
+            : action.type === "bloom"
+              ? value >= 0 && value <= 1
+              : value > 0 && value <= 1);
       if (!valid) {
         return { ok: false, error: "This control value is outside its range." };
       }
@@ -74,7 +84,14 @@ export function transition(state: Session, action: Action): Transition {
             ? { ...state, resolution: value }
             : {
                 ...state,
-                view: { ...view, [action.type === "exposure" ? "exposureEV" : "bloom"]: value },
+                view: {
+                  ...view,
+                  [action.type === "exposure"
+                    ? "exposureEV"
+                    : action.type === "white-balance"
+                      ? "whiteBalance"
+                      : "bloom"]: value,
+                },
               },
       };
     }

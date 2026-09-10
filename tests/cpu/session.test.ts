@@ -6,6 +6,29 @@ import { encodeView, decodeView } from "../../src/scene/view.ts";
 import { createAppearance, initialAppearance } from "../../src/scene/appearance.ts";
 import { initialScene } from "../../src/scene/scene.ts";
 
+test("appearance boundaries survive quantization and repeated view round trips", () => {
+  const result = createAppearance({
+    ...initialAppearance,
+    diskThickness: 0.2,
+    diskOpticalDepth: 100,
+  });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+  expect(createAppearance(result.value)).toEqual(result);
+  for (const diskThickness of [1e-100, -1, Infinity]) {
+    expect(createAppearance({ ...initialAppearance, diskThickness }).ok).toBe(false);
+  }
+  expect(createAppearance({ ...initialAppearance, diskOpticalDepth: 1e-100 }).ok).toBe(false);
+  const view = { ...initialSession.view, appearance: result.value };
+  const encoded = encodeView(view);
+  const restored = decodeView(encoded);
+  if (restored.kind !== "view") {
+    throw new Error("Expected a restored boundary appearance.");
+  }
+  expect(encodeView(restored.value)).toBe(encoded);
+});
+
 function apply(session: Session, action: Action): Session {
   const result = transition(session, action);
   if (!result.ok) {
@@ -21,7 +44,7 @@ describe("Session transitions", () => {
       type: "scene",
       value: {
         ...initialSession.view.scene,
-        space: { spin: 0.9, charge: 0.9 },
+        space: { spin: NaN, charge: 0.9 },
       },
     });
     expect(result.ok).toBe(false);
@@ -82,10 +105,12 @@ describe("Portable views", () => {
     appearance: initialAppearance,
     time: 123.5,
     exposureEV: -1.2,
+    whiteBalance: 4800,
     bloom: 0.17,
     navigation: "orbit",
     display: "sdr",
     diagnostic: "image",
+    analyzer: null,
   } as const;
 
   test("view links retain camera, physical inputs, display, and emission epoch", () => {
@@ -136,7 +161,7 @@ describe("Portable views", () => {
       { ...valid, time: 1e308 },
       { ...valid, display: "unknown" },
       { ...valid, diagnostic: false },
-      { ...valid, space: { spin: 1, charge: 0.2 } },
+      { ...valid, space: { spin: "1", charge: 0.2 } },
       { ...valid, observer: { ...initialScene.observer, radius: 1 } },
     ];
     for (const value of bad) {
@@ -155,6 +180,7 @@ describe("Portable views", () => {
 
   test("view links preserve custom source appearance", () => {
     const appearance = createAppearance({
+      ...initialAppearance,
       diskTemperature: 12000,
       diskStructure: 0,
       skyBrightness: 2,
@@ -175,14 +201,19 @@ describe("Portable views", () => {
       { ...initialAppearance, diskTemperature: 0 },
       { ...initialAppearance, diskTemperature: 30001 },
       { ...initialAppearance, diskStructure: 1.1 },
-      { ...initialAppearance, skyBrightness: 8.1 },
+      { ...initialAppearance, skyBrightness: 64.1 },
       { ...initialAppearance, skyBrightness: Number.NaN },
       { ...initialAppearance, diskStructure: "0.5" },
     ]) {
       expect(createAppearance(value).ok).toBe(false);
     }
-    expect(createAppearance({ diskTemperature: 1000, diskStructure: 0, skyBrightness: 0 }).ok).toBe(
-      true,
-    );
+    expect(
+      createAppearance({
+        ...initialAppearance,
+        diskTemperature: 1000,
+        diskStructure: 0,
+        skyBrightness: 0,
+      }).ok,
+    ).toBe(true);
   });
 });

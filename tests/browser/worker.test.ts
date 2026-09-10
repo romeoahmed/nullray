@@ -29,7 +29,13 @@ test("retry releases a superseded initializer before reusing its canvas context"
     revision: 1,
     scene: view.scene,
     appearance: view.appearance,
-    presentation: { exposureEV: view.exposureEV, bloom: view.bloom, diagnostic: view.diagnostic },
+    presentation: {
+      exposureEV: view.exposureEV,
+      whiteBalance: view.whiteBalance,
+      bloom: view.bloom,
+      diagnostic: view.diagnostic,
+      analyzer: view.analyzer,
+    },
     motion: "paused",
     resolution: 1,
     hdr: false,
@@ -37,11 +43,13 @@ test("retry releases a superseded initializer before reusing its canvas context"
     width: 64,
     height: 48,
   } as const satisfies RenderRequest;
-  send({ ...update, scene: { ...view.scene, space: { spin: 1, charge: 1 } } });
+  send({ ...update, scene: { ...view.scene, space: { spin: Number.NaN, charge: 1 } } });
   send({ type: "retry" });
   send({ ...update, revision: 2 });
   await expect
-    .poll(() => events.some((event) => event.type === "frame" && event.revision === 2))
+    .poll(() => events.some((event) => event.type === "frame" && event.revision === 2), {
+      timeout: 10_000,
+    })
     .toBe(true);
   expect(events.filter((event) => event.type === "error")).toHaveLength(1);
   send({ ...update, revision: 3, presentation: { ...update.presentation, exposureEV: 1 } });

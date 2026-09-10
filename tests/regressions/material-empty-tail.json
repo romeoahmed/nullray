@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "failure": "An inverse-radius segment crossed the finite sources and then stalled its material march near infinity, discarding foreground radiance.",
+  "solver": "Native f32 optical flow with cubic material interpolation",
+  "width": 192,
+  "height": 108,
+  "time": 0,
+  "pixels": [
+    [100, 45],
+    [78, 54],
+    [85, 55]
+  ],
+  "space": { "spin": 0.85, "charge": 0 },
+  "observer": { "radius": 85, "inclination": 1.05, "azimuth": 1.45, "fieldOfView": 0.85 },
+  "disk": { "inner": 3.3, "outer": 36 }
+}

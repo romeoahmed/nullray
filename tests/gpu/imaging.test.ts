@@ -1,12 +1,132 @@
 import { describe, expect } from "vitest";
 import presentation from "../../src/gpu/wgsl/passes/present.wgsl?raw";
+import stars from "../../src/gpu/wgsl/passes/stars.wgsl?raw";
+import stellar from "../../src/gpu/wgsl/sources/stars.wgsl?raw";
+import frameSource from "../../src/gpu/wgsl/imaging/frame.wgsl?raw";
+import radiation from "../../src/gpu/wgsl/imaging/radiation.wgsl?raw";
 import { compileShader } from "../../src/gpu/device.ts";
-import { createBloom } from "../../src/gpu/bloom.ts";
+import { createBloom } from "../../src/gpu/imaging/bloom.ts";
 import { referenceBloom } from "../reference/bloom.ts";
-import diagnostic from "../../src/gpu/wgsl/imaging/diagnostic.wgsl?raw";
-import { test, computeReadback, readPixels } from "./compute.ts";
+import { test, readPixels, computeReadback } from "./compute.ts";
+
+test("stellar footprints preserve smooth lensing and exclude neighboring image branches", async () => {
+  const cases = [
+    [-0.02, 0.02, 0, 0, 0, 0.02],
+    [-0.02, 0.12, 0, 1, 0, 0.02],
+    [-0.02, 0.5, 0, 0, 0, 0.02],
+    [-0.02, 0.02, 1, 1, 0, 0],
+    [-0.02, 0.1, 0, 0, 1, 0.02],
+    [-0.01, 0.08, 0, 0, 0, 0.01],
+  ] as const;
+  const endpoints = new Float32Array(cases.length * 12);
+  const transmissions = new Float32Array(cases.length * 12);
+  const domains = new Int32Array(cases.length * 12);
+  for (const [row, [left, right, leftOrder, rightOrder, rightDomain]] of cases.entries()) {
+    for (const [column, x] of [left, 0, right].entries()) {
+      const offset = row * 12 + column * 4;
+      endpoints.set([x, 0, Math.sqrt(1 - x * x), 1], offset);
+      transmissions.set(
+        [1, column === 0 ? leftOrder : column === 2 ? rightOrder : 0, 0, 0],
+        offset,
+      );
+    }
+    domains[row * 12 + 8] = rightDomain;
+  }
+  const result = await computeReadback(
+    `${frameSource}\n${radiation}\n${stellar}\n${stars}
+    @group(0) @binding(1) var<storage, read_write> output: array<vec4f>;
+    @compute @workgroup_size(1) fn check(@builtin(global_invocation_id) id: vec3u) {
+      let center = vec4f(0, 0, 1, 1);
+      output[id.x] = vec4f(arrival_difference(vec2i(1, i32(id.x)), vec2i(1, 0), center, vec4i(0), optical_frame.sampling.x), 1);
+    }`,
+    new Float32Array(72),
+    cases.length * 4,
+    cases.length,
+    [],
+    "check",
+    (device) => {
+      const textures = (
+        [
+          ["rgba32float", endpoints],
+          ["rgba32float", transmissions],
+          ["rgba32sint", domains],
+        ] as const
+      ).map(([format, data]) => {
+        const texture = device.createTexture({
+          size: [3, cases.length],
+          format,
+          usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING,
+        });
+        device.queue.writeTexture({ texture }, data, { bytesPerRow: 48 }, [3, cases.length]);
+        return texture;
+      });
+      return {
+        entries: textures.map((texture, index) => ({
+          binding: 15 + index,
+          resource: texture.createView(),
+        })),
+        dispose: () => textures.forEach((texture) => texture.destroy()),
+      };
+    },
+  );
+  expect(result.every(Number.isFinite)).toBe(true);
+  for (const [row, values] of cases.entries()) {
+    expect(result[row * 4]).toBeCloseTo(values[5], 6);
+  }
+});
 
 describe("Display conversion", () => {
+  test("photographic highlights retain color direction and approach a neutral finite peak", async () => {
+    const colors = [
+      [0, 0, 0],
+      [0.18, 0.18, 0.18],
+      [0.7, 0.3, 0.1],
+      [2, 0.5, 0.1],
+      [100, 25, 5],
+      [1000, 1000, 1000],
+    ];
+    const cases = [1, 4].flatMap((peak) =>
+      colors.map((color) => [...color.map((c) => c * peak), peak]),
+    );
+    const result = await computeReadback(
+      `${presentation}
+      @group(0) @binding(0) var<storage, read> inputs: array<vec4f>;
+      @group(0) @binding(1) var<storage, read_write> outputs: array<vec4f>;
+      @compute @workgroup_size(1) fn probe(@builtin(global_invocation_id) id: vec3u) {
+        let p = inputs[id.x];
+        outputs[id.x] = vec4f(photographic_shoulder(p.rgb, p.w), 1);
+      }`,
+      new Float32Array(cases.flat()),
+      cases.length * 4,
+      cases.length,
+      [],
+      "probe",
+    );
+    for (const [index, input] of cases.entries()) {
+      const peak = input[3] ?? NaN;
+      const [r = NaN, g = NaN, b = NaN] = result.subarray(index * 4, index * 4 + 3);
+      expect(
+        [r, g, b].every((value) => Number.isFinite(value) && value >= 0 && value <= peak),
+      ).toBe(true);
+      if (index % colors.length < 3) {
+        for (const [channel, value] of [r, g, b].entries()) {
+          expect(value).toBeCloseTo(input[channel] ?? NaN, 6);
+        }
+      }
+      if (index % colors.length === 3 || index % colors.length === 4) {
+        expect((r - g) / (g - b)).toBeCloseTo(3.75, 4);
+      }
+      if (index % colors.length === 4) {
+        expect((r - b) / r).toBeLessThan(0.12);
+      }
+      if (index % colors.length === 5) {
+        expect(r).toBeCloseTo(peak, 2);
+        expect(r).toBe(g);
+        expect(g).toBe(b);
+      }
+    }
+  });
+
   test.for([1, 4])(
     "presentation preserves the intended linear signal at peak %i",
     async (peak, { device }) => {
@@ -30,7 +150,7 @@ describe("Display conversion", () => {
       );
       const uniform = resources.adopt(
         device.createBuffer({
-          size: 16,
+          size: 32,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         }),
         (buffer) => buffer.destroy(),
@@ -40,7 +160,7 @@ describe("Display conversion", () => {
       ]);
       device.queue.writeTexture({ texture: input }, pixels, { bytesPerRow: 48 }, [6, 1]);
       // Minus two exposure stops turns input 16 into linear intensity 4.
-      device.queue.writeBuffer(uniform, 0, new Float32Array([0.25, peak, 0, 0]));
+      device.queue.writeBuffer(uniform, 0, new Float32Array([0.25, peak, 0, 0, 1, 1, 1, 0]));
       const module = await compileShader(device, presentation, "presentation-test");
       const pipeline = await device.createRenderPipelineAsync({
         layout: "auto",
@@ -92,24 +212,29 @@ describe("Display conversion", () => {
       if (red === undefined || green === undefined || blue === undefined) {
         throw new Error("Missing primary-color sample.");
       }
-      expect(green / red).toBeCloseTo(0.0403596, 4);
-      expect(blue / red).toBeCloseTo(0.0207701, 4);
+      const expectedRed = (0.82246197 * peak) / (peak + 0.82246197);
+      // Half-float encoding followed by gamma decoding amplifies the storage quantization error.
+      expect(Math.abs(red / expectedRed - 1)).toBeLessThan(0.002);
+      expect(green).toBeCloseTo((0.0331942 * peak) / (peak + 0.0331942), 4);
+      expect(blue).toBeCloseTo((0.01708263 * peak) / (peak + 0.01708263), 4);
       // Signed working RGB is transformed before clipping in the destination gamut.
       expect(linear[12]).toBeGreaterThan(0);
       expect(linear[13]).toBeGreaterThan(linear[12] ?? 0);
-      // Failure color is added after radiance processing, weighted by missing coverage.
+      // A photograph contains only resolved radiance; coverage does not inject diagnostic light.
       for (const [pixel, rgb] of [
-        [4, [0.65, 0.015, 0.24]],
-        [5, [1.325, 2.0075, 3.12]],
+        [4, [0, 0, 0]],
+        [5, [1, 2, 3]],
       ] as const) {
         const p3 = [
           0.82246197 * rgb[0] + 0.17753803 * rgb[1],
           0.0331942 * rgb[0] + 0.9668058 * rgb[1],
           0.01708263 * rgb[0] + 0.07239744 * rgb[1] + 0.91051993 * rgb[2],
         ].map((value) => value * 0.25);
-        const maximum = Math.max(...p3);
         for (const [channel, value] of p3.entries()) {
-          expect(linear[pixel * 4 + channel]).toBeCloseTo((value * peak) / (peak + maximum), 3);
+          const expected = (value * peak) / (peak + value);
+          expect(Math.abs((linear[pixel * 4 + channel] ?? NaN) - expected)).toBeLessThan(
+            0.002 * expected + 1e-6,
+          );
         }
         expect(encoded[pixel * 4 + 3]).toBe(1);
       }
@@ -203,44 +328,5 @@ describe("Scattered highlights", () => {
       }
     }
     expect(await device.popErrorScope()).toBeNull();
-  });
-});
-
-describe("Optical inspection", () => {
-  test("inspection preserves failed coverage, image order, and signed logarithmic frequency", async () => {
-    const endpoints = new Float32Array([
-      14, 0, 0, -2, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 2, 1, 0, 0, 0.5, 1, 0, 0, 1e-30, 1, 6, 0, 2, -3,
-      6, 0, 0.5, -4, 6, 0, 1, -5,
-    ]);
-    const result = await computeReadback(
-      `${diagnostic}
-    @group(0) @binding(0) var<storage, read> inputs: array<vec4f>;
-    @group(0) @binding(1) var<storage, read_write> outputs: array<vec4f>;
-    @compute @workgroup_size(1) fn probe(@builtin(global_invocation_id) id: vec3u) {
-      outputs[2u * id.x] = diagnostic_endpoint(inputs[id.x], 1.0);
-      outputs[2u * id.x + 1u] = diagnostic_endpoint(inputs[id.x], 2.0);
-    }`,
-      endpoints,
-      endpoints.length * 2,
-      endpoints.length / 4,
-    );
-    const color = (index: number, mode: number) =>
-      Array.from(result.subarray(index * 8 + mode * 4, index * 8 + mode * 4 + 4));
-    const red = Array.from(new Float32Array([0.8, 0.04, 0.015, 1]));
-    const blue = Array.from(new Float32Array([0.025, 0.25, 0.8, 1]));
-    expect(result.every(Number.isFinite)).toBe(true);
-    expect(color(0, 0)).toEqual([0, 0, 0, 0]);
-    expect(color(0, 1)).toEqual([0, 0, 0, 0]);
-    expect(color(1, 0)).toEqual([0, 0, 0, 1]);
-    expect(color(2, 0)).toEqual(Array.from(new Float32Array([0.3, 0.3, 0.3, 1])));
-    // The sky stores E=1/g; disk endpoints already store g.
-    expect(color(3, 0)).toEqual(red);
-    expect(color(4, 0)).toEqual(blue);
-    expect(color(5, 0)).toEqual(blue);
-    expect(color(6, 0)).toEqual(blue);
-    expect(color(7, 0)).toEqual(red);
-    expect(color(6, 1)).toEqual(Array.from(new Float32Array([0.1, 0.1, 0.1, 1])));
-    expect(color(7, 1)).toEqual(Array.from(new Float32Array([0.02, 0.35, 0.6, 1])));
-    expect(color(8, 1)).toEqual(Array.from(new Float32Array([0.8, 0.3, 0.02, 1])));
   });
 });

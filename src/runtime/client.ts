@@ -60,17 +60,22 @@ export function createRenderClient(
       return;
     }
     const { session, hdr, visible, width, height, time } = requested;
+    const { space, observer, camera, disk, jet, plasma } = session.view.scene;
     send({
       type: "update",
       revision,
-      ...(previous?.view.scene !== session.view.scene ? { scene: session.view.scene } : {}),
+      ...(previous?.view.scene !== session.view.scene
+        ? { scene: { space, observer, camera, disk, jet, plasma } }
+        : {}),
       ...(previous?.view.appearance !== session.view.appearance
         ? { appearance: session.view.appearance }
         : {}),
       presentation: {
         exposureEV: session.view.exposureEV,
+        whiteBalance: session.view.whiteBalance,
         bloom: session.view.bloom,
         diagnostic: session.view.diagnostic,
+        analyzer: session.view.analyzer,
       },
       motion: session.motion,
       resolution: session.resolution,
@@ -85,6 +90,14 @@ export function createRenderClient(
   }
 
   return {
+    /** Inspect the central ray after the latest coalesced scene reaches the worker. */
+    inspect(point: readonly [number, number] = [0.5, 0.5]) {
+      if (!disposed && !failed) {
+        cancelAnimationFrame(scheduled);
+        flush();
+        send({ type: "inspect", revision, point });
+      }
+    },
     /** Queue the latest snapshot, preserving an explicit restore epoch across coalesced controls. */
     update(
       session: Session,

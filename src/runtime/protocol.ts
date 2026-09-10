@@ -2,7 +2,8 @@ import type { SourceAppearance } from "../scene/appearance.ts";
 import type { SceneInput } from "../scene/scene.ts";
 import type { Motion } from "../scene/session.ts";
 import type { SavedView } from "../scene/view.ts";
-import type { Coverage } from "../gpu/coverage.ts";
+import type { Coverage } from "../gpu/imaging/coverage.ts";
+import type { RayPath } from "../physics/ray-path.ts";
 
 /** Messages stay within this application's dedicated worker; no GPU objects cross back. */
 export type RenderRequest =
@@ -12,7 +13,10 @@ export type RenderRequest =
       readonly revision: number;
       readonly scene?: SceneInput;
       readonly appearance?: SourceAppearance;
-      readonly presentation: Pick<SavedView, "exposureEV" | "bloom" | "diagnostic">;
+      readonly presentation: Pick<
+        SavedView,
+        "exposureEV" | "whiteBalance" | "bloom" | "diagnostic" | "analyzer"
+      >;
       readonly motion: Motion;
       readonly resolution: number;
       readonly hdr: boolean;
@@ -23,6 +27,11 @@ export type RenderRequest =
       readonly time?: number;
     }
   | { readonly type: "export"; readonly revision: number }
+  | {
+      readonly type: "inspect";
+      readonly revision: number;
+      readonly point: readonly [number, number];
+    }
   | { readonly type: "retry" | "dispose" };
 
 /** Completed GPU work tagged with the intent revision that produced it. */
@@ -38,6 +47,8 @@ export interface CompletedFrame {
 
 /** Worker replies; revision-tagged results are discarded after a newer client update. */
 export type RenderEvent =
+  | { readonly type: "ray-path"; readonly revision: number; readonly path: RayPath }
+  | { readonly type: "inspect-error"; readonly revision: number; readonly message: string }
   | CompletedFrame
   | { readonly type: "starting" | "disposed" }
   | { readonly type: "error"; readonly message: string }

@@ -1,0 +1,150 @@
+@layer accessibility {
+  [hidden] {
+    display: none !important;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  canvas:focus-visible {
+    outline-offset: -5px;
+  }
+  .visually-hidden {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  @media (width < 600px) {
+    :root {
+      --edge: max(12px, env(safe-area-inset-left), env(safe-area-inset-right));
+    }
+    .masthead {
+      inset-block-start: max(12px, env(safe-area-inset-top));
+      gap: 8px;
+    }
+    .wordmark {
+      padding-inline: 8px;
+      gap: 8px;
+      & p {
+        display: none;
+      }
+    }
+    .orbit-mark {
+      inline-size: 19px;
+      block-size: 19px;
+    }
+    .header-actions {
+      gap: 4px;
+      & button {
+        padding-inline: 10px;
+        font-size: 12px;
+      }
+    }
+    .toolbar {
+      inline-size: min(390px, 100%);
+      & button {
+        min-inline-size: 44px;
+        padding-inline: 6px;
+        flex: 1 1 auto;
+        font-size: 12px;
+      }
+    }
+    .navigation-hint {
+      max-inline-size: 340px;
+      font-size: 10px;
+    }
+    .bottom-ui {
+      inset-block-end: max(58px, calc(env(safe-area-inset-bottom) + 42px));
+    }
+    .telemetry {
+      font-size: 10px;
+    }
+    #render-detail {
+      display: none;
+    }
+    .panel {
+      --panel-space: 18px;
+      position-anchor: auto;
+      position-area: none;
+      inset-inline: var(--edge);
+      inline-size: auto;
+      margin-inline: 0;
+      position-try-fallbacks: flip-block;
+      max-block-size: calc(100dvh - 230px);
+    }
+    .settings,
+    .about {
+      inset-block-start: anchor(bottom);
+    }
+    .library {
+      inset-block-end: anchor(top);
+    }
+    .panel > .panel-heading {
+      padding-block: 14px;
+    }
+    .photo-card {
+      padding: 12px;
+    }
+  }
+  @media (height < 500px) and (width >= 600px) {
+    .panel {
+      max-block-size: calc(100dvh - 100px);
+    }
+    .navigation-hint {
+      display: none;
+    }
+    .bottom-ui {
+      inset-block-end: 52px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+    }
+  }
+  @media (forced-colors: active) {
+    .panel,
+    dialog,
+    .toolbar,
+    .photo-card,
+    .wordmark,
+    .header-actions button,
+    .navigation-hint,
+    .telemetry p:not(:empty) {
+      background: Canvas;
+      color: CanvasText;
+      border: 1px solid CanvasText;
+      backdrop-filter: none;
+    }
+    :focus-visible {
+      outline-color: Highlight;
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    :root {
+      --glass: var(--surface);
+    }
+    .wordmark,
+    .navigation-hint,
+    .telemetry p:not(:empty) {
+      background: var(--surface);
+    }
+    *,
+    *::before,
+    *::after {
+      backdrop-filter: none !important;
+    }
+  }
+  @media (prefers-contrast: more) {
+    :root {
+      --muted: oklch(91% 0.008 220);
+      --line: oklch(100% 0 none / 50%);
+      --glass: var(--surface);
+    }
+  }
+}

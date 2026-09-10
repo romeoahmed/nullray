@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import radiation from "../../src/gpu/wgsl/imaging/radiation.wgsl?raw";
-import orbit from "../../src/gpu/wgsl/geodesics/orbit.wgsl?raw";
+import fieldSource from "../../src/gpu/wgsl/sources/field.wgsl?raw";
+import structure from "../../src/gpu/wgsl/imaging/structure.wgsl?raw";
 import {
   blackbodyXYZ,
   createBlackbodyTable,
@@ -9,9 +10,67 @@ import {
 } from "../../src/physics/radiation.ts";
 import { computeReadback } from "./compute.ts";
 import { circularOrbit, isco } from "../../src/physics/spacetime.ts";
+import { createStructureField } from "../../src/gpu/sources/structure.ts";
 
 describe("Spectral transport", () => {
-  const source = `${orbit}\n${radiation}`;
+  const source = radiation;
+
+  test("advected material joins continuously in azimuth and at renewed emission epochs", async () => {
+    const space = { spin: 0.7, charge: 0.2 };
+    const inner = 3.3;
+    const orbit = circularOrbit(space, inner, 1);
+    if (!orbit) {
+      throw new Error("Timelike material fixture required.");
+    }
+    const records = [6, 16, 30].flatMap((radius) =>
+      [-1, 0, 1, 1000].flatMap((cycle) =>
+        [0, 1].map((footprint) => [radius, 0.7, (4 * Math.PI * cycle) / orbit.omega, footprint]),
+      ),
+    );
+    const result = await computeReadback(
+      `${fieldSource}\n${structure}
+      @group(0) @binding(0) var<storage, read> inputs: array<vec4f>;
+      struct Samples { value: vec3f, wrap: vec3f, past: vec3f, future: vec3f }
+      @group(0) @binding(1) var<storage, read_write> outputs: array<Samples>;
+      @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {
+        let p = inputs[id.x];
+        let root = sqrt(p.x - 0.04);
+        let omega = root / (p.x * p.x + 0.7 * root);
+        let span = p.w * vec4f(0.1, 0.005, 0.2, 0.3);
+        outputs[id.x] = Samples(
+          disk_cloud(vec2f(0.7, 0.2), 3.3, p.x, p.y, 0, p.z, omega, span),
+          disk_cloud(vec2f(0.7, 0.2), 3.3, p.x, p.y + 6.283185307179586, 0, p.z, omega, span),
+          disk_cloud(vec2f(0.7, 0.2), 3.3, p.x, p.y, 0, p.z - 0.001, omega, span),
+          disk_cloud(vec2f(0.7, 0.2), 3.3, p.x, p.y, 0, p.z + 0.001, omega, span));
+      }`,
+      new Float32Array(records.flat()),
+      records.length * 16,
+      records.length,
+      [],
+      "main",
+      async (device) => {
+        const field = await createStructureField(device);
+        return {
+          entries: [
+            { binding: 20, resource: field.texture.createView() },
+            { binding: 21, resource: field.sampler },
+          ],
+          dispose: () => field.dispose(),
+        };
+      },
+    );
+    expect(result.every(Number.isFinite)).toBe(true);
+    for (let i = 0; i < result.length; i += 16) {
+      for (const channel of [0, 1, 2]) {
+        expect(
+          Math.abs((result[i + channel] ?? NaN) - (result[i + 4 + channel] ?? NaN)),
+        ).toBeLessThan(2e-4);
+        expect(
+          Math.abs((result[i + 8 + channel] ?? NaN) - (result[i + 12 + channel] ?? NaN)),
+        ).toBeLessThan(0.01);
+      }
+    }
+  });
 
   test("charged circular-emitter frequency agrees with metric contraction for signed Killing energy", async () => {
     const records = [-0.95, -0.5, 0, 0.5, 0.95].flatMap((spin) =>
@@ -39,7 +98,7 @@ describe("Spectral transport", () => {
     );
     const inputs = new Float32Array(records.flat());
     const result = await computeReadback(
-      `${orbit}
+      `${radiation}
     struct Input { space: vec4f, momentum: vec4f }
     @group(0) @binding(0) var<storage, read> inputs: array<Input>;
     @group(0) @binding(1) var<storage, read_write> outputs: array<vec2f>;
@@ -109,7 +168,7 @@ describe("Spectral transport", () => {
         }
         const shift = diskFrequencyRatio(
           { spin: Math.fround(0.7), charge: Math.fround(0.2) },
-          { energy, angularMomentum, carter: 0, radialVelocity: 0, polarVelocity: 0 },
+          { energy, angularMomentum },
           radius,
           1,
         );
@@ -131,44 +190,6 @@ describe("Spectral transport", () => {
     }
   });
 
-  test("finite-coherence emission preserves positive mean flux across retarded epochs", async () => {
-    const times = [-25, -24, -23, 0, 23.999, 24, 24.001, 100_000];
-    const angles = 256;
-    const input = new Float32Array(times.length * angles * 4);
-    for (const [epoch, time] of times.entries()) {
-      for (let angle = 0; angle < angles; angle++) {
-        input.set([6, (2 * Math.PI * angle) / angles, time, 0.065], 4 * (epoch * angles + angle));
-      }
-    }
-    const result = await computeReadback(
-      `${source}
-    @group(0) @binding(0) var<storage, read> inputs: array<vec4f>;
-    @group(0) @binding(1) var<storage, read_write> outputs: array<vec4f>;
-    @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {
-      let p = inputs[id.x];
-      outputs[id.x] = vec4f(disk_modulation_epoch(p.x, 3.3, p.y, p.z, 0.0, p.w, 0.65));
-    }`,
-      input,
-      input.length,
-      input.length / 4,
-    );
-    for (let epoch = 0; epoch < times.length; epoch++) {
-      let sum = 0;
-      for (let angle = 0; angle < angles; angle++) {
-        const value = result[4 * (epoch * angles + angle)] ?? Number.NaN;
-        expect(value).toBeGreaterThanOrEqual(0.35);
-        expect(value).toBeLessThanOrEqual(1.65);
-        sum += value;
-      }
-      expect(Math.abs(sum / angles - 1)).toBeLessThan(1e-5);
-    }
-    for (let angle = 0; angle < angles; angle++) {
-      const before = result[4 * (4 * angles + angle)] ?? Number.NaN;
-      const after = result[4 * (6 * angles + angle)] ?? Number.NaN;
-      expect(Math.abs(before - after)).toBeLessThan(0.002);
-    }
-  });
-
   test("thermal lookup distinguishes a negligible visible tail from unsupported temperatures", async () => {
     const temperatures = new Float32Array([0, 99, 100, 1000000, 1000001, -1]);
     const result = await computeReadback(
@@ -186,110 +207,5 @@ describe("Spectral transport", () => {
     expect(result.every(Number.isFinite)).toBe(true);
     expect(Array.from(result).filter((_, index) => index % 4 === 3)).toEqual([1, 1, 1, 1, 0, 0]);
     expect(Array.from(result.slice(0, 3))).toEqual([0, 0, 0]);
-  });
-
-  test("localized disk modes retain mean flux across radii and join smoothly at radial cells", async () => {
-    const angles = 256;
-    const radii = [3.3, 3.8, 6, 16, 40, 64];
-    const epochs = [-48, -0, 0, 12, 24, 63, 100000];
-    const inputs: number[] = [];
-    for (const r of radii) {
-      const omega = Math.sqrt(r - 0.04) / (r * r + 0.7 * Math.sqrt(r - 0.04));
-      for (const time of epochs) {
-        for (let angle = 0; angle < angles; angle++) {
-          inputs.push(r, (2 * Math.PI * angle) / angles, time, omega);
-        }
-      }
-    }
-    const result = await computeReadback(
-      `${radiation}
-    @group(0) @binding(0) var<storage, read> inputs: array<vec4f>;
-    @group(0) @binding(1) var<storage, read_write> outputs: array<vec4f>;
-    @compute @workgroup_size(1) fn probe(@builtin(global_invocation_id) id: vec3u) {
-      let p = inputs[id.x];
-      let value = disk_modulation_epoch(p.x, 3.3, p.y, p.z, 0.0, p.w, 0.65);
-      outputs[id.x] = vec4f(value);
-    }`,
-      new Float32Array(inputs),
-      inputs.length,
-      inputs.length / 4,
-    );
-    for (let group = 0; group < radii.length * epochs.length; group++) {
-      let total = 0;
-      for (let angle = 0; angle < angles; angle++) {
-        const value = result[4 * (group * angles + angle)] ?? Number.NaN;
-        expect(value).toBeGreaterThanOrEqual(0.35);
-        expect(value).toBeLessThanOrEqual(1.65);
-        total += value;
-      }
-      expect(Math.abs(total / angles - 1)).toBeLessThan(1e-5);
-    }
-    const boundaries: number[] = [];
-    for (const density of [2, 3, 4, 6, 8, 12, 16, 24]) {
-      for (const cell of [0, 1, 3, 8]) {
-        for (const displacement of [-1e-4, 0, 1e-4]) {
-          boundaries.push(Math.exp(cell / density + displacement) * 3.3, 0.37, -2, 0);
-        }
-      }
-    }
-    const joins = await computeReadback(
-      `${radiation}
-    @group(0) @binding(0) var<storage, read> inputs: array<vec4f>;
-    @group(0) @binding(1) var<storage, read_write> outputs: array<vec4f>;
-    @compute @workgroup_size(1) fn probe(@builtin(global_invocation_id) id: vec3u) {
-      let p = inputs[id.x];
-      outputs[id.x] = vec4f(disk_structure(p.x, 3.3, p.y, p.z));
-    }`,
-      new Float32Array(boundaries),
-      boundaries.length,
-      boundaries.length / 4,
-    );
-    for (let group = 0; group < boundaries.length / 12; group++) {
-      const left = joins[group * 12] ?? Number.NaN;
-      const center = joins[group * 12 + 4] ?? Number.NaN;
-      const right = joins[group * 12 + 8] ?? Number.NaN;
-      expect(Math.abs(right - left)).toBeLessThan(0.002);
-      expect(Math.abs(right - 2 * center + left)).toBeLessThan(1e-5);
-    }
-  });
-});
-
-describe("Emission epoch", () => {
-  test("split emission time retains subframe changes and retarded cohort transitions at long epochs", async () => {
-    const records = [0, 10, 100_000, 1_000_000, 10_000_000].flatMap((epoch) =>
-      [0, 0.125, 23.999, 24, 24.125].flatMap((age) =>
-        [0, -53.25].map((delay) => [epoch, age, delay, 0.4]),
-      ),
-    );
-    // Independently reduce the exact input epoch in binary64. This checks the split-time
-    // contract without duplicating or freezing the prescribed spatial texture algorithm.
-    const inputs = new Float32Array(
-      records.flatMap(([epoch = NaN, age = NaN, delay = NaN, phi = NaN]) => {
-        const time = epoch * 24 + Math.fround(age) + delay;
-        const cohort = Math.floor(time / 24);
-        return [epoch, age, delay, phi, cohort, time - cohort * 24, 0, 0];
-      }),
-    );
-    const output = await computeReadback(
-      `${radiation}
-    struct Input { split: vec4f, reduced: vec4f }
-    @group(0) @binding(0) var<storage, read> inputs: array<Input>;
-    @group(0) @binding(1) var<storage, read_write> outputs: array<vec4f>;
-    @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {
-      let p = inputs[id.x].split;
-      let reduced = inputs[id.x].reduced;
-      outputs[id.x] = vec4f(
-        disk_modulation_epoch(6.0, 3.3, p.w, p.y + p.z, p.x, 0.065, 0.65),
-        disk_modulation_epoch(6.0, 3.3, p.w, reduced.y, reduced.x, 0.065, 0.65),
-        0.0, 0.0);
-    }`,
-      inputs,
-      records.length * 4,
-      records.length,
-    );
-    for (let index = 0; index < records.length; index++) {
-      const expected = output[index * 4 + 1] ?? NaN;
-      expect(Math.abs((output[index * 4] ?? NaN) - expected)).toBeLessThan(2e-5);
-    }
   });
 });

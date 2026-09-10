@@ -1,8 +1,22 @@
 import { cie1931 } from "../data/cie1931.ts";
 import { circularOrbit } from "./spacetime.ts";
 import type { Spacetime } from "./spacetime.ts";
-import type { Photon } from "./photon.ts";
+import type { MotionConstants } from "./motion.ts";
 import type { Vec3 } from "./vector.ts";
+
+/** Diagonal linear-P3 camera calibration: a blackbody at this temperature becomes neutral, with Y unchanged. */
+export function blackbodyWhiteBalance(temperature: number): Vec3 {
+  if (!Number.isFinite(temperature) || temperature < 2500 || temperature > 12000) {
+    throw new RangeError("White balance must lie between 2500 K and 12000 K.");
+  }
+  const xyz = blackbodyXYZ(temperature);
+  const [r, g, b] = xyzToLinearRGB(xyz);
+  return [
+    xyz[1] / (0.82246197 * r + 0.17753803 * g),
+    xyz[1] / (0.0331942 * r + 0.9668058 * g),
+    xyz[1] / (0.01708263 * r + 0.07239744 * g + 0.91051993 * b),
+  ];
+}
 
 /**
  * Planck spectral radiance per unit wavelength, in W sr⁻¹ m⁻³.
@@ -51,7 +65,7 @@ export function xyzToLinearRGB([x, y, z]: Vec3): Vec3 {
 /** Positive local emission energy is required even for E <= 0 photons. */
 export function diskFrequencyRatio(
   space: Spacetime,
-  photon: Photon,
+  photon: Pick<MotionConstants, "energy" | "angularMomentum">,
   radius: number,
   direction: 1 | -1,
 ): number | undefined {

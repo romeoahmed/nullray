@@ -2,7 +2,6 @@ import { components } from "./camera.ts";
 import type { Observer, Scene, SceneInput } from "./scene.ts";
 import { normalize } from "../physics/vector.ts";
 import type { Vec3 } from "../physics/vector.ts";
-import { outerHorizon } from "../physics/spacetime.ts";
 
 /** Spherical placement chart used for navigation, not a spatial embedding of the metric. */
 export function navigationAxes(observer: Observer): readonly [Vec3, Vec3, Vec3] {
@@ -28,7 +27,7 @@ export function fromComponents(value: Vec3, axes: readonly [Vec3, Vec3, Vec3]): 
 
 /**
  * Move in camera right/up/forward directions while preserving orientation in the placement chart.
- * @param scene - Validated stationary observer placement and camera frame.
+ * @param scene - Validated observer placement and camera frame.
  * @param motion - Relative right/up/forward weights; only the direction determines displacement.
  * @param distance - Signed displacement in the spherical placement chart, in gravitational radii.
  * @returns Scene inputs to validate with createScene; this chart is not a physical worldline.
@@ -51,17 +50,18 @@ export function translateCamera(scene: Scene, motion: Vec3, distance: number): S
     observer.radius * radial[2] + distance * delta[2],
   ];
   const radius = Math.hypot(...position);
+  const side = observer.radius < 0 ? -1 : 1;
   if (!(radius > 0) || !Number.isFinite(radius)) {
     return scene;
   }
   const next = {
     ...observer,
-    radius: Math.max(outerHorizon(scene.space) + 0.05, Math.min(200, radius)),
-    inclination: Math.atan2(Math.hypot(position[0], position[1]), position[2]),
+    radius: side * Math.min(200, radius),
+    inclination: Math.atan2(Math.hypot(position[0], position[1]), side * position[2]),
     azimuth:
       position[0] === 0 && position[1] === 0
         ? observer.azimuth
-        : Math.atan2(position[1], position[0]),
+        : Math.atan2(side * position[1], side * position[0]),
   };
   const axes = navigationAxes(next);
   return {

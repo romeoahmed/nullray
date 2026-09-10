@@ -7,6 +7,7 @@ import { fromComponents, navigationAxes, translateCamera } from "../../src/scene
 import { dot, cross } from "../../src/physics/vector.ts";
 import { decodeView, encodeView } from "../../src/scene/view.ts";
 import { initialAppearance } from "../../src/scene/appearance.ts";
+import { initialPlasma } from "../../src/scene/plasma.ts";
 
 const equatorial = (radius: number, inclination = Math.PI / 2) =>
   createScene({
@@ -15,6 +16,52 @@ const equatorial = (radius: number, inclination = Math.PI / 2) =>
   });
 
 describe("Coupled scene validation", () => {
+  test("camera and source edits preserve a free-fall endpoint while physical time advances it", () => {
+    const prepared = createScene({
+      ...initialScene,
+      observer: {
+        ...initialScene.observer,
+        motion: { kind: "freefall", velocity: [0, 0, 0], properTime: 4 },
+      },
+    });
+    if (!prepared.ok) {
+      throw new Error(prepared.error);
+    }
+    const scene = prepared.value;
+    const edits = createScene(
+      {
+        ...scene,
+        camera: turnCamera(scene.camera, 0.5, 0.2),
+        observer: { ...scene.observer, fieldOfView: 0.8 },
+        disk: { ...scene.disk, outer: scene.disk.outer * 2 },
+      },
+      scene,
+    );
+    if (!edits.ok) {
+      throw new Error(edits.error);
+    }
+    expect(edits.value.prepared.geometry).toEqual(scene.prepared.geometry);
+    expect(edits.value.prepared.frame).toEqual(scene.prepared.frame);
+    expect(edits.value.prepared.timeOffset).toBe(scene.prepared.timeOffset);
+    expect(edits.value.disk.outer).toBe(scene.disk.outer * 2);
+    const later = createScene(
+      {
+        ...scene,
+        observer: {
+          ...scene.observer,
+          motion: { kind: "freefall", velocity: [0, 0, 0], properTime: 5 },
+        },
+      },
+      scene,
+    );
+    if (!later.ok) {
+      throw new Error(later.error);
+    }
+    expect(later.value.prepared.geometry.point.radius).toBeLessThan(
+      scene.prepared.geometry.point.radius,
+    );
+    expect(later.value.prepared.timeOffset).toBeGreaterThan(scene.prepared.timeOffset);
+  });
   test("scene construction retains a valid coupled spacetime after GPU quantization", () => {
     fc.assert(
       fc.property(
@@ -23,7 +70,7 @@ describe("Coupled scene validation", () => {
         fc.double({ min: 2.1, max: 200, noNaN: true }),
         (magnitude, angle, radius) => {
           const result = createScene({
-            ...initialScene,
+            camera: initialScene.camera,
             space: { spin: magnitude * Math.cos(angle), charge: magnitude * Math.sin(angle) },
             observer: { ...initialScene.observer, radius },
           });
@@ -31,7 +78,11 @@ describe("Coupled scene validation", () => {
           if (!result.ok) {
             throw new Error(result.error);
           }
-          const { space, observer, diskInner, diskOuter } = result.value;
+          const {
+            space,
+            observer,
+            disk: { inner: diskInner, outer: diskOuter },
+          } = result.value;
           expect(space.spin ** 2 + space.charge ** 2).toBeLessThan(1);
           expect(observer.radius).toBeGreaterThan(outerHorizon(space));
           expect(diskInner).toBeGreaterThan(outerHorizon(space));
@@ -43,9 +94,13 @@ describe("Coupled scene validation", () => {
   });
 
   test("scene construction rejects invalid inputs and boundaries erased by quantization", () => {
+    expect(createScene({ ...initialScene, plasma: initialPlasma }).ok).toBe(true);
+    expect(
+      createScene({ ...initialScene, plasma: { ...initialPlasma, frequencyGHz: 0.1 } }).ok,
+    ).toBe(false);
     for (const space of [
-      { spin: 0.8, charge: 0.8 },
-      { spin: 1 - Number.EPSILON, charge: 0 },
+      { spin: Infinity, charge: 0 },
+      { spin: 0, charge: NaN },
       { spin: NaN, charge: 0 },
     ]) {
       expect(createScene({ ...initialScene, space }).ok).toBe(false);
@@ -72,24 +127,25 @@ describe("Coupled scene validation", () => {
   });
 
   test("scene construction excludes the emitting surface after quantization without excluding its hole", () => {
+    const middle = (initialScene.disk.inner + initialScene.disk.outer) / 2;
     for (const radius of [
-      initialScene.diskInner,
-      30,
-      initialScene.diskOuter,
-      initialScene.diskOuter + 1e-8,
+      initialScene.disk.inner,
+      middle,
+      initialScene.disk.outer,
+      initialScene.disk.outer + 1e-8,
     ]) {
       expect(equatorial(radius)).toEqual({
         ok: false,
         error: "The observer cannot lie on the emitting disk surface.",
       });
     }
-    expect(equatorial(30, Math.PI / 2 + 1e-8).ok).toBe(false);
-    expect(equatorial((outerHorizon(initialScene.space) + initialScene.diskInner) / 2).ok).toBe(
+    expect(equatorial(middle, Math.PI / 2 + 1e-8).ok).toBe(false);
+    expect(equatorial((outerHorizon(initialScene.space) + initialScene.disk.inner) / 2).ok).toBe(
       true,
     );
-    expect(equatorial(initialScene.diskOuter + 1e-4).ok).toBe(true);
-    expect(equatorial(30, Math.PI / 2 - 1e-4).ok).toBe(true);
-    expect(equatorial(30, Math.PI / 2 + 1e-4).ok).toBe(true);
+    expect(equatorial(initialScene.disk.outer + 1e-4).ok).toBe(true);
+    expect(equatorial(middle, Math.PI / 2 - 1e-4).ok).toBe(true);
+    expect(equatorial(middle, Math.PI / 2 + 1e-4).ok).toBe(true);
   });
 });
 
@@ -140,7 +196,7 @@ describe("Camera and navigation", () => {
           // Keep equatorial chart checks outside the emitting annulus.
           observer: {
             ...initialScene.observer,
-            radius: initialScene.diskOuter + 16,
+            radius: initialScene.disk.outer + 16,
             inclination,
             azimuth,
           },
@@ -167,7 +223,11 @@ describe("Camera and navigation", () => {
   });
 
   test("free view links retain camera orientation, navigation, and display state", () => {
-    const scene = createScene({ ...initialScene, camera: turnCamera(initialCamera, 1.3, -0.7) });
+    const scene = createScene({
+      ...initialScene,
+      camera: turnCamera(initialCamera, 1.3, -0.7),
+      plasma: initialPlasma,
+    });
     if (!scene.ok) {
       throw new Error(scene.error);
     }
@@ -176,8 +236,10 @@ describe("Camera and navigation", () => {
       appearance: initialAppearance,
       bloom: 0.2,
       exposureEV: 1,
+      whiteBalance: 5000,
       time: 4,
       diagnostic: "image",
+      analyzer: null,
       display: "auto",
       navigation: "free",
     } as const;
@@ -187,6 +249,7 @@ describe("Camera and navigation", () => {
     }
     expect(result.value.navigation).toBe("free");
     expect(result.value.scene.observer).toEqual(view.scene.observer);
+    expect(result.value.scene.plasma).toEqual(view.scene.plasma);
     for (const key of ["forward", "up", "right"] as const) {
       for (let i = 0; i < 3; i++) {
         expect(result.value.scene.camera[key][i]).toBeCloseTo(view.scene.camera[key][i] ?? NaN, 14);

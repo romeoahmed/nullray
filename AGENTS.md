@@ -2,11 +2,11 @@
 
 ## Project and status
 
-Nullray is a TypeScript + native WebGPU/WGSL black-hole renderer. The intended core is a validated semi-analytic Kerr–Newman optical solver with a thin thermal disk, filtered HDR stars, and interactive exploration.
+Nullray is a TypeScript + native WebGPU/WGSL black-hole renderer. Its core is a horizon-regular Kerr–Newman optical solver with physical observers and thermal radiation; extended topology, polarized matter, stellar filtering, and interactive exploration are active work.
 
 Start at [docs/README.md](docs/README.md). Read [physics](docs/physics.md) and [numerics](docs/numerics.md) before changing optical calculations; read [architecture](docs/architecture.md), [tooling](docs/tooling.md), and [validation](docs/validation.md) for implementation work.
 
-The source is an optical prototype. `src/scene/` and `src/physics/` own pure inputs and preparation; `src/gpu/` owns GPU execution; `src/runtime/` owns the worker boundary; `src/ui/` owns browser interaction. Binary64 trajectory references live in `tests/reference/`, outside production. Check the coverage ledger before making status claims.
+The source is an optical prototype. `src/scene/` and `src/physics/` own pure inputs and preparation; `src/gpu/` owns GPU execution; `src/runtime/` owns the worker boundary; `src/ui/` owns browser interaction. Independent binary64 trajectory and image references live in `tests/reference/`; concrete reproduced failures live in `tests/regressions/`. GPU ownership is split into `optics/`, `sources/` and `imaging/`. Check the coverage ledger before making status claims.
 
 ## Commands
 
@@ -19,7 +19,7 @@ pnpm build
 pnpm preview
 ```
 
-The build runs `pnpm check` and Vite. `pnpm test` runs CPU tests, `pnpm test:gpu` executes WGSL, and `pnpm test:ui` checks browser/worker interaction. The GPU suite includes the strict critical endpoint, derivative, and stellar-flux gates; report any failures explicitly. Benchmarks use `pnpm bench` and `pnpm bench:gpu`. For documentation-only changes:
+The build runs `pnpm check` and Vite. `pnpm test` runs CPU tests, `pnpm test:gpu` executes the production image path and physical GPU checks, and `pnpm test:ui` checks browser/worker interaction. Report failures and missing coverage explicitly; critical-image, derivative, and stellar-flux completeness are not yet certified for the current solver. Benchmarks use `pnpm bench` and `pnpm bench:gpu` as comparative measurements, not speed gates. For documentation-only changes:
 
 ```sh
 pnpm exec oxfmt --check docs AGENTS.md
@@ -30,6 +30,8 @@ See [tooling](docs/tooling.md#commands) for command details. An installed depend
 If a required check cannot run, report the missing prerequisite and complete independent checks.
 
 ## Implementation conventions
+
+- The project is unreleased. Custom schemas remain version 1; change them directly and remove obsolete branches instead of adding migrations or parallel compatibility paths.
 
 - Prefer pure functions, readonly domain values, discriminated unions, explicit inputs, and exhaustive handling.
 - Keep local mutation and direct loops in numerical hot paths. Clearly name operations that mutate caller-owned buffers.
@@ -61,6 +63,8 @@ If a required check cannot run, report the missing prerequisite and complete ind
 - Use native subgroup operations without assuming lane/workgroup correspondence or a fixed subgroup size. Optical calculations remain f32.
 
 ## Verification
+
+Complete coherent implementation work before concentrated runtime validation. During development use source review and static checks; do not keep development servers or test watchers running unnecessarily. Benchmark only to answer a specific comparison, and use final visual review to assess the accuracy/performance tradeoff.
 
 Choose checks appropriate to the change using [the validation matrix](docs/validation.md#checks-by-change-type).
 

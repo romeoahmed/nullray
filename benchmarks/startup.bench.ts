@@ -1,15 +1,11 @@
-import { requiredFeatures } from "../src/gpu/device.ts";
+import { requestDevice, requiredFeatures, requiredLimits } from "../src/gpu/device.ts";
 import { expect, test } from "vitest";
 import { server } from "vitest/browser";
-import { createOptics } from "../src/gpu/optics.ts";
+import { createOptics } from "../src/gpu/optics/engine.ts";
 import { sourceFingerprint, benchmarkFingerprint } from "./source.ts";
 
 test("optical initialization on an existing device", async ({ bench, annotate }) => {
-  const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
-  if (!adapter) {
-    throw new Error("No WebGPU adapter is available.");
-  }
-  const device = await adapter.requestDevice({ requiredFeatures: [...requiredFeatures] });
+  const device = await requestDevice();
   using owned = new DisposableStack();
   owned.defer(() => device.destroy());
   device.pushErrorScope("validation");
@@ -31,18 +27,19 @@ test("optical initialization on an existing device", async ({ bench, annotate })
     {
       schema: 1,
       requiredFeatures: [...requiredFeatures],
+      requiredLimits,
       enabledFeatures: [...device.features],
       browser: navigator.userAgent,
       adapter: {
-        vendor: adapter.info.vendor,
-        architecture: adapter.info.architecture,
-        device: adapter.info.device,
-        description: adapter.info.description,
+        vendor: device.adapterInfo.vendor,
+        architecture: device.adapterInfo.architecture,
+        device: device.adapterInfo.device,
+        description: device.adapterInfo.description,
       },
       sourceSHA256: new Uint8Array(digest).toHex(),
       harnessSHA256: new Uint8Array(await benchmarkFingerprint()).toHex(),
       scope:
-        "Existing device; module diagnostics, pipeline creation, source-data construction, texture uploads, completion and disposal. No optical frame or canvas presentation.",
+        "Existing device; module diagnostics, pipeline creation, catalogue decoding and tree construction, spectral tables, GPU noise/cube generation, uploads, completion and disposal. No optical frame or canvas presentation.",
       cache:
         "One warmup followed by five samples on the same device; browser/driver shader caches are not cleared. This is not a cold-launch measurement.",
     },

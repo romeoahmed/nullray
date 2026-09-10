@@ -6,6 +6,40 @@ import { decodeView } from "../../src/scene/view.ts";
 import { initialAppearance } from "../../src/scene/appearance.ts";
 import { initialScene } from "../../src/scene/scene.ts";
 import { bindAudio } from "../../src/ui/audio.ts";
+import { bindControls } from "../../src/ui/controls.ts";
+import { initialSession } from "../../src/scene/session.ts";
+import type { Action } from "../../src/scene/session.ts";
+
+test("one navigation choice dispatches once and disposed controls stop dispatching", async ({
+  onTestFinished,
+}) => {
+  const template = new DOMParser().parseFromString(markup, "text/html");
+  const root = template.querySelector<HTMLElement>("#app");
+  if (!root) {
+    throw new Error("Missing interface.");
+  }
+  document.body.append(root);
+  const subscription = new AbortController();
+  onTestFinished(() => {
+    subscription.abort();
+    root.remove();
+  });
+  const actions: Action[] = [];
+  bindControls(
+    root,
+    () => initialSession,
+    (action) => actions.push(action),
+    subscription.signal,
+  )();
+  root.querySelector<HTMLElement>("#controls")?.showPopover();
+  await page.getByText("Observer Position · motion · camera", { exact: true }).click();
+  const navigation = page.getByRole("combobox", { name: "Navigation", exact: true });
+  await navigation.selectOptions("free");
+  expect(actions).toEqual([{ type: "navigation", value: "free" }]);
+  subscription.abort();
+  await navigation.selectOptions("orbit");
+  expect(actions).toHaveLength(1);
+});
 
 const storageKey = "nullray.views.v1";
 
@@ -51,35 +85,45 @@ test("local audio waits for a gesture, plays to completion, and supports replace
   const panel = root.querySelector<HTMLElement>("#controls");
   panel?.showPopover();
   await page.getByText("Audio Local soundtrack", { exact: true }).click();
-  const play = page.getByRole("button", { name: "Play audio", exact: true });
+  const media = root.querySelector<HTMLAudioElement>("#audio-player");
+  if (!media) {
+    throw new Error("Missing native audio player.");
+  }
   const file = page.getByLabelText("Audio file", { exact: true });
-  await expect.element(play).toBeDisabled();
+  const clear = page.getByRole("button", { name: "Clear audio", exact: true });
+  await expect.element(clear).toBeDisabled();
+  // A real user gesture calls the public media API; native shadow controls are browser-owned.
+  const play = document.createElement("button");
+  play.textContent = "Start test soundtrack";
+  play.addEventListener("click", () => {
+    void media.play();
+  });
+  media.after(play);
   await file.upload(silentAudio(0.3));
-  await expect.element(play).toBeEnabled();
-  await play.click();
-  await expect
-    .element(page.getByRole("button", { name: "Pause audio", exact: true }))
-    .toBeVisible();
-  await expect.element(play).toBeVisible();
+  await expect.poll(() => media.readyState).toBeGreaterThanOrEqual(1);
+  expect(media.paused).toBe(true);
+  expect(media.controls).toBe(true);
+  await page.getByRole("button", { name: "Start test soundtrack" }).click();
+  await expect.poll(() => media.ended).toBe(true);
   await expect.element(page.getByText("silence.wav", { exact: true })).toBeVisible();
+  const previousURL = media.src;
   await file.upload(silentAudio(10));
-  await play.click();
-  await page.getByRole("button", { name: "Pause audio", exact: true }).click();
-  await expect.element(play).toBeVisible();
-  const volume = page.getByRole("slider", { name: "Volume", exact: true });
-  await volume.fill("0.25");
-  await expect.element(page.getByText("25%", { exact: true })).toBeVisible();
-  await play.click();
-  await page.getByRole("button", { name: "Clear audio", exact: true }).click();
-  await expect.element(play).toBeDisabled();
+  await expect.poll(() => media.duration).toBe(10);
+  expect(media.src).not.toBe(previousURL);
+  expect(media.paused).toBe(true);
+  await page.getByRole("button", { name: "Start test soundtrack" }).click();
+  await expect.poll(() => media.paused).toBe(false);
+  await clear.click();
+  expect(media.paused).toBe(true);
+  expect(media.hasAttribute("src")).toBe(false);
+  expect(media.hidden).toBe(true);
+  await expect.element(clear).toBeDisabled();
   dispose();
   dispose = bindAudio(root);
   await file.upload(silentAudio(0.3));
-  await play.click();
-  await expect
-    .element(page.getByRole("button", { name: "Pause audio", exact: true }))
-    .toBeVisible();
-  await expect.element(play).toBeVisible();
+  await expect.poll(() => media.readyState).toBeGreaterThanOrEqual(1);
+  await page.getByRole("button", { name: "Start test soundtrack" }).click();
+  await expect.poll(() => media.ended).toBe(true);
 });
 
 test("saved views persist across mounts, reject duplicates, restore snapshots, and undo deletion", async ({
@@ -100,10 +144,12 @@ test("saved views persist across mounts, reject duplicates, restore snapshots, a
     appearance: initialAppearance,
     time: 37,
     exposureEV: -2,
+    whiteBalance: 4800,
     bloom: 0.2,
     navigation: "orbit",
     display: "sdr",
     diagnostic: "image",
+    analyzer: null,
   } as const;
   const bind = () =>
     bindViews(

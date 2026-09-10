@@ -11,6 +11,11 @@ export function cross(a: Vec3, b: Vec3): Vec3 {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
+/** Linear combination in a shared vector space. */
+export function linear(a: Vec3, x: number, b: Vec3, y: number): Vec3 {
+  return [x * a[0] + y * b[0], x * a[1] + y * b[1], x * a[2] + y * b[2]];
+}
+
 /**
  * Return a unit vector without changing the input.
  * @throws RangeError when the Euclidean length is zero or nonfinite.

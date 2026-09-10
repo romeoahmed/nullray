@@ -20,7 +20,7 @@ const sample = (image: Image, u: number, v: number, channel: number) => {
 
 /** Direct binary64 tent convolution and linear interpolation, rounded at each HDR target. */
 export function referenceBloom(width: number, height: number, data: Float16Array) {
-  const filter = (source: Image, w: number, h: number, detail?: Image): Image => {
+  const filter = (source: Image, w: number, h: number, detail?: Image, detailWeight = 0): Image => {
     const output = new Float16Array(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -36,7 +36,7 @@ export function referenceBloom(width: number, height: number, data: Float16Array
             }
           }
           output[(y * w + x) * 4 + channel] = detail
-            ? (value + sample(detail, u, v, channel)) / 2
+            ? (1 - detailWeight) * value + detailWeight * sample(detail, u, v, channel)
             : value;
         }
         output[(y * w + x) * 4 + 3] = 1;
@@ -45,8 +45,9 @@ export function referenceBloom(width: number, height: number, data: Float16Array
     return { width: w, height: h, data: output };
   };
   const levels: Image[] = [];
+  const span = Math.max(1, Math.log2(height * 0.08));
   let result = { width, height, data };
-  for (let level = 0; level < 6; level++) {
+  for (let level = 0; level < Math.ceil(span); level++) {
     result = filter(
       result,
       Math.max(1, Math.ceil(result.width / 2)),
@@ -57,8 +58,11 @@ export function referenceBloom(width: number, height: number, data: Float16Array
       break;
     }
   }
-  for (const detail of levels.slice(0, -1).toReversed()) {
-    result = filter(result, detail.width, detail.height, detail);
+  for (let index = levels.length - 2; index >= 0; index--) {
+    const detail = levels[index];
+    if (detail) {
+      result = filter(result, detail.width, detail.height, detail, Math.min(1, 1 / (span - index)));
+    }
   }
   return result;
 }

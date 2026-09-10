@@ -1,3 +1,5 @@
+import { drawTopology } from "./topology.ts";
+import { bindReadouts } from "./readouts.ts";
 import { presets } from "../scene/presets.ts";
 import { decodeView, encodeView } from "../scene/view.ts";
 import type { SavedView } from "../scene/view.ts";
@@ -54,9 +56,12 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   const coverage = text("sampling-status"),
     exportStatus = text("export-status");
   const progress = element(root, "#photo-progress", HTMLProgressElement);
-  const displayStatus = text("display-status"),
-    navigationHint = text("navigation-hint");
-  const diagnosticStatus = text("diagnostic-status");
+  const syncReadouts = bindReadouts(root);
+  const topologyMap = element(root, "#topology-map", SVGSVGElement);
+  const inspectRay = button("inspect-ray");
+  const pickRay = button("pick-ray");
+  let pickingRay = false;
+  const rayStatus = text("ray-status");
   const shareDialog = element(root, "#view-dialog", HTMLDialogElement);
   const shareInput = element(root, "#view-link", HTMLInputElement);
   const copyStatus = text("copy-status");
@@ -78,6 +83,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
       URL.revokeObjectURL(photoURL);
     }
   });
+  const percent = new Intl.NumberFormat("en", { style: "percent", maximumSignificantDigits: 2 });
   const snapshot = (): SavedView => ({
     ...session.view,
     time: completed?.time ?? session.view.time,
@@ -109,7 +115,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
       coverage.textContent =
         value.unresolvedSamples === 0
           ? "All sampled rays resolved."
-          : `${value.unresolvedPixels.toLocaleString("en")} pixels contain unresolved samples (${new Intl.NumberFormat("en", { style: "percent", maximumSignificantDigits: 2 }).format(value.unresolvedSamples / (value.pixels * value.samplesPerPixel))} of samples).`;
+          : `${value.unresolvedPixels.toLocaleString("en")} pixels contain unresolved samples (${percent.format(value.unresolvedSamples / (value.pixels * value.samplesPerPixel))} of samples).`;
     } else {
       coverage.textContent =
         completed?.samples === 64
@@ -122,24 +128,26 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         status.textContent = summary;
       }
     }
-    displayStatus.textContent =
-      view.display === "hdr" || (view.display === "auto" && highRange.matches)
-        ? "HDR · extended highlights"
-        : "SDR · standard highlights";
-    navigationHint.textContent =
-      view.navigation === "free"
-        ? "Drag to look · WASD to move · Q/E down/up · R to reset"
-        : "Drag to orbit · Scroll or pinch to approach · Arrow keys to turn";
-    diagnosticStatus.textContent =
-      view.diagnostic === "frequency"
-        ? "Red: redshift · Blue: blueshift · Gray: unchanged frequency"
-        : view.diagnostic === "order"
-          ? "Gray: first disk crossing · Blue: second · Gold: higher orders"
-          : "Pink marks unresolved samples. Refinement does not certify convergence near every critical ray.";
+    syncReadouts(view, view.display === "hdr" || (view.display === "auto" && highRange.matches));
   }
 
   function receive(event: RenderEvent) {
     switch (event.type) {
+      case "ray-path": {
+        drawTopology(topologyMap, session.view.scene, event.path);
+        const domains: string[] = [];
+        for (const point of event.path.points) {
+          const domain = `${point.block} ${point.universe}${point.side === 0 ? "" : `/${point.side}`}`;
+          if (domains.at(-1) !== domain) {
+            domains.push(domain);
+          }
+        }
+        rayStatus.textContent = `${event.path.kind} · ${event.path.equatorialCrossings} equatorial crossings in the recorded path. ${domains.join(" → ")}. Green: accepted ray steps; radii outside the map are clipped. Horizon intersections are bracketed between samples.`;
+        break;
+      }
+      case "inspect-error":
+        rayStatus.textContent = event.message;
+        break;
       case "starting":
         initialized = false;
         completed = undefined;
@@ -187,6 +195,55 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
     }
   }
   const client = owned.adopt(createRenderClient(canvas, receive), (value) => value.dispose());
+  inspectRay.addEventListener(
+    "click",
+    () => {
+      rayStatus.textContent = "Tracing the central detector ray…";
+      client.inspect();
+    },
+    { signal },
+  );
+  pickRay.addEventListener(
+    "click",
+    () => {
+      pickingRay = true;
+      canvas.style.cursor = "crosshair";
+      rayStatus.textContent = "Click the image to trace that detector direction.";
+      settings.hidePopover();
+    },
+    { signal },
+  );
+  canvas.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!pickingRay || event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      pickingRay = false;
+      canvas.style.removeProperty("cursor");
+      const bounds = canvas.getBoundingClientRect();
+      client.inspect([
+        (event.clientX - bounds.left) / bounds.width,
+        (event.clientY - bounds.top) / bounds.height,
+      ]);
+      rayStatus.textContent = "Tracing the selected detector ray…";
+      settings.showPopover();
+    },
+    { signal, capture: true },
+  );
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape" && pickingRay) {
+        pickingRay = false;
+        canvas.style.removeProperty("cursor");
+        rayStatus.textContent = "Ray selection cancelled.";
+      }
+    },
+    { signal },
+  );
   const update = (time?: number) => {
     const hdr =
       session.view.display === "hdr" || (session.view.display === "auto" && highRange.matches);
@@ -272,10 +329,18 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   }
   const presetControls = text("presets");
   presetControls.replaceChildren(
-    ...presets.map(({ name, view }) => {
+    ...presets.map(({ name, description, view }, index) => {
       const preset = document.createElement("button");
       preset.type = "button";
-      preset.textContent = name;
+      const number = document.createElement("span");
+      number.className = "preset-number";
+      number.textContent = String(index + 1).padStart(2, "0");
+      number.ariaHidden = "true";
+      const title = document.createElement("strong");
+      title.textContent = name;
+      const caption = document.createElement("small");
+      caption.textContent = description;
+      preset.append(number, title, caption);
       preset.addEventListener("click", () => openView(encodeView(view)), { signal });
       return preset;
     }),

@@ -1,8 +1,19 @@
 import type { Spacetime } from "../../src/physics/spacetime.ts";
-import type { Photon } from "../../src/physics/photon.ts";
+
+/** Future Killing data and separated launch velocities supplied to the independent metric oracle. */
+interface ReferencePhoton {
+  readonly energy: number;
+  readonly angularMomentum: number;
+  readonly radialVelocity: number;
+  readonly polarVelocity: number;
+}
 
 /** Value and exact forward-mode derivatives with respect to r and theta. */
 type Dual = readonly [number, number, number];
+interface RefractiveProfile {
+  readonly amplitude: number;
+  readonly scaleSquared: number;
+}
 const constant = (x: number): Dual => [x, 0, 0];
 const add = (x: Dual, y: Dual): Dual => [x[0] + y[0], x[1] + y[1], x[2] + y[2]];
 const scale = (x: Dual, k: number): Dual => [x[0] * k, x[1] * k, x[2] * k];
@@ -13,7 +24,7 @@ const mul = (x: Dual, y: Dual): Dual => [
 ];
 const inverse = (x: Dual): Dual => [1 / x[0], -x[1] / x[0] ** 2, -x[2] / x[0] ** 2];
 
-/** Backward path state; momenta retain their future-directed convention. */
+/** Backward path and parallel-vector state; momenta retain their future-directed convention. */
 export type ReferenceState = readonly [
   r: number,
   theta: number,
@@ -21,14 +32,24 @@ export type ReferenceState = readonly [
   t: number,
   pr: number,
   ptheta: number,
+  ft: number,
+  fr: number,
+  ftheta: number,
+  fphi: number,
 ];
 
 /**
  * Independent metric Hamiltonian oracle in exterior Boyer-Lindquist coordinates.
  * Expand the line element, invert its t/phi block, and differentiate using dual
- * numbers. No separated potentials or elliptic production code are used.
+ * numbers. No production trajectory equations are used.
  */
-function hamiltonian(space: Spacetime, energy: number, l: number, state: ReferenceState) {
+function hamiltonian(
+  space: Spacetime,
+  energy: number,
+  l: number,
+  state: ReferenceState,
+  plasma?: RefractiveProfile,
+) {
   const a = space.spin;
   const r: Dual = [state[0], 1, 0];
   const sin: Dual = [Math.sin(state[1]), 0, Math.cos(state[1])];
@@ -53,8 +74,85 @@ function hamiltonian(space: Spacetime, energy: number, l: number, state: Referen
     scale(irr, state[4] ** 2),
     scale(invSigma, state[5] ** 2),
   ];
+  if (plasma) {
+    const r2 = mul(r, r);
+    terms.push(
+      scale(
+        mul(mul(r2, inverse(add(r2, constant(plasma.scaleSquared)))), invSigma),
+        plasma.amplitude,
+      ),
+    );
+  }
   const h = scale(terms.reduce(add, constant(0)), 0.5);
   const s = sigma[0];
+  const velocity = [
+    -s * (-itt[0] * energy + itp[0] * l),
+    -s * irr[0] * state[4],
+    -s * invSigma[0] * state[5],
+    -s * (-itp[0] * energy + ipp[0] * l),
+  ];
+  const polarization = state.slice(6);
+  const transport = [0, 0, 0, 0];
+  if (polarization.some((value) => value !== 0)) {
+    const zero = constant(0);
+    const metric = [
+      tt,
+      zero,
+      zero,
+      tp,
+      zero,
+      inverse(irr),
+      zero,
+      zero,
+      zero,
+      zero,
+      sigma,
+      zero,
+      tp,
+      zero,
+      zero,
+      pp,
+    ];
+    const inverseMetric = [
+      itt,
+      zero,
+      zero,
+      itp,
+      zero,
+      irr,
+      zero,
+      zero,
+      zero,
+      zero,
+      invSigma,
+      zero,
+      itp,
+      zero,
+      zero,
+      ipp,
+    ];
+    const partial = (row: number, column: number, coordinate: number) =>
+      coordinate === 1 || coordinate === 2 ? (metric[row * 4 + column]?.[coordinate] ?? 0) : 0;
+    // Levi-Civita transport from differentiated metric components, independent of Killing tensors.
+    for (let mu = 0; mu < 4; mu++) {
+      let rate = 0;
+      for (let nu = 0; nu < 4; nu++) {
+        for (let rho = 0; rho < 4; rho++) {
+          for (let sigmaIndex = 0; sigmaIndex < 4; sigmaIndex++) {
+            rate -=
+              0.5 *
+              (inverseMetric[mu * 4 + sigmaIndex]?.[0] ?? 0) *
+              (partial(sigmaIndex, rho, nu) +
+                partial(sigmaIndex, nu, rho) -
+                partial(nu, rho, sigmaIndex)) *
+              (velocity[nu] ?? 0) *
+              (polarization[rho] ?? 0);
+          }
+        }
+      }
+      transport[mu] = rate;
+    }
+  }
   const derivative: ReferenceState = [
     -s * irr[0] * state[4],
     -s * invSigma[0] * state[5],
@@ -62,6 +160,10 @@ function hamiltonian(space: Spacetime, energy: number, l: number, state: Referen
     -s * (-itt[0] * energy + itp[0] * l),
     s * h[1],
     s * h[2],
+    transport[0] ?? 0,
+    transport[1] ?? 0,
+    transport[2] ?? 0,
+    transport[3] ?? 0,
   ];
   return {
     derivative,
@@ -77,6 +179,10 @@ function offset(y: ReferenceState, d: ReferenceState, h: number): ReferenceState
     y[3] + h * d[3],
     y[4] + h * d[4],
     y[5] + h * d[5],
+    y[6] + h * d[6],
+    y[7] + h * d[7],
+    y[8] + h * d[8],
+    y[9] + h * d[9],
   ];
 }
 
@@ -87,11 +193,13 @@ function offset(y: ReferenceState, d: ReferenceState, h: number): ReferenceState
  */
 export function referenceGeodesic(
   space: Spacetime,
-  photon: Photon,
+  photon: ReferencePhoton,
   r: number,
   theta: number,
   end: number,
   tolerance = 1e-11,
+  plasma?: RefractiveProfile,
+  polarization: readonly [number, number, number, number] = [0, 0, 0, 0],
 ) {
   if (
     !Number.isFinite(end) ||
@@ -111,9 +219,17 @@ export function referenceGeodesic(
   if (!(delta > 0) || !(r > 1)) {
     throw new RangeError("The Hamiltonian reference requires an exterior observer.");
   }
-  let state: ReferenceState = [r, theta, 0, 0, photon.radialVelocity / delta, photon.polarVelocity];
+  let state: ReferenceState = [
+    r,
+    theta,
+    0,
+    0,
+    photon.radialVelocity / delta,
+    photon.polarVelocity,
+    ...polarization,
+  ];
   const derivative = (y: ReferenceState) =>
-    hamiltonian(space, photon.energy, photon.angularMomentum, y).derivative;
+    hamiltonian(space, photon.energy, photon.angularMomentum, y, plasma).derivative;
   const step = (y: ReferenceState, h: number): ReferenceState => {
     const k1 = derivative(y);
     const k2 = derivative(offset(y, k1, h / 2));
@@ -132,7 +248,7 @@ export function referenceGeodesic(
     const full = step(state, h);
     const half = step(step(state, h / 2), h / 2);
     let error = 0;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       const x = full[i];
       const y = half[i];
       if (x === undefined || y === undefined || !Number.isFinite(x + y)) {
@@ -145,7 +261,7 @@ export function referenceGeodesic(
       time += h;
       maxResidual = Math.max(
         maxResidual,
-        hamiltonian(space, photon.energy, photon.angularMomentum, state).residual,
+        hamiltonian(space, photon.energy, photon.angularMomentum, state, plasma).residual,
       );
     }
     h *= error === 0 ? 2 : Math.min(2, Math.max(0.1, 0.9 * error ** -0.2));

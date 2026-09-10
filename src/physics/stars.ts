@@ -7,50 +7,68 @@ interface SpectralPoint {
   readonly direction: Vec3;
   readonly coefficient: number;
   readonly temperature: number;
+  readonly code: number;
 }
 
-const axes = [0, 1, 2] as const;
-
-/** Bounds of a nonempty set of already quantized directions. */
-function bounds(points: readonly SpectralPoint[]): readonly [Vec3, Vec3] {
-  const lower: [number, number, number] = [Infinity, Infinity, Infinity];
-  const upper: [number, number, number] = [-Infinity, -Infinity, -Infinity];
-  for (const { direction } of points) {
-    for (const axis of axes) {
-      lower[axis] = Math.min(lower[axis], direction[axis]);
-      upper[axis] = Math.max(upper[axis], direction[axis]);
-    }
-  }
-  return [lower, upper];
+/** Spread ten spatial-order bits into every third integer bit. Coordinates themselves stay f32. */
+function spread(value: number): number {
+  let bits = Math.min(1023, Math.floor((value + 1) * 512));
+  bits = (bits | (bits << 16)) & 0x030000ff;
+  bits = (bits | (bits << 8)) & 0x0300f00f;
+  bits = (bits | (bits << 4)) & 0x030c30c3;
+  return (bits | (bits << 2)) & 0x09249249;
 }
 
-/** Write one preorder subtree into caller-owned storage; return its exclusive end node. */
+/** Write one radix subtree from a sorted range; bounds are merged bottom-up in caller-owned storage. */
 function writeSubtree(
   nodes: Float32Array,
   points: readonly SpectralPoint[],
+  start: number,
+  end: number,
   index: number,
 ): number {
-  const [source] = points;
-  if (!source) {
+  const first = points[start],
+    last = points[end - 1];
+  if (!first || !last) {
     throw new Error("A stellar subtree must contain a source.");
   }
-  if (points.length === 1) {
-    nodes.set(
-      [...source.direction, -(index + 1), source.coefficient, source.temperature, 0, 0],
-      index * 8,
-    );
+  if (end - start === 1) {
+    nodes.set([...first.direction, -1, first.coefficient, first.temperature, 0, 0], index * 8);
     return index + 1;
   }
-  const [lower, upper] = bounds(points);
-  const axis = axes.reduce((widest, candidate) =>
-    upper[candidate] - lower[candidate] > upper[widest] - lower[widest] ? candidate : widest,
-  );
-  const ordered = points.toSorted((left, right) => left.direction[axis] - right.direction[axis]);
-  const middle = Math.floor(ordered.length / 2);
-  const right = writeSubtree(nodes, ordered.slice(0, middle), index + 1);
-  const end = writeSubtree(nodes, ordered.slice(middle), right);
-  nodes.set([...lower, end, ...upper, 0], index * 8);
-  return end;
+  // A common Morton prefix defines one spatial cell. Identical codes split evenly, retaining every source.
+  let middle = (start + end) >>> 1;
+  if (first.code !== last.code) {
+    const prefix = Math.clz32(first.code ^ last.code);
+    let left = start + 1,
+      right = end - 1;
+    while (left < right) {
+      const trial = (left + right) >>> 1;
+      const candidate = points[trial];
+      if (!candidate) {
+        throw new Error("Missing stellar ordering key.");
+      }
+      if (Math.clz32(first.code ^ candidate.code) > prefix) {
+        left = trial + 1;
+      } else {
+        right = trial;
+      }
+    }
+    middle = left;
+  }
+  const left = index + 1;
+  const right = writeSubtree(nodes, points, start, middle, left);
+  const finish = writeSubtree(nodes, points, middle, end, right);
+  for (let axis = 0; axis < 3; axis++) {
+    const lowLeft = nodes[left * 8 + axis] ?? NaN;
+    const lowRight = nodes[right * 8 + axis] ?? NaN;
+    const highLeft = nodes[left * 8 + 3] === -1 ? lowLeft : (nodes[left * 8 + 4 + axis] ?? NaN);
+    const highRight = nodes[right * 8 + 3] === -1 ? lowRight : (nodes[right * 8 + 4 + axis] ?? NaN);
+    nodes[index * 8 + axis] = Math.min(lowLeft, lowRight);
+    nodes[index * 8 + 4 + axis] = Math.max(highLeft, highRight);
+  }
+  nodes[index * 8 + 3] = finish;
+  return finish;
 }
 
 /**
@@ -59,13 +77,13 @@ function writeSubtree(
  * escape index tags a leaf: the same lanes store direction, coefficient, and temperature.
  * Escape indices allow stackless GPU traversal without a per-pixel candidate cap.
  *
- * @param stars - At most 100,000 finite sources; directions need not be unit length.
+ * @param stars - At most 200,000 finite sources; directions need not be unit length.
  * @returns Fresh f32 storage owned by the caller, including a dark leaf for an empty sky.
  * @throws RangeError if a direction, temperature, or spectral coefficient cannot be represented safely.
  */
 export function createStarTree(stars: readonly Star[]): Float32Array<ArrayBuffer> {
-  if (stars.length > 100_000) {
-    throw new RangeError("The point-source catalogue supports at most 100,000 stars.");
+  if (stars.length > 200_000) {
+    throw new RangeError("The point-source catalogue supports at most 200,000 stars.");
   }
   const reference = blackbodyXYZ(6500)[1];
   // Catalogue B−V values repeat. Reuse exact spectral integrals locally, with no
@@ -99,9 +117,10 @@ export function createStarTree(stars: readonly Star[]): Float32Array<ArrayBuffer
       direction: [Math.fround(x), Math.fround(y), Math.fround(z)],
       coefficient,
       temperature: star.temperature,
+      code: spread(x) | (spread(y) << 1) | (spread(z) << 2),
     };
   });
-  // Together with the shader's determinant guard, this bounds spectral arithmetic in f32.
+  // Together with the finite source variance, this bounds spectral arithmetic in f32.
   const total = sources.reduce((sum, source) => sum + source.coefficient, 0);
   if (total > 1e6) {
     throw new RangeError("The catalogue's total spectral coefficient exceeds 1e6.");
@@ -111,6 +130,7 @@ export function createStarTree(stars: readonly Star[]): Float32Array<ArrayBuffer
     return new Float32Array([0, 0, 1, -1, 0, 6500, 0, 0]);
   }
   const nodes = new Float32Array((2 * sources.length - 1) * 8);
-  writeSubtree(nodes, sources, 0);
+  const ordered = sources.toSorted((a, b) => a.code - b.code);
+  writeSubtree(nodes, ordered, 0, ordered.length, 0);
   return nodes;
 }

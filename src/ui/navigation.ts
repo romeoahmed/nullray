@@ -1,9 +1,8 @@
 import { turnCamera } from "../scene/camera.ts";
 import { translateCamera } from "../scene/navigation.ts";
 import type { SceneInput, Scene } from "../scene/scene.ts";
-import { outerHorizon } from "../physics/spacetime.ts";
 
-/** Orbit or freely place a stationary ZAMO camera; navigation never adds physical velocity. */
+/** Orbit or freely place the selected observer; navigation never adds physical velocity. */
 export function bindNavigation(
   canvas: HTMLCanvasElement,
   getScene: () => Scene,
@@ -31,20 +30,15 @@ export function bindNavigation(
   };
   const zoom = (logScale: number) => {
     const scene = getScene();
-    const { space, observer } = scene;
+    const { observer } = scene;
     if (getMode() === "free") {
-      change(
-        translateCamera(scene, [0, 0, 1], -logScale * (observer.radius - outerHorizon(space))),
-      );
+      change(translateCamera(scene, [0, 0, 1], -logScale * Math.max(1, Math.abs(observer.radius))));
     } else {
       change({
         ...scene,
         observer: {
           ...observer,
-          radius: Math.max(
-            outerHorizon(space) + 0.05,
-            Math.min(200, observer.radius * Math.exp(logScale)),
-          ),
+          radius: Math.max(-200, Math.min(200, observer.radius * Math.exp(logScale))),
         },
       });
     }
@@ -139,7 +133,7 @@ export function bindNavigation(
     const elapsed = previousTime === undefined ? 0 : Math.min(0.05, (now - previousTime) / 1000);
     previousTime = now;
     const scene = getScene();
-    const speed = 0.35 * (scene.observer.radius - outerHorizon(scene.space));
+    const speed = 0.35 * Math.max(1, Math.abs(scene.observer.radius));
     const right = Number(pressed.has("d")) - Number(pressed.has("a"));
     const up = Number(pressed.has("e")) - Number(pressed.has("q"));
     const forward = Number(pressed.has("w")) - Number(pressed.has("s"));

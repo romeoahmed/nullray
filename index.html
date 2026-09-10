@@ -19,7 +19,7 @@
           <span class="orbit-mark" aria-hidden="true"></span>
           <div>
             <h1>NULLRAY</h1>
-            <p>Light in curved space</p>
+            <p>A relativistic observatory</p>
           </div>
         </div>
         <div class="header-actions">
@@ -33,8 +33,8 @@
       <section id="controls" class="panel settings" popover="auto" aria-label="Scene settings">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">SCENE SETTINGS</p>
-            <h2>Light &amp; gravity</h2>
+            <p class="eyebrow">OBSERVATION CONTROLS</p>
+            <h2>Shape the observation</h2>
           </div>
           <button
             type="button"
@@ -48,14 +48,14 @@
           <div id="settings-feedback" class="feedback-slot"></div>
         </div>
         <fieldset class="controls-grid">
-          <legend class="visually-hidden">Black hole and exposure</legend>
+          <legend class="visually-hidden">Spacetime and exposure</legend>
           <div class="control">
             <label for="spin">Spin</label><output id="spin-value" for="spin"></output
             ><input
               id="spin"
               type="range"
-              min="-0.99"
-              max="0.99"
+              min="-1.5"
+              max="1.5"
               step="0.01"
               aria-describedby="spacetime-hint"
             />
@@ -65,13 +65,15 @@
             ><input
               id="charge"
               type="range"
-              min="-0.99"
-              max="0.99"
+              min="-1.5"
+              max="1.5"
               step="0.01"
               aria-describedby="spacetime-hint"
             />
           </div>
-          <p id="spacetime-hint" class="hint">Spin and charge share one limit: a² + q² &lt; 1.</p>
+          <p id="spacetime-hint" class="hint">
+            Horizon pair: a² + q² &lt; 1 · Extremal: = 1 · Naked: &gt; 1.
+          </p>
           <div class="control">
             <label for="exposure">Exposure</label
             ><output id="exposure-value" for="exposure"></output
@@ -79,7 +81,7 @@
           </div>
         </fieldset>
         <details name="settings-section">
-          <summary>Camera <span>Position &amp; perspective</span></summary>
+          <summary>Observer <span>Position · motion · camera</span></summary>
           <fieldset class="controls-grid">
             <legend class="visually-hidden">Camera</legend>
             <div class="control">
@@ -90,17 +92,54 @@
               </select>
             </div>
             <div class="control">
+              <label for="observer-model">Observer</label>
+              <select id="observer-model">
+                <option value="zamo">Zero angular momentum</option>
+                <option value="static">Static</option>
+                <option value="regular">Horizon-regular frame</option>
+                <option value="freefall">Free fall</option>
+                <option value="custom">Coordinate velocity</option>
+              </select>
+            </div>
+            <div class="control">
+              <label for="observer-chart">Placement chart</label>
+              <select id="observer-chart">
+                <option value="ingoing">Ingoing</option>
+                <option value="outgoing">Outgoing</option>
+              </select>
+            </div>
+            <div id="observer-velocity" class="control">
+              <div class="control">
+                <label id="velocity-0-label" for="velocity-0">Velocity X</label
+                ><input id="velocity-0" type="number" step="0.01" />
+              </div>
+              <div class="control">
+                <label id="velocity-1-label" for="velocity-1">Velocity Y</label
+                ><input id="velocity-1" type="number" step="0.01" />
+              </div>
+              <div class="control">
+                <label id="velocity-2-label" for="velocity-2">Velocity Z</label
+                ><input id="velocity-2" type="number" step="0.01" />
+              </div>
+              <p id="velocity-hint" class="hint"></p>
+            </div>
+            <div id="observer-clock" class="control">
+              <label for="proper-time">Elapsed proper time</label
+              ><output id="proper-time-value" for="proper-time"></output>
+              <input id="proper-time" type="range" min="0" max="100" step="0.01" />
+            </div>
+            <div class="control">
               <label for="inclination">Inclination</label
               ><output id="inclination-value" for="inclination"></output
               ><input id="inclination" type="range" min="0" max="180" step="0.1" />
             </div>
             <div class="control">
-              <label for="distance">Distance</label
+              <label for="distance">Signed radius</label
               ><output id="distance-value" for="distance"></output
               ><input
                 id="distance"
                 type="range"
-                min="2.1"
+                min="-200"
                 max="200"
                 step="0.1"
                 aria-describedby="distance-hint"
@@ -108,16 +147,16 @@
             </div>
             <div class="control">
               <label for="fov">Field of view</label><output id="fov-value" for="fov"></output
-              ><input id="fov" type="range" min="15" max="120" step="1" />
+              ><input id="fov" type="range" min="5" max="120" step="0.5" />
             </div>
             <p id="distance-hint" class="hint">
-              Distance is measured in gravitational radii, rɢ = GM/c². The camera represents a
-              stationary observer at each position.
+              Distances use rɢ = GM/c². Negative radius explores the extended geometry. Moving the
+              camera does not give the observer a physical velocity.
             </p>
           </fieldset>
         </details>
         <details name="settings-section">
-          <summary>Light <span>Disk &amp; distant sky</span></summary>
+          <summary>Light <span>Atmosphere · distant stars</span></summary>
           <fieldset class="controls-grid">
             <legend class="visually-hidden">Light</legend>
             <div class="control">
@@ -138,20 +177,79 @@
               />
             </div>
             <div class="control">
+              <label for="disk-thickness">Disk thickness</label>
+              <output id="disk-thickness-value" for="disk-thickness"></output>
+              <input id="disk-thickness" type="range" min="0" max="0.2" step="0.001" />
+            </div>
+            <div class="control">
+              <label for="disk-optical-depth">Optical depth</label>
+              <output id="disk-optical-depth-value" for="disk-optical-depth"></output>
+              <input id="disk-optical-depth" type="range" min="0.1" max="30" step="0.1" />
+            </div>
+            <div class="control">
+              <label for="other-universes">Other universes</label>
+              <output id="other-universes-value" for="other-universes"></output>
+              <input id="other-universes" type="range" min="0" max="1" step="0.01" />
+            </div>
+            <div class="control">
               <label for="sky-brightness">Sky brightness</label
               ><output id="sky-brightness-value" for="sky-brightness"></output
-              ><input id="sky-brightness" type="range" min="0" max="8" step="0.05" />
+              ><input id="sky-brightness" type="range" min="0" max="64" step="0.1" />
             </div>
             <p id="emission-hint" class="hint">
-              Temperature sets the disk's thermal peak. Structure adds prescribed, orbiting
-              variations in emission.
+              Temperature sets the thermal peak. Thickness and optical depth shape the glowing
+              atmosphere. Structure adds shearing clouds at their emission time.
             </p>
           </fieldset>
         </details>
         <details name="settings-section">
-          <summary>Image <span>Detail &amp; highlights</span></summary>
+          <summary>Jets <span>Relativistic outflow</span></summary>
+          <fieldset class="controls-grid">
+            <legend class="visually-hidden">Relativistic jets</legend>
+            <div class="control">
+              <label for="jet-mode">Bipolar jet</label
+              ><select id="jet-mode">
+                <option value="off">Off</option>
+                <option value="on">Optically thin synchrotron</option>
+              </select>
+            </div>
+            <div id="jet-controls" class="control">
+              <div class="control">
+                <label for="jet-speed">Outflow speed</label
+                ><output id="jet-speed-value" for="jet-speed"></output
+                ><input id="jet-speed" type="range" min="0.05" max="0.99" step="0.01" />
+              </div>
+              <div class="control">
+                <label for="jet-opening">Outer half-angle</label
+                ><output id="jet-opening-value" for="jet-opening"></output
+                ><input id="jet-opening" type="range" min="3" max="30" step="1" />
+              </div>
+              <div class="control">
+                <label for="jet-energy">Electron energy</label>
+                <output id="jet-energy-value" for="jet-energy"></output>
+                <input id="jet-energy" type="range" min="0" max="4" step="0.05" />
+              </div>
+              <div class="control">
+                <label for="jet-density">Launch electron density</label
+                ><output id="jet-density-value" for="jet-density"></output
+                ><input id="jet-density" type="range" min="4" max="12" step="0.1" />
+              </div>
+              <p class="hint">
+                Transparent synchrotron outflow in a tangled magnetic field. The prescribed source
+                uses 1,000 G and a mass of one million Suns.
+              </p>
+            </div>
+          </fieldset>
+        </details>
+        <details name="settings-section">
+          <summary>Image <span>Color · detail · highlights</span></summary>
           <fieldset class="controls-grid">
             <legend class="visually-hidden">Image</legend>
+            <div class="control">
+              <label for="white-balance">White balance</label
+              ><output id="white-balance-value" for="white-balance"></output>
+              <input id="white-balance" type="range" min="2500" max="12000" step="100" />
+            </div>
             <div class="control">
               <label for="bloom">Bloom</label><output id="bloom-value" for="bloom"></output
               ><input id="bloom" type="range" min="0" max="1" step="0.01" />
@@ -184,20 +282,60 @@
               <label for="audio-file">Audio file</label>
               <input id="audio-file" type="file" accept="audio/*" />
             </div>
-            <div class="button-row">
-              <button id="audio-play" type="button" disabled>Play audio</button>
-              <button id="audio-clear" type="button" disabled>Clear audio</button>
-            </div>
-            <div class="control">
-              <label for="audio-volume">Volume</label>
-              <output id="audio-volume-value" for="audio-volume">50%</output>
-              <input id="audio-volume" type="range" min="0" max="1" step="0.01" value="0.5" />
-            </div>
-            <p id="audio-status" class="hint" role="status">Choose a file for local playback.</p>
+            <audio
+              id="audio-player"
+              controls
+              preload="metadata"
+              aria-label="Local soundtrack"
+              hidden
+            ></audio>
+            <button id="audio-clear" type="button" class="quiet" disabled>Clear audio</button>
+            <p id="audio-status" class="hint" role="status">
+              Choose a soundtrack. Your file stays on this device.
+            </p>
           </fieldset>
         </details>
         <details name="settings-section">
-          <summary>Inspect <span>Frequency &amp; image order</span></summary>
+          <summary>Plasma <span>Dispersive refraction</span></summary>
+          <fieldset class="controls-grid">
+            <legend class="visually-hidden">Propagation medium</legend>
+            <div class="control">
+              <label for="plasma-mode">Propagation</label>
+              <select id="plasma-mode">
+                <option value="off">Vacuum · optical color</option>
+                <option value="on">Cold plasma · narrowband</option>
+              </select>
+            </div>
+            <div id="plasma-controls" class="control">
+              <div class="control">
+                <label for="plasma-frequencyGHz">Observing frequency</label>
+                <output id="plasma-frequencyGHz-value" for="plasma-frequencyGHz"></output>
+                <input id="plasma-frequencyGHz" type="range" min="0" max="3" step="0.025" />
+              </div>
+              <div class="control">
+                <label for="plasma-density">Plasma density scale</label>
+                <output id="plasma-density-value" for="plasma-density"></output>
+                <input id="plasma-density" type="range" min="6" max="14" step="0.05" />
+              </div>
+              <div class="control">
+                <label for="plasma-radius">Density scale radius</label>
+                <output id="plasma-radius-value" for="plasma-radius"></output>
+                <input id="plasma-radius" type="range" min="0" max="2" step="0.025" />
+              </div>
+              <div class="control">
+                <label for="plasma-heating">Temperature contrast</label>
+                <output id="plasma-heating-value" for="plasma-heating"></output>
+                <input id="plasma-heating" type="range" min="0" max="9" step="0.1" />
+              </div>
+              <p class="hint">
+                A single radio band, displayed as brightness temperature. Heating changes the
+                density and bends the rays; white represents 6500 K before exposure.
+              </p>
+            </div>
+          </fieldset>
+        </details>
+        <details name="settings-section">
+          <summary>Inspect <span>Paths · topology · polarization</span></summary>
           <fieldset class="controls-grid">
             <legend class="visually-hidden">Optical diagnostics</legend>
             <div class="control">
@@ -206,9 +344,40 @@
                 <option value="image">Image</option>
                 <option value="frequency">Frequency shift</option>
                 <option value="order">Image order</option>
+                <option value="domain">Source domain</option>
+                <option value="polarization">Linear polarization degree</option>
+                <option value="angle">Polarization orientation</option>
               </select>
             </div>
+            <div class="control">
+              <label for="analyzer-mode">Polarizer</label
+              ><select id="analyzer-mode">
+                <option value="off">None</option>
+                <option value="linear">Linear analyzer</option>
+              </select>
+            </div>
+            <div id="analyzer-angle-control" class="control">
+              <label for="analyzer-angle">Analyzer angle</label
+              ><output id="analyzer-angle-value" for="analyzer-angle"></output>
+              <input id="analyzer-angle" type="range" min="0" max="179" step="1" />
+            </div>
             <p id="diagnostic-status" class="hint"></p>
+            <figure class="topology-map">
+              <svg
+                id="topology-map"
+                viewBox="0 0 348 236"
+                role="img"
+                aria-label="Kerr–Newman radius and latitude map"
+              ></svg>
+              <figcaption>
+                Coordinate map · cyan: horizons · gold: stationary limits · red: singularity ·
+                white: observer. Shading marks the negative-radius sheet.
+              </figcaption>
+            </figure>
+            <p id="topology-status" class="hint"></p>
+            <button type="button" id="inspect-ray">Trace center ray</button>
+            <button type="button" id="pick-ray">Pick image ray</button>
+            <p id="ray-status" class="hint" role="status"></p>
           </fieldset>
         </details>
       </section>
@@ -216,8 +385,8 @@
       <section id="views-panel" class="panel library" popover="auto" aria-label="Views">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">YOUR OBSERVATORY</p>
-            <h2>Views</h2>
+            <p class="eyebrow">CHOOSE A STARTING POINT</p>
+            <h2>Explore the extremes</h2>
           </div>
           <button
             type="button"
@@ -229,7 +398,7 @@
             ×
           </button>
         </div>
-        <p class="section-label">Starting points</p>
+        <p class="hint">Six perspectives on light in curved space.</p>
         <div id="presets" class="preset-grid"></div>
         <details>
           <summary>Saved views <span>On this browser</span></summary>
@@ -274,16 +443,16 @@
           </button>
         </div>
         <p>
-          Light around a rotating, charged black hole, with an opaque thermal disk and a fixed
-          distant sky. The geometry follows the Kerr–Newman model.
+          Follow light through Kerr–Newman spacetime: across a glowing disk, past relativistic jets,
+          and toward distant stars.
         </p>
         <p>
-          Relativistic light paths shape the shadow and repeated disk images. The disk's texture and
-          brightness are prescribed; this is not a plasma simulation.
+          Gravity forms the shadow and repeated images. The material and its evolving structure are
+          prescribed sources; the spacetime does not react to them.
         </p>
         <p class="hint">
-          Optical prototype. Pink marks unresolved rays. Finite sampling can still miss fine arcs
-          and stellar images, including where no pink is visible.
+          An optical prototype. Fine arcs and stellar images can remain undersampled. The diagnostic
+          views mark unfinished rays in pink.
         </p>
         <hr />
         <p class="section-label">At the canvas</p>
@@ -300,7 +469,7 @@
         <section id="photo-status" class="photo-card" aria-label="Photograph" hidden>
           <div class="photo-heading">
             <strong id="photo-label">Refining light</strong
-            ><button id="export-photo" type="button" disabled>Save PNG (SDR)</button>
+            ><button id="export-photo" type="button" disabled>Save photograph</button>
           </div>
           <progress
             id="photo-progress"
@@ -352,7 +521,7 @@
             ×
           </button>
         </header>
-        <p>Restore this camera, scene, and light at the same frozen emission time.</p>
+        <p>Open the same scene, camera, and frozen moment of light.</p>
         <label for="view-link">Link</label
         ><input id="view-link" type="text" readonly spellcheck="false" autofocus />
         <div class="dialog-actions">

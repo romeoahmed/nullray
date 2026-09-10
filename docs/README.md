@@ -1,37 +1,30 @@
 # Nullray
 
-Nullray is a TypeScript and native WebGPU/WGSL black-hole renderer. It combines semi-analytic Kerr–Newman light paths, a neutral thermal thin disk, spectral stars and diffuse sky, and interactive camera and photographic controls.
+Nullray is an interactive Kerr–Newman observatory built with TypeScript and native WebGPU/WGSL. A dedicated worker traces light through a finite thermal disk and prescribed jets, then forms a photograph from spectral radiation and catalogue stars.
 
-**Current status: optical prototype.** The application renders on a dedicated worker, supports orbit/free exploration, source and display controls, native-resolution photography, presets, strict version-1 view links, local bookmarks, and optional local audio. CPU references and real browser GPU tests exercise the model. The retained critical-ray and high-order stellar-image gates pass. Broader precision coverage and complete nonlinear stellar filtering remain unresolved; a passing suite is not a released support-domain claim.
+The renderer is an optical prototype. It implements physical observers, signed-radius and horizon continuation, vacuum linear polarization, and a time-dependent narrowband plasma model. General critical-ray accuracy, nonlinear stellar-image completeness and magnetized transfer remain open; [Coverage](coverage.md) separates executable evidence from those limitations.
 
-## Read the model
+## Start
 
-| Document                        | Responsibility                                                                             |
-| ------------------------------- | ------------------------------------------------------------------------------------------ |
-| [Physics](physics.md)           | Units, metric, observer, geodesics, source boundaries, emission, spectral transfer         |
-| [Numerics](numerics.md)         | Elliptic paths, ordered events, quadrature, derivatives, pixel integration, failure policy |
-| [Architecture](architecture.md) | Functional model, render worker, ownership, invalidation, interaction                      |
-| [Tooling](tooling.md)           | Runtime baseline, configuration, commands, benchmarks                                      |
-| [Validation](validation.md)     | Independent evidence, test design, acceptance, performance interpretation                  |
-| [Coverage](coverage.md)         | Current executable evidence, concrete gaps, measured workloads                             |
-| [Agent guide](../AGENTS.md)     | Operational instructions for repository work                                               |
-| [Attribution](../NOTICE.md)     | Data sources, licenses, and representation changes                                         |
-
-Read physics and numerics before changing an optical calculation. Read architecture, tooling, and validation before implementation work.
-
-## Run
-
-Use Node.js 26 or newer and pnpm:
+Use Node.js 26 or newer, pnpm and a browser meeting the [native platform requirements](tooling.md#native-browser-baseline):
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-The browser baseline is intentionally modern: WebGPU with subgroups and texture formats tier 2, OffscreenCanvas in a dedicated worker, Display P3, native popovers, anchor positioning, subgrid, and OKLCH. There is no legacy renderer or polyfill stack. See [capability requirements and commands](tooling.md).
+Choose one of six views, drag the image to explore, and open Settings to change the observer or light sources. Refine freezes the emission epoch and accumulates 64 samples at native resolution. Saved views remain in the browser; a view link carries the physical and display inputs in schema 1.
 
-## Direction
+## Project guide
 
-The intended experience is a readable, responsive observatory: convincing thermal emission, stable fine stars, resolved lensed disk images, and direct exploration. Physical observer motion remains separate from navigation. Disk fluctuations and brightness are prescribed appearance choices, not GRMHD predictions.
-
-The next numerical acceptance work is concentrated in primary-ray conditioning near critical roots, nonlinear stellar image enumeration/integration, and source-aware convergence over the combined camera/spacetime domain. Performance improvements must retain image error and unresolved coverage evidence. More samples or a plausible screenshot alone do not close these requirements.
+| Document                             | Owns                                                           |
+| ------------------------------------ | -------------------------------------------------------------- |
+| [Physics](physics.md)                | Units, equations, source prescriptions and physical limits     |
+| [Numerics](numerics.md)              | Coordinates, integration, events, sampling and failure meaning |
+| [Architecture](architecture.md)      | Domain boundaries, worker protocol and resource ownership      |
+| [Visual design](visual-direction.md) | Composition, interface hierarchy and visual acceptance         |
+| [Validation](validation.md)          | Required checks and reference/comparison policy                |
+| [Coverage](coverage.md)              | Executable evidence and outstanding numerical coverage         |
+| [Tooling](tooling.md)                | Commands, compiler policy and platform requirements            |
+| [Agent guide](../AGENTS.md)          | Operational repository instructions                            |
+| [Attribution](../NOTICE.md)          | Included data, adapted code and licenses                       |

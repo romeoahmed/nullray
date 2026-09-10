@@ -9,6 +9,9 @@ export const requiredFeatures = [
   textureFormatsTier2,
 ] as const satisfies readonly GPUFeatureName[];
 
+/** I/Q/U, source domains, asymptotic directions and transmission are written in one path pass. */
+export const requiredLimits = { maxStorageTexturesPerShaderStage: 6 } as const;
+
 /** Request the renderer's mandatory native WebGPU capability. */
 export async function requestDevice(): Promise<GPUDevice> {
   if (!navigator.gpu) {
@@ -27,7 +30,13 @@ export async function requestDevice(): Promise<GPUDevice> {
   if (missing.length > 0) {
     throw new Error(`Missing required WebGPU features: ${missing.join(", ")}.`);
   }
-  return adapter.requestDevice({ requiredFeatures: [...requiredFeatures] });
+  if (
+    adapter.limits.maxStorageTexturesPerShaderStage <
+    requiredLimits.maxStorageTexturesPerShaderStage
+  ) {
+    throw new Error("Nullray requires six storage textures per shader stage.");
+  }
+  return adapter.requestDevice({ requiredFeatures: [...requiredFeatures], requiredLimits });
 }
 
 /** Preserve shader diagnostics before attempting asynchronous pipeline creation. */
