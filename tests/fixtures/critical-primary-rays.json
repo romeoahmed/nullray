@@ -1,4 +1,5 @@
 {
+  "schema": 1,
   "purpose": "Critical primary-ray precision counterexamples found while comparing Jacobi preparation. Recorded GPU values are measurements, not accepted accuracy bounds.",
   "cpuSourceSHA256": {
     "src/math/photon.ts": "e3b6003160c4a5725f97643f8caa1380fec53fd1bc7662c4768b568780048e5e",
@@ -27,16 +28,6 @@
         "kind": "sky",
         "time": 3.333378634282537
       },
-      "transport": {
-        "kind": "resolved",
-        "azimuth": -19.29051412734692,
-        "coordinateTime": 0,
-        "errorEstimate": [3.841692185722891e-11, 0],
-        "evaluations": 2720
-      },
-      "reference": [0.9022263347555323, -0.4258071920357822, -0.06838037791794327],
-      "baseline": [-0.07376556843519211, -19.29248809814453, 0.9429497718811035, 6],
-      "baselineError": 0.005746682585001191,
       "hamiltonian": {
         "time": 3.323378634282537,
         "source": [-0.966743388282309, -0.25538138855252085, -0.013695531878210897],
@@ -45,39 +36,8 @@
           "charge": 0.20000000298023224
         },
         "r": 18,
-        "theta": 1.2000000476837158,
-        "analytic": {
-          "inverseRadius": 0.009426291806824395,
-          "cosineTheta": -0.02251128657256657
-        },
-        "analyticAzimuth": -19.288146414893305,
-        "coarse": {
-          "state": [
-            106.09151980989967, 1.5933095153329013, -19.28814570382701, -199.8451760915434,
-            -0.9600460517286985, -4.591986909911184
-          ],
-          "maxResidual": 6.359939533910531e-11
-        },
-        "fine": {
-          "state": [
-            106.08709162663504, 1.5933095151384442, -19.288146301938685, -199.84066776643758,
-            -0.9600467371395329, -4.591986909904705
-          ],
-          "maxResidual": 9.050710078227708e-12
-        },
-        "inverseRadiusDifference": 7.430319615663039e-8,
-        "muDifference": 4.1419055685221196e-11,
-        "azimuthDifference": 1.1295461987970157e-7,
-        "coarseFineInverseRadiusDifference": 3.9344349739810214e-7,
-        "coarseFineMuDifference": 1.9440784052027205e-10,
-        "coarseFineAzimuthDifference": 5.981116757425298e-7
-      },
-      "discardedPathPreparation": [
-        -0.07119081914424896, -19.291547775268555, 0.9429497718811035, 6
-      ],
-      "discardedPathPreparationError": 0.0030000761750585718,
-      "retainedPreparation": [-0.07376556843519211, -19.29248809814453, 0.9429497718811035, 6.0],
-      "retainedError": 0.00574668258500119
+        "theta": 1.2000000476837158
+      }
     },
     {
       "width": 1280,
@@ -89,16 +49,6 @@
         "time": 3.372435717871681,
         "radius": 3.684070952383663
       },
-      "transport": {
-        "kind": "resolved",
-        "azimuth": -16.75166494232862,
-        "coordinateTime": 0,
-        "errorEstimate": [3.1373744213113657e-11, 0],
-        "evaluations": 1440
-      },
-      "reference": [-0.5030244566797819, 0.8642721770264332, -1.609823385706477e-15],
-      "baseline": [3.6832919120788574, -16.751800537109375, 0.978187620639801, -6],
-      "baselineError": 0.0002114618081123787,
       "hamiltonian": {
         "time": 3.372435717871681,
         "source": [-0.9801298500435945, -0.10373041325148989, -0.1690724058508536],
@@ -107,37 +57,8 @@
           "charge": 0.20000000298023224
         },
         "r": 18,
-        "theta": 1.2000000476837158,
-        "analytic": {
-          "inverseRadius": 0.2714388547139629,
-          "cosineTheta": -1.609823385706477e-15
-        },
-        "analyticAzimuth": -16.75166494232862,
-        "coarse": {
-          "state": [
-            3.6840710853306065, 1.5707963270275547, -16.751664919418378, -79.3831233922838,
-            -1.1881767160335763, 2.1558652478412514
-          ],
-          "maxResidual": 1.7994722117727443e-11
-        },
-        "fine": {
-          "state": [
-            3.6840709733754307, 1.5707963268324523, -16.75166493870908, -79.38312330841305,
-            -1.188176711506601, 2.1558652478645137
-          ],
-          "maxResidual": 2.8829294022647916e-12
-        },
-        "inverseRadiusDifference": 1.5466535274732962e-9,
-        "muDifference": 3.755406524287443e-11,
-        "azimuthDifference": 3.6195402230987384e-9,
-        "coarseFineInverseRadiusDifference": 8.248750849038089e-9,
-        "coarseFineMuDifference": 1.9510237869724278e-10,
-        "coarseFineAzimuthDifference": 1.92907023688349e-8
-      },
-      "discardedPathPreparation": [3.6821484565734863, -16.751995086669922, 0.9782072901725769, -6],
-      "discardedPathPreparationError": 0.0005218400609067197,
-      "retainedPreparation": [3.6832919120788574, -16.751800537109375, 0.978187620639801, -6.0],
-      "retainedError": 0.0002114618081123787
+        "theta": 1.2000000476837158
+      }
     },
     {
       "width": 640,
@@ -148,16 +69,6 @@
         "kind": "sky",
         "time": 2.785644988205558
       },
-      "transport": {
-        "kind": "resolved",
-        "azimuth": -13.880496369577443,
-        "coordinateTime": 0,
-        "errorEstimate": [3.0124400048840274e-11, 0],
-        "evaluations": 1379
-      },
-      "reference": [0.1546513441833231, -0.5892385752990811, -0.7930200899862503],
-      "baseline": [-0.793034017086029, -13.880162239074707, 0.9434510469436646, 4],
-      "baselineError": 0.0002048276200757079,
       "hamiltonian": {
         "time": 2.775644988205558,
         "source": [-0.9771598166380044, -0.16123137615202976, -0.13843097952446998],
@@ -166,41 +77,12 @@
           "charge": 0.20000000298023224
         },
         "r": 18,
-        "theta": 1.2000000476837158,
-        "analytic": {
-          "inverseRadius": 0.00943231251323072,
-          "cosineTheta": -0.7957894155954255
-        },
-        "analyticAzimuth": -13.817402623104915,
-        "coarse": {
-          "state": [
-            106.0185317196949, 2.4911063755930583, -13.817402624035575, -177.44009437022126,
-            -0.9608755294849658, 0.36081144872922394
-          ],
-          "maxResidual": 5.3792816413375536e-11
-        },
-        "fine": {
-          "state": [
-            106.01853844497832, 2.491106375580868, -13.817402623266016, -177.44010122169394,
-            -0.9608755283586433, 0.3608114495205037
-          ],
-          "maxResidual": 7.510964482361001e-12
-        },
-        "inverseRadiusDifference": 1.244216257800801e-10,
-        "muDifference": 1.3244960683778118e-12,
-        "azimuthDifference": 1.6110135447888752e-10,
-        "coarseFineInverseRadiusDifference": 5.983385609892311e-10,
-        "coarseFineMuDifference": 7.382094935337591e-12,
-        "coarseFineAzimuthDifference": 7.695586390354947e-10
-      },
-      "discardedPathPreparation": [-0.7930298447608948, -13.880266189575195, 0.9434510469436646, 4],
-      "discardedPathPreparationError": 0.00014113447715054583,
-      "retainedPreparation": [-0.793034017086029, -13.880162239074707, 0.9434510469436646, 4.0],
-      "retainedError": 0.0002048276200757079
+        "theta": 1.2000000476837158
+      }
     }
   ],
-  "limitations": [
-    "The largest retained sky-direction error relative to the binary64 reference is approximately 0.00575. This pre-existing primary-ray precision issue remains unresolved.",
-    "No full joint-domain or critical-image completeness claim follows from the finite-path checks."
+  "frame": [
+    1280, 720, 0, 0, 18, 1.2, 1.2, 0, 0.7, 0.2, 3.304466962814331, 64, -1, 0, 0, 0, 0, -1, 0, 0, 0,
+    0, 1, 0
   ]
 }

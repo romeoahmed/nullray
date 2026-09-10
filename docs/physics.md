@@ -156,7 +156,14 @@ $$
 
 Using proper vertical height at the equator gives the reduced metric factor $r$. The CPU integrates on logarithmic radial nodes and uploads $[F/F_{\max}]^{1/4}$. Peak temperature, initially 7000 K and adjustable over 1000–30000 K, is an appearance normalization rather than inferred mass or accretion rate. The charged disk is a neutral test-emitter model, not a plasma equilibrium.
 
-Structure multiplies bolometric flux by $1+cS$, with $0\le c\le1$. A bounded sum of four azimuthal harmonics has zero azimuthal mean. Smooth interpolation between deterministic radial phase nodes controls spatial coherence. Thus modulation is nonnegative and preserves azimuthally averaged bolometric flux at a fixed coordinate time; it need not preserve observer-band brightness.
+Structure multiplies bolometric flux by $1+cS$, with $0\le c\le1$. Eight bounded azimuthal harmonics distribute contrast across interleaved radial scales. Each harmonic has zero azimuthal mean, and their nonnegative weights sum to one. Smooth interpolation between deterministic radial phase nodes controls spatial coherence. Thus modulation is nonnegative and preserves azimuthally averaged bolometric flux at a fixed coordinate time; it need not preserve observer-band brightness. These source patterns add prescribed emission detail without modeling plasma dynamics.
+
+The fixed source spectrum is:
+
+| Azimuthal order $m$            |    2 |    3 |    5 |    7 |   11 |   15 |   23 |   31 |
+| ------------------------------ | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Nodes per $\log(r/r_{\rm in})$ |    2 |    3 |    4 |    6 |    8 |   12 |   16 |   24 |
+| Flux weight $w$                | 0.16 | 0.19 | 0.13 | 0.16 | 0.10 | 0.12 | 0.06 | 0.08 |
 
 Evaluate structure at $t_{\rm em}=t_{\rm obs}+\Delta t$, with advection at coordinate angular velocity $\Omega_s$. Smoothly replaced 24-unit cohorts limit indefinite winding. CPU epoch splitting keeps the local time small before GPU upload; cohort integers still have f32 range limits, and long propagation delays retain optical uncertainty. These prescribed fluctuations are inspired by correlated emission models such as [Lee and Gammie](https://arxiv.org/abs/2011.07151), but are not a GRMHD or stochastic-field simulation.
 
@@ -199,7 +206,7 @@ This common scale preserves channel ratios. It is an artistic bounded display cu
 
 ## Pixel formation and limits
 
-Diffuse filtering and stellar integration use the escaped ray map. A point source is weighted by a unit-integral screen-space tent and divided by its local source solid-angle Jacobian. This already accounts for magnification. The approach follows the source distinction in [Bruneton](https://arxiv.org/abs/2010.08735), but its affine beam approximation does not resolve all nonlinear or multiple images.
+Diffuse filtering and stellar integration use the escaped ray map. A point source is weighted by a unit-integral screen-space tent and divided by its local source solid-angle Jacobian. This already accounts for magnification. The approach follows the source distinction in [Bruneton](https://arxiv.org/abs/2010.08735), with normalized bilinear primary cells and affine boundary beams described in [numerics](numerics.md#pixel-integration). These local maps do not resolve all physical nonlinear or multiple images.
 
 Pixel integration must include coverage, branch changes, source variation, and failed sample weights. Narrow disk images and photon-ring structure arise from the physical paths; their resolved appearance depends on sampling and precision. [DNGR](https://arxiv.org/abs/1502.03808) and [AART](https://arxiv.org/abs/2211.07469) motivate beam-aware and targeted sampling, not a claim that the present implementation has achieved their coverage.
 

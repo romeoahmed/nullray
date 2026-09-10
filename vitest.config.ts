@@ -16,7 +16,7 @@ export default defineConfig({
       {
         test: {
           name: "cpu",
-          include: ["tests/model/**/*.test.ts", "tests/physics/**/*.test.ts"],
+          include: ["tests/cpu/**/*.test.ts"],
           experimental: { viteModuleRunner: false },
           benchmark: { include: ["benchmarks/cpu.bench.ts"] },
         },

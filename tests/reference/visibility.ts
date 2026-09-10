@@ -13,7 +13,12 @@ export interface DiskAnnulus {
 }
 
 export type Visibility =
-  | { readonly kind: "disk"; readonly time: number; readonly radius: number }
+  | {
+      readonly kind: "disk";
+      readonly time: number;
+      readonly radius: number;
+      readonly order: number;
+    }
   | { readonly kind: "sky"; readonly time: number }
   | { readonly kind: "captured"; readonly time: number }
   | {
@@ -79,6 +84,7 @@ export function traceVisibility(
     return failure("arithmetic-domain");
   }
   let nextCrossing = equator.kind === "crossings" ? equator.first : Infinity;
+  let diskOrder = 0;
   for (let index = 1; index <= subdivisions * 64; index++) {
     const end = step * index;
     const begin = end - step;
@@ -114,6 +120,7 @@ export function traceVisibility(
         event++
       ) {
         const time = nextCrossing;
+        const order = diskOrder++;
         nextCrossing += equator.spacing;
         const inverse = evaluateQuartic(path.radial, time);
         if (inverse === undefined) {
@@ -125,7 +132,7 @@ export function traceVisibility(
           hitRadius <= disk.outer &&
           (!outcome || time < outcome.time)
         ) {
-          outcome = { kind: "disk", time, radius: hitRadius };
+          outcome = { kind: "disk", time, radius: hitRadius, order };
         }
       }
       if (nextCrossing <= end) {

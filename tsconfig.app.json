@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "@types/web"]
+  },
+  "include": ["src", "tests/browser", "tests/gpu", "benchmarks/*.ts"],
+  "exclude": ["src/runtime/worker", "benchmarks/cpu.bench.ts"]
+}

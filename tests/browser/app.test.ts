@@ -1,15 +1,15 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import markup from "../../index.html?raw";
-import { mountApp } from "../../src/explorer/app.ts";
-import { initialSession } from "../../src/model/session.ts";
-import { decodeView } from "../../src/model/view.ts";
-import { element } from "../../src/explorer/elements.ts";
-import "../../src/explorer/style.css";
+import { mountApp } from "../../src/ui/app.ts";
+import { initialSession } from "../../src/scene/session.ts";
+import { decodeView } from "../../src/scene/view.ts";
+import { element } from "../../src/ui/elements.ts";
+import "../../src/ui/style.css";
 
 function createRoot() {
   const template = new DOMParser().parseFromString(markup, "text/html");
-  const root = element(template, "#app", HTMLDivElement);
+  const root = element(template, "#app", HTMLElement);
   document.body.append(root);
   return root;
 }

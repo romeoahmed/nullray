@@ -1,10 +1,8 @@
-import { requiredFeatures } from "../src/render/device.ts";
+import { requiredFeatures } from "../src/gpu/device.ts";
 import { expect, test } from "vitest";
 import { server } from "vitest/browser";
-import { createOptics } from "../src/render/optics.ts";
-// Vite exports raw TypeScript as text; the import rule inspects the untransformed module.
-// oxlint-disable-next-line import/default
-import runtimeSource from "../src/render/optics.ts?raw";
+import { createOptics } from "../src/gpu/optics.ts";
+import { sourceFingerprint, benchmarkFingerprint } from "./source.ts";
 
 test("optical initialization on an existing device", async ({ bench, annotate }) => {
   const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
@@ -28,9 +26,10 @@ test("optical initialization on an existing device", async ({ bench, annotate })
     },
   ).run({ iterations: 5, time: 0, warmupIterations: 1, warmupTime: 0 });
   expect(await device.popErrorScope()).toBeNull();
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(runtimeSource));
+  const digest = await sourceFingerprint();
   const body = JSON.stringify(
     {
+      schema: 1,
       requiredFeatures: [...requiredFeatures],
       enabledFeatures: [...device.features],
       browser: navigator.userAgent,
@@ -40,7 +39,8 @@ test("optical initialization on an existing device", async ({ bench, annotate })
         device: adapter.info.device,
         description: adapter.info.description,
       },
-      opticsRuntimeSHA256: new Uint8Array(digest).toHex(),
+      sourceSHA256: new Uint8Array(digest).toHex(),
+      harnessSHA256: new Uint8Array(await benchmarkFingerprint()).toHex(),
       scope:
         "Existing device; module diagnostics, pipeline creation, source-data construction, texture uploads, completion and disposal. No optical frame or canvas presentation.",
       cache:

@@ -80,7 +80,11 @@ function offset(y: ReferenceState, d: ReferenceState, h: number): ReferenceState
   ];
 }
 
-/** Step-doubled RK4 with a relative/absolute local error estimate. */
+/**
+ * Step-doubled RK4 in the regular exterior chart, up to a finite Mino time.
+ * Throws on invalid inputs, coordinate singularities or exhausted work; the
+ * returned residual and a second tolerance run are independent accuracy evidence.
+ */
 export function referenceGeodesic(
   space: Spacetime,
   photon: Photon,
@@ -89,7 +93,24 @@ export function referenceGeodesic(
   end: number,
   tolerance = 1e-11,
 ) {
+  if (
+    !Number.isFinite(end) ||
+    end < 0 ||
+    !Number.isFinite(tolerance) ||
+    tolerance <= 0 ||
+    !Number.isFinite(r) ||
+    !Number.isFinite(theta) ||
+    theta <= 0 ||
+    theta >= Math.PI
+  ) {
+    throw new RangeError(
+      "The Hamiltonian reference requires a finite nonnegative path in its regular chart.",
+    );
+  }
   const delta = r * r - 2 * r + space.spin ** 2 + space.charge ** 2;
+  if (!(delta > 0) || !(r > 1)) {
+    throw new RangeError("The Hamiltonian reference requires an exterior observer.");
+  }
   let state: ReferenceState = [r, theta, 0, 0, photon.radialVelocity / delta, photon.polarVelocity];
   const derivative = (y: ReferenceState) =>
     hamiltonian(space, photon.energy, photon.angularMomentum, y).derivative;

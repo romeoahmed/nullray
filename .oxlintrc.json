@@ -37,8 +37,7 @@
     {
       "files": [
         "*.config.ts",
-        "tests/model/**/*.ts",
-        "tests/physics/**/*.ts",
+        "tests/cpu/**/*.ts",
         "tests/reference/**/*.ts",
         "benchmarks/cpu.bench.ts"
       ],

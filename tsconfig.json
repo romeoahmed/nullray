@@ -2,8 +2,8 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "Preserve",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "@webgpu/types"],
+    "lib": ["ESNext"],
+    "types": [],
     "noEmit": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -17,6 +17,16 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests/gpu", "tests/browser", "benchmarks/*.bench.ts", "*.config.ts"],
-  "exclude": ["src/render/worker", "benchmarks/cpu.bench.ts"]
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.node.json"
+    },
+    {
+      "path": "./src/runtime/worker/tsconfig.json"
+    }
+  ],
+  "files": []
 }

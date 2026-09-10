@@ -1,0 +1,397 @@
+{
+  "schema": 1,
+  "reference": "Binary64 separated orbit integration with converged critical-parameter differences.",
+  "frame": [
+    1280, 720, 0, 0, 18, 1.2000000476837158, 1.2000000476837158, 0, 0.699999988079071,
+    0.20000000298023224, 3.304466962814331, 64, -1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0
+  ],
+  "images": [
+    {
+      "name": "deep",
+      "provenance": {
+        "catalogueLeaf": 4567,
+        "searchCell": [68, 118],
+        "branch": 7,
+        "historicalResidual": 8.152695045282599e-6,
+        "historicalIterations": 8,
+        "origin": "deep-stellar-image.json"
+      },
+      "source": [-0.5777987241744995, -0.7678882479667664, 0.2765795886516571],
+      "spectralCoefficient": 2.5487763011255993e-8,
+      "temperature": 10625.40625,
+      "initialParameters": [1.6777771711349487, -17.188852310180664]
+    },
+    {
+      "name": "polar",
+      "provenance": {
+        "catalogueLeaf": 7691,
+        "searchCell": [69, 75],
+        "branch": 5,
+        "historicalResidual": 0.0008221047464758158,
+        "historicalIterations": 1,
+        "origin": "polar-stellar-image.json"
+      },
+      "source": [0.9223167896270752, -0.22014275193214417, 0.3175986707210541],
+      "spectralCoefficient": 1.398937712338011e-7,
+      "temperature": 6471.66796875,
+      "initialParameters": [1.7021030187606812, -11.463208198547363]
+    },
+    {
+      "name": "precision",
+      "provenance": {
+        "catalogueLeaf": 3606,
+        "searchCell": [251, 125],
+        "branch": 8,
+        "historicalResidual": 1.8142236513085663e-5,
+        "historicalIterations": 8,
+        "origin": "precision-stellar-image.json"
+      },
+      "source": [0.7334203124046326, -0.5692926645278931, -0.3714841902256012],
+      "spectralCoefficient": 2.0651873455790337e-6,
+      "temperature": 5026.087890625,
+      "initialParameters": [6.162575721740723, -18.08505630493164]
+    },
+    {
+      "name": "stalled",
+      "provenance": {
+        "catalogueLeaf": 12154,
+        "searchCell": [254, 114],
+        "branch": 7,
+        "historicalResidual": 5.3864464462094475e-6,
+        "historicalIterations": 5,
+        "origin": "stalled-stellar-image.json"
+      },
+      "source": [-0.1810644268989563, 0.9772412776947021, 0.1105223000049591],
+      "spectralCoefficient": 1.900663448850537e-8,
+      "temperature": 11310.572265625,
+      "initialParameters": [6.253814220428467, -16.596202850341797]
+    },
+    {
+      "name": "arrival",
+      "provenance": {
+        "catalogueLeaf": 3623,
+        "searchCell": [247, 124],
+        "branch": 8,
+        "historicalResidual": 5.206277364777634e-6,
+        "historicalIterations": 5,
+        "failure": "Four-spacing radial arrival termination stalls the rounded source map.",
+        "productionSourceSHA256": "6277453e2ff2dd67f0c184754a523dbc5f1793f17a8a8c626c7e5490eac59f13",
+        "origin": "arrival-stellar-image.json"
+      },
+      "source": [0.811500072479248, -0.4247712790966034, -0.40129417181015015],
+      "spectralCoefficient": 4.0706567006054684e-7,
+      "temperature": 4940.78662109375,
+      "initialParameters": [6.063087463378906, -17.986738204956055]
+    },
+    {
+      "name": "mixed-7026",
+      "source": [0.3007345497608185, -0.8822744488716125, 0.36214715242385864],
+      "spectralCoefficient": 7.370047683252778e-8,
+      "temperature": 8829.580078125,
+      "initialParameters": [0.039041098207235336, -3.1901001930236816],
+      "provenance": {
+        "catalogueLeaf": 7026,
+        "branch": 3,
+        "coarseCell": [1, 13],
+        "coarseCornerBranches": [3, -4, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-14687",
+      "source": [0.02088986337184906, 0.9914352297782898, 0.1289178431034088],
+      "spectralCoefficient": 0.00045523999142460525,
+      "temperature": 3793.506591796875,
+      "initialParameters": [1.5068997144699097, -5.78840446472168],
+      "provenance": {
+        "catalogueLeaf": 14687,
+        "branch": 3,
+        "coarseCell": [61, 33],
+        "coarseCornerBranches": [3, 3, 4, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-6993",
+      "source": [0.18533281981945038, -0.9178647994995117, 0.3509643077850342],
+      "spectralCoefficient": 8.611469297648e-7,
+      "temperature": 6467.00830078125,
+      "initialParameters": [6.101484298706055, -3.271892786026001],
+      "provenance": {
+        "catalogueLeaf": 6993,
+        "branch": 3,
+        "coarseCell": [248, 14],
+        "coarseCornerBranches": [-3, 3, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-6044",
+      "source": [0.09585659950971603, -0.923721432685852, 0.37087762355804443],
+      "spectralCoefficient": 8.108500878734048e-6,
+      "temperature": 4372.48974609375,
+      "initialParameters": [0.11408580839633942, -3.3251938819885254],
+      "provenance": {
+        "catalogueLeaf": 6044,
+        "branch": 3,
+        "coarseCell": [4, 14],
+        "coarseCornerBranches": [3, -4, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-6041",
+      "source": [0.08203496038913727, -0.9238014221191406, 0.37398019433021545],
+      "spectralCoefficient": 9.532990588922985e-6,
+      "temperature": 3657.38720703125,
+      "initialParameters": [0.13825227320194244, -3.334895372390747],
+      "provenance": {
+        "catalogueLeaf": 6041,
+        "branch": 3,
+        "coarseCell": [5, 14],
+        "coarseCornerBranches": [-4, -4, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-12447",
+      "source": [-0.5918723344802856, 0.015937887132167816, 0.8058741092681885],
+      "spectralCoefficient": 1.1294545174678206e-6,
+      "temperature": 9607.5810546875,
+      "initialParameters": [1.0402436256408691, -4.425993919372559],
+      "provenance": {
+        "catalogueLeaf": 12447,
+        "branch": 3,
+        "coarseCell": [42, 22],
+        "coarseCornerBranches": [3, -4, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-5537",
+      "source": [-0.542929470539093, -0.0365971177816391, 0.838980495929718],
+      "spectralCoefficient": 5.45427269571519e-7,
+      "temperature": 9256.1982421875,
+      "initialParameters": [1.0967936515808105, -4.4034037590026855],
+      "provenance": {
+        "catalogueLeaf": 5537,
+        "branch": 3,
+        "coarseCell": [44, 22],
+        "coarseCornerBranches": [-4, -4, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-6037",
+      "source": [0.05372481793165207, -0.9264076948165894, 0.3726692497730255],
+      "spectralCoefficient": 2.237075023003854e-6,
+      "temperature": 3836.113525390625,
+      "initialParameters": [0.1194293200969696, -3.352231740951538],
+      "provenance": {
+        "catalogueLeaf": 6037,
+        "branch": 3,
+        "coarseCell": [4, 14],
+        "coarseCornerBranches": [3, -4, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-5896",
+      "source": [-0.14360521733760834, -0.9095081090927124, 0.39009296894073486],
+      "spectralCoefficient": 9.931675037933019e-8,
+      "temperature": 7945.15185546875,
+      "initialParameters": [0.19205445051193237, -3.4819986820220947],
+      "provenance": {
+        "catalogueLeaf": 5896,
+        "branch": 3,
+        "coarseCell": [7, 15],
+        "coarseCornerBranches": [3, -4, 3, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "mixed-11299",
+      "source": [-0.9987020492553711, 0.040568988770246506, 0.030795268714427948],
+      "spectralCoefficient": 1.658411974858609e-6,
+      "temperature": 6308.36376953125,
+      "initialParameters": [6.158881187438965, -4.394684791564941],
+      "provenance": {
+        "catalogueLeaf": 11299,
+        "branch": 3,
+        "coarseCell": [250, 22],
+        "coarseCornerBranches": [3, 3, 4, 3],
+        "origin": "mixed-stellar-images.json",
+        "sourceSHA256": "859e11bb5eacfa879d4a80d3ff93941bd1cc35de658d2ea16dde997f647315c1"
+      }
+    },
+    {
+      "name": "source-11890",
+      "source": [-0.10331528633832932, 0.9690272212028503, -0.22430375218391418],
+      "spectralCoefficient": 2.4405419907225223e-8,
+      "temperature": 11184.3671875,
+      "initialParameters": [6.067882061004639, -12.862030982971191],
+      "provenance": {
+        "catalogueLeaf": 11890,
+        "branch": 6,
+        "searchCell": [247, 86],
+        "historicalResidual": 5.665883236360969e-6,
+        "historicalIterations": 4,
+        "origin": "stalled-source-images.json",
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6"
+      }
+    },
+    {
+      "name": "source-2083",
+      "source": [-0.9152781963348389, -0.04422033950686455, -0.4003877639770508],
+      "spectralCoefficient": 7.127020751340751e-8,
+      "temperature": 9487.19921875,
+      "initialParameters": [6.064874649047852, -11.968718528747559],
+      "provenance": {
+        "catalogueLeaf": 2083,
+        "branch": 6,
+        "searchCell": [247, 79],
+        "historicalResidual": 7.264332452905364e-6,
+        "historicalIterations": 4,
+        "origin": "stalled-source-images.json",
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6"
+      }
+    },
+    {
+      "name": "source-16282",
+      "source": [0.11463545262813568, 0.9408424496650696, 0.3188639283180237],
+      "spectralCoefficient": 5.666623837896623e-5,
+      "temperature": 3108.3642578125,
+      "initialParameters": [0.6859481334686279, -16.85657501220703],
+      "provenance": {
+        "catalogueLeaf": 16282,
+        "branch": 7,
+        "searchCell": [27, 116],
+        "historicalResidual": 8.407156201428734e-6,
+        "historicalIterations": 4,
+        "origin": "stalled-source-images.json",
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6"
+      }
+    },
+    {
+      "name": "source-17001",
+      "source": [0.7818521857261658, 0.37147629261016846, 0.5007120370864868],
+      "spectralCoefficient": 7.563480153294222e-7,
+      "temperature": 4707.009765625,
+      "initialParameters": [0.45643484592437744, -9.819538116455078],
+      "provenance": {
+        "catalogueLeaf": 17001,
+        "branch": 5,
+        "searchCell": [18, 63],
+        "historicalResidual": 5.380711172620067e-6,
+        "historicalIterations": 3,
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6",
+        "origin": "stalled-source-images.json"
+      }
+    },
+    {
+      "name": "source-2190",
+      "source": [-0.9509261846542358, -0.13394276797771454, -0.27892419695854187],
+      "spectralCoefficient": 5.867516961188812e-7,
+      "temperature": 6944.79345703125,
+      "initialParameters": [0.66754150390625, -8.07700252532959],
+      "provenance": {
+        "catalogueLeaf": 2190,
+        "branch": 4,
+        "searchCell": [27, 50],
+        "historicalResidual": 5.463207344291732e-6,
+        "historicalIterations": 3,
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6",
+        "origin": "stalled-source-images.json"
+      }
+    },
+    {
+      "name": "source-11626",
+      "source": [-0.7447373270988464, 0.6368759274482727, 0.1993875354528427],
+      "spectralCoefficient": 3.392685243852611e-8,
+      "temperature": 9076.2568359375,
+      "initialParameters": [6.181429862976074, -16.18819236755371],
+      "provenance": {
+        "catalogueLeaf": 11626,
+        "branch": 7,
+        "searchCell": [251, 111],
+        "historicalResidual": 5.454614438349381e-6,
+        "historicalIterations": 5,
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6",
+        "origin": "stalled-source-images.json"
+      }
+    },
+    {
+      "name": "source-13676",
+      "source": [-0.021655548363924026, 0.7056443095207214, -0.7082352042198181],
+      "spectralCoefficient": 7.076728820720746e-7,
+      "temperature": 4384.666015625,
+      "initialParameters": [0.8472625613212585, -13.056702613830566],
+      "provenance": {
+        "catalogueLeaf": 13676,
+        "branch": 6,
+        "searchCell": [34, 87],
+        "historicalResidual": 6.395462605723878e-6,
+        "historicalIterations": 3,
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6",
+        "origin": "stalled-source-images.json"
+      }
+    },
+    {
+      "name": "source-13002",
+      "source": [-0.6523882746696472, 0.49366462230682373, 0.5750519633293152],
+      "spectralCoefficient": 5.397053428168874e-6,
+      "temperature": 3729.955322265625,
+      "initialParameters": [0.9499505162239075, -16.4041748046875],
+      "provenance": {
+        "catalogueLeaf": 13002,
+        "branch": 7,
+        "searchCell": [38, 112],
+        "historicalResidual": 5.346077614376554e-6,
+        "historicalIterations": 3,
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6",
+        "origin": "stalled-source-images.json"
+      }
+    },
+    {
+      "name": "source-12069",
+      "source": [-0.4069019854068756, 0.9077439308166504, 0.10213577747344971],
+      "spectralCoefficient": 2.545082793403708e-7,
+      "temperature": 5959.7236328125,
+      "initialParameters": [1.0616790056228638, -17.004440307617188],
+      "provenance": {
+        "catalogueLeaf": 12069,
+        "branch": 7,
+        "searchCell": [43, 117],
+        "historicalResidual": 7.537950750702294e-6,
+        "historicalIterations": 3,
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6",
+        "origin": "stalled-source-images.json"
+      }
+    },
+    {
+      "name": "source-12938",
+      "source": [-0.40069589018821716, 0.8644444346427917, 0.30360934138298035],
+      "spectralCoefficient": 9.050427252077498e-6,
+      "temperature": 3626.9794921875,
+      "initialParameters": [0.9749358296394348, -16.79335594177246],
+      "provenance": {
+        "catalogueLeaf": 12938,
+        "branch": 7,
+        "searchCell": [39, 115],
+        "historicalResidual": 5.006691935705021e-6,
+        "historicalIterations": 4,
+        "sourceSHA256": "e5728c338f5471e6b32e71b009bc731983460bf8cef5d381d51158ce9473f5d6",
+        "origin": "stalled-source-images.json"
+      }
+    }
+  ]
+}

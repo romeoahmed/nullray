@@ -1,4 +1,5 @@
 {
+  "schema": 1,
   "provenance": "September 9, 2026 production GPU benchmark, centered scalar screen formula versus camera-basis screen formula. Both use the same centered orthonormal frame and input scene. These are observed coverage changes, not accuracy reference values.",
   "adapter": {
     "vendor": "apple",
@@ -56,5 +57,8 @@
       "cameraResolvedFraction": 0.875
     }
   ],
-  "remainingWork": "Isolate the affected quarter-pixel companion rays and compare their derivatives with converged binary64 references; do not treat either GPU acceptance pattern as an oracle."
+  "frame": [
+    1280, 720, 0, 0, 18, 1.2, 1.2, 0, 0.7, 0.2, 3.304466962814331, 64, -1, 0, 0, 0, 0, -1, 0, 0, 0,
+    0, 1, 0
+  ]
 }

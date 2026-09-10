@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { cpus, release } from "node:os";
-import { createScene, initialScene } from "../src/model/scene.ts";
+import { createScene, initialScene } from "../src/scene/scene.ts";
 import { createDiskProfile } from "../src/physics/disk.ts";
 import { createSkyMap, createStars } from "../src/physics/sky.ts";
 import { createStarTree } from "../src/physics/stars.ts";
@@ -53,7 +53,7 @@ test.for(workloads)("$name preparation", async (workload, { bench, annotate }) =
   }
   const outputSHA256 = createHash("sha256").update(serialized).digest("hex");
   const hash = createHash("sha256");
-  for (const directory of ["model", "physics", "data"]) {
+  for (const directory of ["scene", "physics", "data"]) {
     const url = new URL(`../src/${directory}/`, import.meta.url);
     for (const file of readdirSync(url)
       .filter((name) => name.endsWith(".ts"))
@@ -64,6 +64,7 @@ test.for(workloads)("$name preparation", async (workload, { bench, annotate }) =
   }
   const body = JSON.stringify(
     {
+      schema: 1,
       workload: workload.name,
       outputSHA256,
       sourceSHA256: hash.digest("hex"),

@@ -6,7 +6,7 @@ Nullray is a TypeScript + native WebGPU/WGSL black-hole renderer. The intended c
 
 Start at [docs/README.md](docs/README.md). Read [physics](docs/physics.md) and [numerics](docs/numerics.md) before changing optical calculations; read [architecture](docs/architecture.md), [tooling](docs/tooling.md), and [validation](docs/validation.md) for implementation work.
 
-The source is an optical prototype. `model/` and `physics/` own pure inputs and preparation; `render/` owns GPU execution in a dedicated worker; `explorer/` owns browser interaction. Binary64 trajectory references live in `tests/reference/`, outside production. Check the coverage ledger before making status claims.
+The source is an optical prototype. `src/scene/` and `src/physics/` own pure inputs and preparation; `src/gpu/` owns GPU execution; `src/runtime/` owns the worker boundary; `src/ui/` owns browser interaction. Binary64 trajectory references live in `tests/reference/`, outside production. Check the coverage ledger before making status claims.
 
 ## Commands
 
@@ -19,7 +19,7 @@ pnpm build
 pnpm preview
 ```
 
-The build runs `pnpm check` and Vite. `pnpm test` runs CPU tests, `pnpm test:gpu` executes WGSL, and `pnpm test:ui` checks browser/worker interaction. Benchmarks use `pnpm bench` and `pnpm bench:gpu`. For documentation-only changes:
+The build runs `pnpm check` and Vite. `pnpm test` runs CPU tests, `pnpm test:gpu` executes WGSL, and `pnpm test:ui` checks browser/worker interaction. The GPU suite includes the strict critical endpoint, derivative, and stellar-flux gates; report any failures explicitly. Benchmarks use `pnpm bench` and `pnpm bench:gpu`. For documentation-only changes:
 
 ```sh
 pnpm exec oxfmt --check docs AGENTS.md

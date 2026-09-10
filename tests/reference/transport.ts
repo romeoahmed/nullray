@@ -28,8 +28,10 @@ const failure = (reason: "arithmetic-domain" | "budget-exhausted"): Transport =>
 
 /**
  * Integrate separated azimuth/time rates along an analytic exterior segment.
- * Adaptive Simpson quadrature is a candidate transport implementation, not a
- * second geodesic integrator. The returned time is relative to the observer.
+ * Adaptive Simpson quadrature uses a different sampling and polar residual
+ * from production Gauss quadrature. It shares the separated equations, so
+ * finite-path Hamiltonian checks supply the additional method independence.
+ * The returned time is relative to the observer.
  * Disable time at the sky endpoint, where absolute coordinate time diverges.
  * Positive-C polar motion removes the axis singularity analytically. Other
  * Carter branches currently retain direct, coordinate-regular quadrature.
@@ -208,5 +210,11 @@ export function integrateTransport(
       );
     }
   }
-  return { kind: "resolved", azimuth, coordinateTime, errorEstimate, evaluations };
+  return {
+    kind: "resolved",
+    azimuth,
+    coordinateTime,
+    errorEstimate,
+    evaluations,
+  };
 }

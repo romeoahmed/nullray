@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="oklch(9% 0.01 270)" />
     <meta
       name="description"
@@ -12,13 +12,13 @@
     <title>Nullray — Light in curved space</title>
   </head>
   <body>
-    <div id="app">
+    <main id="app">
       <canvas aria-label="Black hole view" aria-describedby="navigation-hint" tabindex="0"></canvas>
       <header class="masthead">
         <div class="wordmark">
           <span class="orbit-mark" aria-hidden="true"></span>
           <div>
-            <strong>NULLRAY</strong>
+            <h1>NULLRAY</h1>
             <p>Light in curved space</p>
           </div>
         </div>
@@ -26,17 +26,15 @@
           <button type="button" class="quiet" popovertarget="about" aria-label="About the model">
             About
           </button>
-          <button id="toggle-controls" type="button" popovertarget="controls">
-            Settings <span aria-hidden="true">☷</span>
-          </button>
+          <button id="toggle-controls" type="button" popovertarget="controls">Settings</button>
         </div>
       </header>
 
       <section id="controls" class="panel settings" popover="auto" aria-label="Scene settings">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">OBSERVATORY</p>
-            <h1>Light &amp; gravity</h1>
+            <p class="eyebrow">SCENE SETTINGS</p>
+            <h2>Light &amp; gravity</h2>
           </div>
           <button
             type="button"
@@ -50,16 +48,30 @@
           <div id="settings-feedback" class="feedback-slot"></div>
         </div>
         <fieldset class="controls-grid">
-          <legend class="visually-hidden">Spacetime and exposure</legend>
+          <legend class="visually-hidden">Black hole and exposure</legend>
           <div class="control">
             <label for="spin">Spin</label><output id="spin-value" for="spin"></output
-            ><input id="spin" type="range" min="-0.99" max="0.99" step="0.01" />
+            ><input
+              id="spin"
+              type="range"
+              min="-0.99"
+              max="0.99"
+              step="0.01"
+              aria-describedby="spacetime-hint"
+            />
           </div>
           <div class="control">
             <label for="charge">Charge</label><output id="charge-value" for="charge"></output
-            ><input id="charge" type="range" min="-0.99" max="0.99" step="0.01" />
+            ><input
+              id="charge"
+              type="range"
+              min="-0.99"
+              max="0.99"
+              step="0.01"
+              aria-describedby="spacetime-hint"
+            />
           </div>
-          <p class="hint">Spin and charge share a limit: a² + q² &lt; 1.</p>
+          <p id="spacetime-hint" class="hint">Spin and charge share one limit: a² + q² &lt; 1.</p>
           <div class="control">
             <label for="exposure">Exposure</label
             ><output id="exposure-value" for="exposure"></output
@@ -85,15 +97,22 @@
             <div class="control">
               <label for="distance">Distance</label
               ><output id="distance-value" for="distance"></output
-              ><input id="distance" type="range" min="2.1" max="200" step="0.1" />
+              ><input
+                id="distance"
+                type="range"
+                min="2.1"
+                max="200"
+                step="0.1"
+                aria-describedby="distance-hint"
+              />
             </div>
             <div class="control">
               <label for="fov">Field of view</label><output id="fov-value" for="fov"></output
               ><input id="fov" type="range" min="15" max="120" step="1" />
             </div>
-            <p class="hint">
-              Distance is in gravitational radii, rɢ = GM/c². Navigation changes a stationary
-              observer's placement.
+            <p id="distance-hint" class="hint">
+              Distance is measured in gravitational radii, rɢ = GM/c². The camera represents a
+              stationary observer at each position.
             </p>
           </fieldset>
         </details>
@@ -109,16 +128,23 @@
             <div class="control">
               <label for="disk-structure">Disk structure</label
               ><output id="disk-structure-value" for="disk-structure"></output
-              ><input id="disk-structure" type="range" min="0" max="1" step="0.01" />
+              ><input
+                id="disk-structure"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                aria-describedby="emission-hint"
+              />
             </div>
             <div class="control">
               <label for="sky-brightness">Sky brightness</label
               ><output id="sky-brightness-value" for="sky-brightness"></output
               ><input id="sky-brightness" type="range" min="0" max="8" step="0.05" />
             </div>
-            <p class="hint">
-              Temperature sets the peak of a prescribed thin-disk profile. Structure is an animated
-              emission model.
+            <p id="emission-hint" class="hint">
+              Temperature sets the disk's thermal peak. Structure adds prescribed, orbiting
+              variations in emission.
             </p>
           </fieldset>
         </details>
@@ -138,7 +164,7 @@
                 <option value="0.5">50% · Faster</option>
               </select>
             </div>
-            <p class="hint">Photographs always refine at full resolution.</p>
+            <p class="hint">Photographs use full resolution and freeze the emission time.</p>
             <div class="control">
               <label for="display-mode">Display</label
               ><select id="display-mode">
@@ -148,6 +174,26 @@
               </select>
             </div>
             <p id="display-status" class="hint"></p>
+          </fieldset>
+        </details>
+        <details name="settings-section">
+          <summary>Audio <span>Local soundtrack</span></summary>
+          <fieldset class="controls-grid">
+            <legend class="visually-hidden">Audio</legend>
+            <div class="control">
+              <label for="audio-file">Audio file</label>
+              <input id="audio-file" type="file" accept="audio/*" />
+            </div>
+            <div class="button-row">
+              <button id="audio-play" type="button" disabled>Play audio</button>
+              <button id="audio-clear" type="button" disabled>Clear audio</button>
+            </div>
+            <div class="control">
+              <label for="audio-volume">Volume</label>
+              <output id="audio-volume-value" for="audio-volume">50%</output>
+              <input id="audio-volume" type="range" min="0" max="1" step="0.01" value="0.5" />
+            </div>
+            <p id="audio-status" class="hint" role="status">Choose a file for local playback.</p>
           </fieldset>
         </details>
         <details name="settings-section">
@@ -212,19 +258,32 @@
       </section>
 
       <section id="about" class="panel about" popover="auto" aria-label="About the model">
-        <p class="eyebrow">NULLRAY</p>
-        <h2>Follow the light.</h2>
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">THE MODEL</p>
+            <h2>Follow the light.</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            popovertarget="about"
+            popovertargetaction="hide"
+            aria-label="Close about"
+          >
+            ×
+          </button>
+        </div>
         <p>
-          Vacuum light paths in a Kerr–Newman spacetime, an opaque thermal disk, and a fixed distant
-          sky.
+          Light around a rotating, charged black hole, with an opaque thermal disk and a fixed
+          distant sky. The geometry follows the Kerr–Newman model.
         </p>
         <p>
-          The dark shadow and repeated disk images come from the traced paths. Disk structure and
-          brightness are prescribed appearance choices.
+          Relativistic light paths shape the shadow and repeated disk images. The disk's texture and
+          brightness are prescribed; this is not a plasma simulation.
         </p>
         <p class="hint">
-          Optical prototype. Critical-ray precision and complete stellar-image filtering remain
-          limited. Pink marks unresolved sampling.
+          Optical prototype. Pink marks unresolved rays. Finite sampling can still miss fine arcs
+          and stellar images, including where no pink is visible.
         </p>
         <hr />
         <p class="section-label">At the canvas</p>
@@ -293,7 +352,7 @@
             ×
           </button>
         </header>
-        <p>Open this link to restore the scene, light, and frozen emission time.</p>
+        <p>Restore this camera, scene, and light at the same frozen emission time.</p>
         <label for="view-link">Link</label
         ><input id="view-link" type="text" readonly spellcheck="false" autofocus />
         <div class="dialog-actions">
@@ -301,7 +360,7 @@
           <button id="copy-view" type="button" class="primary">Copy link</button>
         </div>
       </dialog>
-    </div>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

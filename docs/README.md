@@ -2,7 +2,7 @@
 
 Nullray is a TypeScript and native WebGPU/WGSL black-hole renderer. It combines semi-analytic Kerr–Newman light paths, a neutral thermal thin disk, spectral stars and diffuse sky, and interactive camera and photographic controls.
 
-**Current status: optical prototype.** The application renders on a dedicated worker, supports orbit/free exploration, source and display controls, native-resolution photography, presets, view links, and local bookmarks. CPU references and real browser GPU tests exercise the model. Critical primary-ray precision and complete nonlinear stellar-image filtering remain unresolved; a passing suite is not a released support-domain claim.
+**Current status: optical prototype.** The application renders on a dedicated worker, supports orbit/free exploration, source and display controls, native-resolution photography, presets, strict version-1 view links, local bookmarks, and optional local audio. CPU references and real browser GPU tests exercise the model. The retained critical-ray and high-order stellar-image gates pass. Broader precision coverage and complete nonlinear stellar filtering remain unresolved; a passing suite is not a released support-domain claim.
 
 ## Read the model
 

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { RenderEvent, RenderRequest } from "../../src/render/protocol.ts";
-import { initialSession } from "../../src/model/session.ts";
+import type { RenderEvent, RenderRequest } from "../../src/runtime/protocol.ts";
+import { initialSession } from "../../src/scene/session.ts";
 
 test("retry releases a superseded initializer before reusing its canvas context", async ({
   onTestFinished,
@@ -9,7 +9,7 @@ test("retry releases a superseded initializer before reusing its canvas context"
   canvas.width = 64;
   canvas.height = 48;
   document.body.append(canvas);
-  const worker = new Worker(new URL("../../src/render/worker/main.ts", import.meta.url), {
+  const worker = new Worker(new URL("../../src/runtime/worker/main.ts", import.meta.url), {
     type: "module",
   });
   onTestFinished(() => {

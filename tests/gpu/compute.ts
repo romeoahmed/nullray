@@ -1,8 +1,55 @@
-import { compileShader, requestDevice } from "../../src/render/device.ts";
+import { observerFrameBytes, writeObserverFrame } from "../../src/gpu/observer.ts";
+import { compileShader, requestDevice } from "../../src/gpu/device.ts";
+import { test as baseTest } from "vitest";
+
+/** Native lazy fixture: every requesting test owns a real, independently disposed device. */
+export const test = baseTest.extend("device", async ({ task }, { onCleanup }) => {
+  const device = await requestDevice();
+  device.label = task.name;
+  onCleanup(() => device.destroy());
+  return device;
+});
+
+/** Read an owned copy of a floating-point RGBA texture, including padded and one-pixel rows. */
+export async function readPixels(device: GPUDevice, texture: GPUTexture): Promise<Float32Array> {
+  if (texture.format !== "rgba16float" && texture.format !== "rgba32float") {
+    throw new Error(`Unsupported reference readback format: ${texture.format}`);
+  }
+  const bytes = texture.format === "rgba16float" ? 2 : 4;
+  const stride = Math.ceil((texture.width * 4 * bytes) / 256) * 256;
+  using owned = new DisposableStack();
+  const staging = owned.adopt(
+    device.createBuffer({
+      size: stride * texture.height,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    }),
+    (value) => value.destroy(),
+  );
+  const encoder = device.createCommandEncoder();
+  encoder.copyTextureToBuffer({ texture }, { buffer: staging, bytesPerRow: stride }, [
+    texture.width,
+    texture.height,
+  ]);
+  device.queue.submit([encoder.finish()]);
+  await staging.mapAsync(GPUMapMode.READ);
+  const data =
+    bytes === 2
+      ? new Float16Array(staging.getMappedRange())
+      : new Float32Array(staging.getMappedRange());
+  const result = new Float32Array(texture.width * texture.height * 4);
+  for (let y = 0; y < texture.height; y++) {
+    result.set(
+      data.subarray((y * stride) / bytes, (y * stride) / bytes + texture.width * 4),
+      y * texture.width * 4,
+    );
+  }
+  staging.unmap();
+  return result;
+}
 
 /**
  * Execute a storage-buffer kernel and return an owned copy of its f32 output.
- * Input/output occupy bindings 0/1; extra inputs follow from binding 2.
+ * Uniform or storage input/output occupy bindings 0/1; extra storage inputs follow from binding 2.
  * Each call owns a real device, and both success and failure release its buffers.
  */
 export async function computeReadback(
@@ -11,6 +58,7 @@ export async function computeReadback(
   outputFloats: number,
   workgroups: number,
   extraInputs: readonly Float32Array[] = [],
+  entryPoint?: string,
 ): Promise<Float32Array> {
   const device = await requestDevice();
   device.pushErrorScope("validation");
@@ -21,10 +69,13 @@ export async function computeReadback(
   const module = await compileShader(device, source, "compute-reference-test");
   const pipeline = await device.createComputePipelineAsync({
     layout: "auto",
-    compute: { module },
+    compute: entryPoint ? { module, entryPoint } : { module },
   });
   const size = outputFloats * Float32Array.BYTES_PER_ELEMENT;
-  const input = buffer(inputData.byteLength, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+  const input = buffer(
+    inputData.byteLength,
+    GPUBufferUsage.STORAGE | GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  );
   const output = buffer(size, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
   const staging = buffer(size, GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST);
   device.queue.writeBuffer(input, 0, inputData);
@@ -57,4 +108,11 @@ export async function computeReadback(
     throw new Error(`GPU reference execution failed: ${validation.message}`);
   }
   return result;
+}
+
+/** Pack the production observer layout for a quantized test frame. */
+export function observerData(frame: Float32Array): Float64Array {
+  const data = new Float64Array(observerFrameBytes / 8);
+  writeObserverFrame(frame, data);
+  return data;
 }

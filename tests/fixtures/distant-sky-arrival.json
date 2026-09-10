@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "origin": "Deterministic 640 by 360 production frame, row-major first stage-15 sky failure at radius 200. No random seed.",
+  "sourceCommit": "b8f4a01ee4aa2541e932a9133002620d4d16f92f",
+  "runtime": "Apple M5, Metal-3, Chromium 153, September 9 2026",
+  "scene": {
+    "spin": 0.7,
+    "charge": 0.2,
+    "radius": 200,
+    "inclination": 1.2,
+    "azimuth": 0,
+    "fieldOfView": 1.0471975511965976,
+    "forward": [-1, 0, 0],
+    "up": [0, -1, 0]
+  },
+  "width": 640,
+  "height": 360,
+  "pixel": [209, 0],
+  "before": [15, 0.023033805191516876, 0.023034244775772095, -2],
+  "beforeStage15Count": 9330,
+  "reason": "An absolute unit floor in the Mino arrival bracket stopping test left ordinary far-sky paths above the angular uncertainty threshold. The test compares the repaired sky direction with the binary64 quadrature reference on quantized inputs. Critical-ray acceptance is unchanged.",
+  "halfPeriodCancellation": {
+    "pixel": [300, 140],
+    "before": [15, 0, 0, -2],
+    "origin": "First radius-200 stage-15 failure after the precision selector widened to 4%; same deterministic frame and runtime.",
+    "reason": "The Abel addition identity underestimated cancellation by using the rounded H magnitude instead of its original term magnitudes. The local half-period seed remains subject to forward-path bracketing."
+  },
+  "precisionSelection": {
+    "pixel": [103, 56],
+    "fieldOfView": 1.0808390005411683,
+    "before": [16, 0, 0, -2],
+    "beforeSourceSHA256": "040774dd2d35d77ca51377c7c97f70f591d347adc353a4a6c8a21957ef16da21",
+    "reason": "The positive-g3, small-modulus ray was unnecessarily selected for integer preparation; the prior path reported a sky/equator boundary tie. Native preparation resolves the independently checked sky branch within the unchanged direction target."
+  }
+}

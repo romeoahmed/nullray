@@ -1,0 +1,273 @@
+{
+  "schema": 1,
+  "description": "Open photographic boundary cases from the complete 64-sample production sequence. Observations document failures, not golden acceptance values. A zero coverage count would not prove point-source completeness.",
+  "provenance": {
+    "sourceSHA256": "1889e7142ae3a455093166200f403ecfef5b98e152e6bb0b7249ce5537cdd82e",
+    "date": "2026-09-10",
+    "method": "Production image alpha identifies affected pixels; all 16 quarter samples are retraced with selected and forced integer preparation. Endpoint references use quantized-frame binary64 separated orbits and independently converged Simpson transport.",
+    "sampling": "Halton base 2/3, indices 0 through 63; explicit quarter-pixel coordinates include their offset, and jitter is separately quantized to f32 by the launch."
+  },
+  "scene": {
+    "space": {
+      "spin": 0.7,
+      "charge": 0.2
+    },
+    "observer": {
+      "radius": 30,
+      "inclination": 1.2,
+      "fieldOfView": 1.0471975511965976,
+      "azimuth": 0
+    }
+  },
+  "frame": [
+    1388, 1674, 0, 0, 30, 1.2000000476837158, 1.154700517654419, 0, 0.699999988079071,
+    0.20000000298023224, 3.304466962814331, 64, -1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0
+  ],
+  "time": 0,
+  "samples": 64,
+  "cases": [
+    {
+      "sample": 0,
+      "pixel": [754.625, 592.375],
+      "jitter": [0, -0.16666666666666669],
+      "reference": {
+        "kind": "sky",
+        "direction": [-0.11930463603559008, 0.9689169775624256, 0.21671708380215385],
+        "energy": 0.9660581692262475,
+        "tag": 3
+      },
+      "observed": {
+        "selectedTag": 3,
+        "integerPreparedTag": 3,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 0,
+      "pixel": [751.375, 593.125],
+      "jitter": [0, -0.16666666666666669],
+      "reference": {
+        "kind": "captured"
+      },
+      "observed": {
+        "selectedTag": -2,
+        "integerPreparedTag": -2,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 0,
+      "pixel": [770.375, 593.375],
+      "jitter": [0, -0.16666666666666669],
+      "reference": {
+        "kind": "disk",
+        "radius": 3.311335204446276,
+        "azimuth": 2.729826275862158,
+        "frequency": 0.4371617150425157,
+        "delay": -42.475786640322156,
+        "tag": -3
+      },
+      "observed": {
+        "selectedTag": -2,
+        "integerPreparedTag": -2,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 0,
+      "pixel": [614.125, 628.375],
+      "jitter": [0, -0.16666666666666669],
+      "reference": {
+        "kind": "sky",
+        "direction": [0.8461839292473657, -0.5328909436970468, 3.0265543243257476e-6],
+        "energy": 0.9661967139566334,
+        "tag": 3
+      },
+      "observed": {
+        "selectedTag": 3,
+        "integerPreparedTag": 3,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 1
+      }
+    },
+    {
+      "sample": 0,
+      "pixel": [561.375, 703.625],
+      "jitter": [0, -0.16666666666666669],
+      "reference": {
+        "kind": "sky",
+        "direction": [-0.864381926236611, -0.3173635215604286, -0.39003112796064027],
+        "energy": 0.966249244595614,
+        "tag": 4
+      },
+      "observed": {
+        "selectedTag": 4,
+        "integerPreparedTag": 4,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 4,
+      "pixel": [942.875, 95.625],
+      "jitter": [0.125, 0.2777777777777777],
+      "reference": {
+        "kind": "disk",
+        "radius": 63.99986860760198,
+        "azimuth": 3.0028956008878005,
+        "frequency": 1.0022531958284364,
+        "delay": -99.5085085378391,
+        "tag": -3
+      },
+      "observed": {
+        "selectedTag": 2,
+        "integerPreparedTag": -3,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 5,
+      "pixel": [81.875, 239.625],
+      "jitter": [-0.125, -0.2777777777777778],
+      "reference": {
+        "kind": "sky",
+        "direction": [-0.9680954329387198, -0.17068989118574424, -0.1834562448383577],
+        "energy": 0.966644788977224,
+        "tag": 2
+      },
+      "observed": {
+        "selectedTag": 2,
+        "integerPreparedTag": 2,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 1
+      }
+    },
+    {
+      "sample": 5,
+      "pixel": [628.125, 619.125],
+      "jitter": [-0.125, -0.2777777777777778],
+      "reference": {
+        "kind": "sky",
+        "direction": [0.8409429041667327, -0.5411238600649164, 2.5727629021643494e-7],
+        "energy": 0.966182983420679,
+        "tag": 3
+      },
+      "observed": {
+        "selectedTag": -2,
+        "integerPreparedTag": -2,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 12,
+      "pixel": [581.875, 674.875],
+      "jitter": [0.1875, -0.018518518518518545],
+      "reference": {
+        "kind": "sky",
+        "direction": [0.6640718205791049, -0.2699355960283519, 0.6972398375807076],
+        "energy": 0.9662286599717073,
+        "tag": 5
+      },
+      "observed": {
+        "selectedTag": 5,
+        "integerPreparedTag": 5,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 13,
+      "pixel": [438.375, 117.625],
+      "jitter": [-0.0625, 0.31481481481481466],
+      "reference": {
+        "kind": "disk",
+        "radius": 63.99989824970182,
+        "azimuth": -3.030274628009711,
+        "frequency": 1.0193222686711523,
+        "delay": -99.47953015705679,
+        "tag": -3
+      },
+      "observed": {
+        "selectedTag": 2,
+        "integerPreparedTag": 2,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 1
+      }
+    },
+    {
+      "sample": 26,
+      "pixel": [219.625, 187.625],
+      "jitter": [0.34375, -0.4876543209876543],
+      "reference": {
+        "kind": "sky",
+        "direction": [-0.9744312662097067, -0.10906177336863616, -0.19644143407803788],
+        "energy": 0.9665320919509266,
+        "tag": 2
+      },
+      "observed": {
+        "selectedTag": 2,
+        "integerPreparedTag": -3,
+        "selectedBeamValid": 1,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 33,
+      "pixel": [595.125, 643.625],
+      "jitter": [-0.234375, 0.06790123456790131],
+      "reference": {
+        "kind": "sky",
+        "direction": [0.8556536168049744, -0.517548923337509, -8.666754046648961e-7],
+        "energy": 0.9662157700357298,
+        "tag": 2
+      },
+      "observed": {
+        "selectedTag": -2,
+        "integerPreparedTag": 2,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 1
+      }
+    },
+    {
+      "sample": 49,
+      "pixel": [880.625, 86.625],
+      "jitter": [-0.203125, 0.36419753086419737],
+      "reference": {
+        "kind": "sky",
+        "direction": [-0.9735199223820442, 0.05354266274667372, -0.2222434340790625],
+        "energy": 0.9659535267082562,
+        "tag": 2
+      },
+      "observed": {
+        "selectedTag": 2,
+        "integerPreparedTag": -3,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 0
+      }
+    },
+    {
+      "sample": 59,
+      "pixel": [1088.875, 128.625],
+      "jitter": [-0.265625, -0.25308641975308643],
+      "reference": {
+        "kind": "disk",
+        "radius": 63.99990283101254,
+        "azimuth": 2.9257479159517494,
+        "frequency": 0.9975580591768777,
+        "delay": -99.0715466044132,
+        "tag": -3
+      },
+      "observed": {
+        "selectedTag": -3,
+        "integerPreparedTag": 2,
+        "selectedBeamValid": 0,
+        "integerPreparedBeamValid": 1
+      }
+    }
+  ]
+}
