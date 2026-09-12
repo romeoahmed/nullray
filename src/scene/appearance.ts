@@ -8,19 +8,24 @@ export interface SourceAppearance {
   readonly [validated]: true;
   /** Peak effective temperature of the unmodulated radial disk profile, in kelvin. */
   readonly diskTemperature: number;
-  /** Fraction of the prescribed spatial and temporal emissivity variation. */
+  /** Strength in [0, 1] of prescribed density, corrugation, and thermal variation. */
   readonly diskStructure: number;
-  /** Peak unperturbed vertical scale height H/r; zero selects the equatorial surface limit. */
+  /** Peak unperturbed coordinate scale height H/r; zero selects a separate opaque surface model. */
   readonly diskThickness: number;
-  /** Peak vertical gray optical depth before radial taper and turbulent modulation. */
+  /** Peak of the normalized radial coordinate-column optical depth before density modulation. */
   readonly diskOpticalDepth: number;
-  /** Relative source luminosity in exterior universes other than the original illuminated domain. */
+  /** Luminosity scale for other stationary source domains; leaves their disk extinction intact. */
   readonly otherUniverses: number;
   /** Linear multiplier shared by point stars and diffuse sky radiation. */
   readonly skyBrightness: number;
 }
 
-/** Validate and quantize source inputs once, before spectral preparation or persistence. */
+/**
+ * Validate source controls and quantize accepted values to f32 once.
+ *
+ * @returns A complete appearance record or a range/type error. A positive
+ * volume thickness must remain positive after quantization; zero explicitly selects the surface model.
+ */
 export function createAppearance(input: unknown): Result<SourceAppearance> {
   if (!record(input)) {
     return { ok: false, error: "Invalid source appearance." };
@@ -60,12 +65,12 @@ export function createAppearance(input: unknown): Result<SourceAppearance> {
 }
 
 const initial = createAppearance({
-  diskTemperature: 2800,
+  diskTemperature: 3000,
   diskStructure: 1,
-  diskThickness: 0.022,
-  diskOpticalDepth: 1.8,
+  diskThickness: 0.018,
+  diskOpticalDepth: 1.2,
   otherUniverses: 0,
-  skyBrightness: 0.035,
+  skyBrightness: 0.003,
 });
 if (!initial.ok) {
   throw new Error(initial.error);

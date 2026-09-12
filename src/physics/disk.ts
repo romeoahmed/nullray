@@ -1,7 +1,13 @@
 import { circularOrbit } from "./spacetime.ts";
 import type { Spacetime } from "./spacetime.ts";
 
-/** Logarithmic radial samples of the zero-torque Page–Thorne flux, for unit accretion rate. */
+/**
+ * Log-radius samples of unit-accretion-rate, zero-inner-torque disk flux.
+ *
+ * @remarks
+ * Radii are in M. The profile owns its flux and temperature arrays; readonly
+ * properties do not make their elements immutable. Both arrays include the edges.
+ */
 export interface DiskProfile {
   readonly inner: number;
   readonly outer: number;
@@ -13,8 +19,11 @@ export interface DiskProfile {
 }
 
 /**
- * Normalize the tapered inverse-square vertical column to unit peak.
- * Radii are finite and positive, with outer > inner; this is a source prescription.
+ * Normalize the tapered inverse-square coordinate-height column to unit peak.
+ *
+ * @param inner - Positive finite inner radius in M.
+ * @param outer - Finite outer radius in M, strictly larger than `inner`.
+ * @throws RangeError - If the radial interval is invalid.
  */
 export function diskColumnNormalization(inner: number, outer: number): number {
   if (!(inner > 0 && outer > inner) || !Number.isFinite(outer)) {
@@ -54,13 +63,18 @@ function orbitGradient(space: Spacetime, r: number) {
 }
 
 /**
- * Integrate the stationary, axisymmetric thin-disk conservation law with zero inner torque.
- * @param space - Spacetime with a supported neutral circular emitter of orientation +1.
- * @param inner - Inner edge on the stable exterior orbit branch, in gravitational radii.
- * @param outer - Finite outer edge strictly beyond the inner edge, in gravitational radii.
- * @param size - Number of logarithmically spaced samples, including both edges.
+ * Integrate the Page–Thorne flux shape for neutral, orientation +1 emitters.
+ *
+ * @remarks
+ * Uses Simpson cells between logarithmic radial nodes with zero inner torque.
+ * Checks sampled emitter existence and finite nonnegative flux; it does not
+ * prove orbital stability throughout the continuous annulus.
+ *
+ * @param inner - Inner source edge in M, on the intended stable orbit branch.
+ * @param outer - Finite outer source edge in M, strictly beyond the inner edge.
+ * @param size - Integer sample count of at least two, including both edges.
  * @returns Fresh caller-owned flux and peak-normalized temperature arrays.
- * @throws RangeError when sampling, orbital stability, or flux normalization is invalid.
+ * @throws RangeError - If the interval, sampling, emitter evaluation, or flux normalization fails.
  */
 export function createDiskProfile(
   space: Spacetime,

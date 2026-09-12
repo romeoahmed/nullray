@@ -5,7 +5,14 @@ import type { RayPath } from "../physics/ray-path.ts";
 const namespace = "http://www.w3.org/2000/svg";
 const y = (theta: number) => 28 + (theta / Math.PI) * 156;
 
-/** Draw coordinate surfaces, not emitting objects or a proper-distance embedding. */
+/**
+ * Replace SVG contents with a signed-radius/polar-angle coordinate diagram.
+ *
+ * @remarks
+ * Clips distant points to the visible radius range and joins accepted ray samples.
+ * It is neither a proper-distance embedding nor a causal diagram; connected
+ * sample segments do not locate exact horizon intersections.
+ */
 export function drawTopology(target: SVGSVGElement, scene: Scene, ray?: RayPath): void {
   const { space, prepared } = scene;
   const structure = horizons(space);

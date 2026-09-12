@@ -1,5 +1,13 @@
 /** Nominal material-coordinate change across a transfer cell, before the vertical warp. */
-fn cloud_span(inner: f32, r: f32, radius: f32, age: f32, omega: f32, omega_derivative: f32, span: vec4f) -> vec3f {
+fn cloud_span(
+  inner: f32,
+  r: f32,
+  radius: f32,
+  age: f32,
+  omega: f32,
+  omega_derivative: f32,
+  span: vec4f
+) -> vec3f {
   let radial = 7 * span.x / r;
   let angular = span.y - (3 * sqrt(inner / r) / r + omega_derivative * age) * span.x - omega * span.w;
   return vec3f(abs(radial), radius * abs(angular), 0.5 * abs(span.z));
@@ -18,7 +26,16 @@ fn cloud_footprint(extent: vec3f) -> f32 {
  * Span contains signed changes in r, longitude, H-normalized height and emission time across a cell.
  * Frequency attenuation filters the nominal line footprint; it is not a lensing-beam derivative.
  */
-fn disk_cloud(space: vec2f, inner: f32, r: f32, phi: f32, height: f32, time: f32, omega: f32, span: vec4f) -> vec3f {
+fn disk_cloud(
+  space: vec2f,
+  inner: f32,
+  r: f32,
+  phi: f32,
+  height: f32,
+  time: f32,
+  omega: f32,
+  span: vec4f
+) -> vec3f {
   let root = sqrt(inner - space.y * space.y);
   let lifetime = 12.566370614359172 * (inner * inner + space.x * root) / root;
   let age = time / lifetime;
@@ -63,5 +80,7 @@ fn disk_cloud(space: vec2f, inner: f32, r: f32, phi: f32, height: f32, time: f32
     next_footprint *= 2;
     weight *= 0.65;
   }
-  return vec3f(0.4 * large_cloud + 0.6 * sum, large_cloud, 0.2 * large_cloud + 0.8 * sum);
+  // Large clouds organize the column; fine filaments vary its heating without
+  // making every bright cell both maximally opaque and maximally hot.
+  return vec3f(0.5 * large_cloud + 0.5 * sum, large_cloud, 0.2 * large_cloud + 0.8 * sum);
 }

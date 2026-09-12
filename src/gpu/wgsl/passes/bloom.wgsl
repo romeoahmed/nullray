@@ -3,16 +3,6 @@
 @group(0) @binding(2) var detail: texture_2d<f32>;
 @group(0) @binding(3) var<uniform> blend: vec4f;
 
-struct Vertex {
-  @builtin(position) position: vec4f,
-  @location(0) uv: vec2f,
-}
-
-@vertex fn vertex(@builtin(vertex_index) index: u32) -> Vertex {
-  let uv = vec2f(f32((index << 1u) & 2u), f32(index & 2u));
-  return Vertex(vec4f(uv * vec2f(2.0, -2.0) + vec2f(-1.0, 1.0), 0.0, 1.0), uv);
-}
-
 /**
  * Convolve the piecewise-linear source with [1, 2, 1]/4 on each axis.
  * At fractional texel phase f the four coefficients are

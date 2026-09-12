@@ -8,16 +8,22 @@ export interface WalkerPenrose {
   readonly imaginary: number;
 }
 
-/** An orthonormal polarization screen in the observer gauge; undefined for a principal null ray. */
+/** Orthonormal screen tangents in the finite observer gauge, when reconstruction is nondegenerate. */
 export interface PolarizationScreen {
   readonly first: FourVector;
   readonly second: FourVector;
 }
 
 /**
- * Apply h and *h to a null tangent. In Cartesian Kerr–Schild coordinates,
- * h = dT ∧ (X dX + Y dY + Z dZ) + a dX ∧ dY, including nonzero charge.
- * The spacetime orientation is ε(T,X,Y,Z)=+1 and the metric signature is −+++.
+ * Contract the principal tensor and its Hodge dual with a vacuum null tangent.
+ *
+ * @remarks
+ * In KS coordinates, `h = dT ∧ (X dX + Y dY + Z dZ) + a dX ∧ dY`, including
+ * nonzero charge. Orientation is ε(T,X,Y,Z) = +1 with signature −+++.
+ * This endpoint reference shares production metric helpers; independent
+ * connection-based transport is implemented in hamiltonian.ts.
+ *
+ * @returns Two covectors to pair with a screen tangent.
  */
 export function principalContractions(
   space: Spacetime,
@@ -50,7 +56,12 @@ export function walkerPenrose(
   return { real: contract(h, polarization), imaginary: contract(dual, polarization) };
 }
 
-/** Evaluate the conserved polarization axes on a finite observer's measured screen. */
+/**
+ * Reconstruct the invariant axes in a finite observer's polarization screen.
+ *
+ * @returns Unit screen tangents, or `undefined` for nonpositive observed energy,
+ * a degenerate principal-ray screen, or nonfinite normalization.
+ */
 export function polarizationScreen(
   space: Spacetime,
   geometry: KerrGeometry,

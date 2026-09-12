@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import geometry from "../../src/gpu/wgsl/geodesics/geometry.wgsl?raw";
 import radiation from "../../src/gpu/wgsl/imaging/radiation.wgsl?raw";
 import fieldSource from "../../src/gpu/wgsl/sources/field.wgsl?raw";
 import structure from "../../src/gpu/wgsl/imaging/structure.wgsl?raw";
@@ -13,7 +14,17 @@ import { circularOrbit, isco } from "../../src/physics/spacetime.ts";
 import { createStructureField } from "../../src/gpu/sources/structure.ts";
 
 describe("Spectral transport", () => {
-  const source = radiation;
+  // Probe the circular-emitter normalization used by the image and volume paths.
+  const source = `${geometry}\n${radiation}
+    fn emitter_frequency(a: f32, q: f32, e: f32, l: f32, r: f32) -> vec2f {
+      let root = sqrt(r - q * q);
+      let omega = root / (r * r + a * root);
+      let g = kerr_geometry(vec2f(a, q), vec3f(r, 1.570796326794897, 0), 1);
+      let emitter = kerr_circular_velocity(g, omega, 1);
+      let frequency = emitter.x * (e - omega * l);
+      if (!(frequency > 0)) { return vec2f(-1, 0); }
+      return vec2f(1 / frequency, omega);
+    }`;
 
   test("advected material joins continuously in azimuth and at renewed emission epochs", async () => {
     const space = { spin: 0.7, charge: 0.2 };
@@ -98,13 +109,13 @@ describe("Spectral transport", () => {
     );
     const inputs = new Float32Array(records.flat());
     const result = await computeReadback(
-      `${radiation}
+      `${source}
     struct Input { space: vec4f, momentum: vec4f }
     @group(0) @binding(0) var<storage, read> inputs: array<Input>;
     @group(0) @binding(1) var<storage, read_write> outputs: array<vec2f>;
     @compute @workgroup_size(1) fn probe(@builtin(global_invocation_id) id: vec3u) {
       let p = inputs[id.x];
-      outputs[id.x] = disk_frequency(p.space.x, p.space.y, p.space.w, p.momentum.x, p.space.z);
+      outputs[id.x] = emitter_frequency(p.space.x, p.space.y, p.space.w, p.momentum.x, p.space.z);
     }`,
       inputs,
       records.length * 2,
@@ -145,7 +156,7 @@ describe("Spectral transport", () => {
       let p = inputs[id.x];
       var color = vec4f(0.0);
       if (p.x > 0.0) { color = blackbody_radiance(p.x); }
-      else { color = blackbody_radiance(6500.0 * disk_frequency(0.7, 0.2, p.z, p.w, p.y).x); }
+      else { color = blackbody_radiance(6500.0 * emitter_frequency(0.7, 0.2, p.z, p.w, p.y).x); }
       outputs[id.x] = color;
     }`,
       input,

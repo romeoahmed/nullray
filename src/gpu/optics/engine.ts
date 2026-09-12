@@ -10,7 +10,14 @@ import type { SourceAppearance } from "../../scene/appearance.ts";
 import type { RayPath, RayPoint } from "../../physics/ray-path.ts";
 import { writeOpticalFrame } from "./frame.ts";
 
-/** Stored radiance and integer source-domain data, owned by the optical renderer. */
+/**
+ * Borrowed optical targets owned by one {@link Optics} instance.
+ *
+ * @remarks
+ * Radiance and Q/U use f16 RGB with validity alpha; domains use integer lanes.
+ * A later encode overwrites content, and resizing/disposal destroys the targets.
+ * Consumers must neither destroy them nor retain them as immutable snapshots.
+ */
 export interface OpticalImage {
   readonly radiance: GPUTexture;
   readonly q: GPUTexture;
@@ -18,7 +25,13 @@ export interface OpticalImage {
   readonly domains: GPUTexture;
 }
 
-/** One geometric sample. Camera and source inputs have already passed scene validation. */
+/**
+ * Inputs for one direct detector sample after scene/appearance validation.
+ *
+ * @remarks
+ * `time` is the emission launch epoch in M before the observer offset is added.
+ * `jitter` is an x/y offset in pixel units relative to the pixel center.
+ */
 export interface OpticalSettings {
   readonly appearance: SourceAppearance;
   readonly time: number;
@@ -26,9 +39,26 @@ export interface OpticalSettings {
   readonly jitter: readonly [number, number];
 }
 
+/**
+ * Optical pipeline owner borrowing a device; callers serialize encodes and readbacks.
+ */
 export interface Optics {
-  /** Read a normalized image point (default centre) for the last encoded frame; callers serialize readbacks and frame changes. */
+  /**
+   * Trace an unjittered normalized image point, defaulting to the center.
+   *
+   * @remarks
+   * Uses the last encoded frame. Keep frame uniforms and targets unchanged until
+   * the promise settles; rejects if no live frame exists or the point is invalid.
+   */
   inspect(point?: readonly [number, number]): Promise<RayPath>;
+  /**
+   * Encode one optical sample into owned targets; the caller submits the encoder.
+   *
+   * @remarks
+   * Requires positive supported raster dimensions and validated settings. Uniform
+   * uploads are immediate queue writes: submit before another encode changes them.
+   * The returned image is borrowed and is overwritten by later work.
+   */
   encode(
     encoder: GPUCommandEncoder,
     scene: Scene,
@@ -36,10 +66,18 @@ export interface Optics {
     height: number,
     settings: OpticalSettings,
   ): OpticalImage;
+  /**
+   * Release owned buffers/textures; the caller retains the borrowed device.
+   */
   dispose(): void;
 }
 
-/** Own the native analytic-extension pipeline and all of its source/target storage. */
+/**
+ * Create the optical pipelines, source data, and lazily sized image targets.
+ *
+ * @returns An owner that must be disposed before releasing the borrowed device.
+ * Partial initialization releases acquired resources; shader/catalogue/GPU failures reject.
+ */
 export async function createOptics(device: GPUDevice): Promise<Optics> {
   using owned = new DisposableStack();
   const [module, celestial] = await Promise.all([

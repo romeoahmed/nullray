@@ -12,7 +12,13 @@ export const requiredFeatures = [
 /** I/Q/U, source domains, asymptotic directions and transmission are written in one path pass. */
 export const requiredLimits = { maxStorageTexturesPerShaderStage: 6 } as const;
 
-/** Request the renderer's mandatory native WebGPU capability. */
+/**
+ * Request a device with the renderer's shared GPU features and storage limits.
+ *
+ * @returns A caller-owned device to destroy after dependent resources are released.
+ * Rejects for missing capabilities, no adapter, or a failed native device request.
+ * This is not a preflight for every browser API used by the application.
+ */
 export async function requestDevice(): Promise<GPUDevice> {
   if (!navigator.gpu) {
     throw new Error(
@@ -39,7 +45,12 @@ export async function requestDevice(): Promise<GPUDevice> {
   return adapter.requestDevice({ requiredFeatures: [...requiredFeatures], requiredLimits });
 }
 
-/** Preserve shader diagnostics before attempting asynchronous pipeline creation. */
+/**
+ * Compile WGSL on a borrowed device and preserve source-located error messages.
+ *
+ * @returns A shader module when compilation reports no errors; pipeline validation
+ * still occurs separately. Rejects on compilation errors or native API failures.
+ */
 export async function compileShader(
   device: GPUDevice,
   code: string,

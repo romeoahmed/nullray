@@ -14,10 +14,12 @@ import { element } from "./elements.ts";
 import { bindAudio } from "./audio.ts";
 
 /**
- * Own DOM subscriptions and user intent. The dedicated render worker owns the canvas and GPU.
- * @param root - Static application markup whose canvas is replaced before transfer.
- * @param restored - Optional session to preserve across a hot remount; otherwise decode the current URL.
- * @returns Cleanup that detaches subscriptions, disposes the worker, and returns the latest view epoch.
+ * Mount UI subscriptions and a worker-backed canvas with one cleanup owner.
+ *
+ * @param root - Application markup; its canvas is replaced before permanent transfer.
+ * @param restored - Accepted session for hot remount, otherwise restore the current URL.
+ * @returns Cleanup that detaches subscriptions, requests worker disposal, and
+ * returns the session with the latest observed epoch. Worker termination is asynchronous.
  */
 export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   using owned = new DisposableStack();
@@ -37,6 +39,36 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   const status = text("status"),
     feedback = text("feedback"),
     detail = text("render-detail");
+  const observation = text("observation-state");
+  const focusView = button("focus-view");
+  let imageOnly = false;
+  const focusSurfaces = root.querySelectorAll<HTMLElement>(
+    ".wordmark, .header-actions > button:not(#focus-view), .observation, .bottom-ui, .telemetry",
+  );
+  const setImageOnly = (value: boolean) => {
+    imageOnly = value;
+    for (const panel of root.querySelectorAll<HTMLElement>("[popover]:popover-open")) {
+      panel.hidePopover();
+    }
+    root.classList.toggle("image-only", value);
+    for (const surface of focusSurfaces) {
+      surface.inert = value;
+    }
+    focusView.setAttribute("aria-pressed", String(value));
+    focusView.setAttribute("aria-label", value ? "Show controls" : "Hide controls");
+    focusView.textContent = value ? "Controls" : "◩";
+    canvas.focus({ preventScroll: true });
+  };
+  focusView.addEventListener("click", () => setImageOnly(!imageOnly), { signal });
+  owned.defer(() => {
+    root.classList.remove("image-only");
+    focusView.setAttribute("aria-pressed", "false");
+    focusView.setAttribute("aria-label", "Hide controls");
+    focusView.textContent = "◩";
+    for (const surface of focusSurfaces) {
+      surface.inert = false;
+    }
+  });
   const settings = text("controls"),
     settingsFeedback = text("settings-feedback"),
     feedbackHome = text("feedback-home");
@@ -102,6 +134,18 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
     photo.setAttribute("aria-pressed", String(session.motion === "refining"));
     photoPanel.hidden = session.motion !== "refining";
     const samples = frame?.samples ?? 0;
+    const state = !initialized
+      ? "Acquiring light"
+      : session.motion === "playing"
+        ? "Live · source evolving"
+        : session.motion === "refining"
+          ? samples === 64
+            ? "Photograph complete"
+            : "Exposing photograph"
+          : frame && samples >= frame.targetSamples
+            ? "Paused · image settled"
+            : "Paused · settling light";
+    observation.textContent = state;
     progress.value = samples;
     photoLabel.textContent =
       !frame && completed?.samples === 64
@@ -168,6 +212,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         exporting = false;
         syncStatus();
         status.textContent = event.message;
+        observation.textContent = "Observation interrupted";
         retry.hidden = false;
         save.disabled = true;
         break;
@@ -236,6 +281,9 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   document.addEventListener(
     "keydown",
     (event) => {
+      if (event.key === "Escape" && imageOnly) {
+        setImageOnly(false);
+      }
       if (event.key === "Escape" && pickingRay) {
         pickingRay = false;
         canvas.style.removeProperty("cursor");
@@ -283,6 +331,13 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   canvas.addEventListener(
     "keydown",
     (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+      if (event.key.toLowerCase() === "h" && !event.repeat) {
+        event.preventDefault();
+        setImageOnly(!imageOnly);
+      }
       if (event.code === "Space" && !event.repeat) {
         event.preventDefault();
         dispatch({ type: "toggle-motion" });
@@ -341,7 +396,15 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
       const caption = document.createElement("small");
       caption.textContent = description;
       preset.append(number, title, caption);
-      preset.addEventListener("click", () => openView(encodeView(view)), { signal });
+      preset.addEventListener(
+        "click",
+        () => {
+          openView(encodeView(view));
+          text("views-panel").hidePopover();
+          canvas.focus({ preventScroll: true });
+        },
+        { signal },
+      );
       return preset;
     }),
   );

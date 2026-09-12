@@ -8,7 +8,7 @@ interface ReferencePhoton {
   readonly polarVelocity: number;
 }
 
-/** Value and exact forward-mode derivatives with respect to r and theta. */
+/** Value and forward-mode r/θ derivatives; analytic differentiation still incurs binary64 rounding. */
 type Dual = readonly [number, number, number];
 interface RefractiveProfile {
   readonly amplitude: number;
@@ -187,9 +187,20 @@ function offset(y: ReferenceState, d: ReferenceState, h: number): ReferenceState
 }
 
 /**
- * Step-doubled RK4 in the regular exterior chart, up to a finite Mino time.
- * Throws on invalid inputs, coordinate singularities or exhausted work; the
- * returned residual and a second tolerance run are independent accuracy evidence.
+ * Integrate a backward exterior reference path with step-doubled RK4.
+ *
+ * @remarks
+ * Uses an independently differentiated BL metric, away from coordinate poles.
+ * Momentum remains future-directed. A residual and tighter-tolerance comparison
+ * provide complementary evidence, not a certified global error bound.
+ *
+ * @param r - Initial positive exterior BL radius in M.
+ * @param theta - Initial polar angle strictly between 0 and π radians.
+ * @param end - Nonnegative magnitude of the backward Mino interval.
+ * @param polarization - Optional initial BL tangent components `(fᵗ,fʳ,fθ,fφ)`.
+ * @returns Endpoint state and maximum sampled Hamiltonian residual.
+ * @throws RangeError - If interval, tolerance, or initial chart checks fail.
+ * @throws Error - If arithmetic leaves the chart, a step stagnates, or attempts are exhausted.
  */
 export function referenceGeodesic(
   space: Spacetime,

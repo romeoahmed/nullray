@@ -1,3 +1,4 @@
+import fullscreen from "./wgsl/imaging/fullscreen.wgsl?raw";
 import { createBloom } from "./imaging/bloom.ts";
 import { createPhotoExporter } from "./imaging/photograph.ts";
 import presentation from "./wgsl/passes/present.wgsl?raw";
@@ -7,31 +8,59 @@ import type { SourceAppearance } from "../scene/appearance.ts";
 import type { Scene } from "../scene/scene.ts";
 import { createOptics } from "./optics/engine.ts";
 import type { OpticalImage } from "./optics/engine.ts";
-import type { SavedView } from "../scene/view.ts";
+import type { Presentation } from "../scene/presentation.ts";
+import { displayValue } from "../scene/presentation.ts";
 import { createPolarimeter } from "./imaging/polarimeter.ts";
-import { createAccumulation, pixelJitter } from "./imaging/accumulation.ts";
+import { createAccumulation } from "./imaging/accumulation.ts";
 import type { Coverage } from "./imaging/coverage.ts";
 import type { RayPath } from "../physics/ray-path.ts";
 import { blackbodyWhiteBalance } from "../physics/radiation.ts";
 import type { Vec3 } from "../physics/vector.ts";
 
-const opticalView = (value: SavedView["diagnostic"]) =>
+import { sampleCounts, sampleOffset } from "./imaging/sampling.ts";
+import type { SamplingMode } from "./imaging/sampling.ts";
+
+const opticalView = (value: Presentation["diagnostic"]) =>
   value === "polarization" || value === "angle" ? "image" : value;
 
-/** Device and canvas owner coordinating optical and photographic resources. */
+/**
+ * Device/canvas owner for serial optical, detector, and presentation work.
+ *
+ * @remarks
+ * The worker schedules submissions and rejects stale replies. Returned promises
+ * must settle before replacing resources used by inspection or readback.
+ */
 export interface Renderer {
   /** Inspect the last optical frame while the worker holds its submission lock. */
   inspect(point?: readonly [number, number]): Promise<RayPath>;
   readonly lost: Promise<GPUDeviceLostInfo>;
-  /** Set the content-box size in physical display pixels. */
+  /**
+   * Record nonnegative integer device-pixel dimensions; zero suspends rendering.
+   *
+   * @remarks
+   * A uniform reduction enforces the device texture limit. Invalid dimensions
+   * throw RangeError. Raster allocation occurs on the next render.
+   */
   resize(width: number, height: number): void;
   /** Resolve after submitted GPU work completes, allowing bounded frame scheduling. */
   finished(): Promise<void>;
-  /** Read missing sample weights from the current refinement sequence. */
+  /**
+   * Read missing weights for the current non-live sample sequence.
+   *
+   * @remarks
+   * Submit its history writes first. Throws if no accumulated image is available;
+   * the result reports missing samples, not an image-error bound.
+   */
   coverage(): Promise<Coverage>;
-  /** Snapshot the completed still image with SDR tone mapping and Display P3 encoding. */
+  /**
+   * Snapshot the completed 64-sample photograph as an SDR Display P3 PNG.
+   *
+   * @remarks
+   * Throws if the active renderer has no completed photograph. The asynchronous result
+   * contains 8-bit display pixels, not HDR radiance or coverage metadata.
+   */
   exportPNG(): Promise<Blob>;
-  /** Submit one frame and return its photographic sample count, or zero during exploration. */
+  /** Submit one frame and return its current sample count; unchanged completed images reuse their history. */
   render(scene: Scene, settings: RenderSettings): number;
   /** Release the device and canvas context; safe to call repeatedly. */
   dispose(): void;
@@ -40,7 +69,7 @@ export interface Renderer {
 /** Optical/source controls and display choices for one submitted frame. */
 export interface RenderSettings {
   readonly appearance?: SourceAppearance;
-  /** Linear exploration scale in (0, 1]; still-image refinement uses native pixels. */
+  /** Scale per raster axis in (0, 1], default 1; Photograph overrides it with native pixels. */
   readonly resolutionScale?: number;
   readonly exposureEV: number;
   readonly whiteBalance?: number;
@@ -48,12 +77,19 @@ export interface RenderSettings {
   readonly hdr: boolean;
   /** Observer epoch in geometric time units; navigation does not advance this clock. */
   readonly time: number;
-  readonly refine: boolean;
-  readonly view: SavedView["diagnostic"];
+  readonly sampling: SamplingMode;
+  readonly view: Presentation["diagnostic"];
   readonly analyzer?: number | null;
 }
 
-/** Own one canvas context and its GPU resources; dispose its previous owner before initialization. */
+/**
+ * Acquire a device and own an OffscreenCanvas rendering context.
+ *
+ * @param canvas - Transferred canvas whose previous renderer has already been disposed.
+ * @param signal - Optional cancellation checked before acquisition and before publication.
+ * @returns The renderer owner; initialization failure or observed cancellation rejects
+ * and releases acquired resources. Dispose the owner when the worker replaces it.
+ */
 export async function createRenderer(
   canvas: OffscreenCanvas,
   signal?: AbortSignal,
@@ -68,7 +104,11 @@ export async function createRenderer(
   }
   owned.defer(() => context.unconfigure());
   const format = "rgba16float";
-  const displayModule = await compileShader(device, presentation, "presentation");
+  const displayModule = await compileShader(
+    device,
+    `${fullscreen}\n${presentation}`,
+    "presentation",
+  );
   const display = await device.createRenderPipelineAsync({
     layout: "auto",
     vertex: { module: displayModule, entryPoint: "vertex" },
@@ -106,8 +146,8 @@ export async function createRenderer(
         readonly exposureEV: number;
         readonly whiteBalance: number | undefined;
         readonly bloom: number;
-        readonly refine: boolean;
-        readonly view: SavedView["diagnostic"];
+        readonly sampling: SamplingMode;
+        readonly view: Presentation["diagnostic"];
         readonly analyzer?: number | null;
       }
     | undefined;
@@ -130,14 +170,19 @@ export async function createRenderer(
       return device.queue.onSubmittedWorkDone();
     },
     coverage() {
-      if (!previous?.refine || samples === 0 || lifetime.disposed) {
+      if (previous?.sampling === "live" || !previous || samples === 0 || lifetime.disposed) {
         throw new Error("No refined image is available.");
       }
       coverage ??= accumulation.coverage();
       return coverage;
     },
     exportPNG() {
-      if (!displayed || !previous?.refine || samples !== 64 || lifetime.disposed) {
+      if (
+        !displayed ||
+        previous?.sampling !== "photograph" ||
+        samples !== 64 ||
+        lifetime.disposed
+      ) {
         throw new Error("Refine a still image before exporting it.");
       }
       return exportPhoto(
@@ -172,7 +217,7 @@ export async function createRenderer(
         whiteBalance,
         hdr,
         time,
-        refine,
+        sampling,
         view,
         analyzer = null,
         appearance = initialAppearance,
@@ -183,10 +228,10 @@ export async function createRenderer(
       if (lifetime.disposed || requestedWidth === 0 || requestedHeight === 0) {
         return 0;
       }
-      if (!Number.isFinite(exposureEV) || exposureEV < -6 || exposureEV > 6) {
+      if (!displayValue("exposure", exposureEV)) {
         throw new RangeError("Exposure must be between −6 and +6 EV.");
       }
-      if (!Number.isFinite(bloom) || bloom < 0 || bloom > 1) {
+      if (!displayValue("bloom", bloom)) {
         throw new RangeError("Bloom must be between zero and one.");
       }
       const strength = view === "image" ? bloom : 0;
@@ -213,7 +258,7 @@ export async function createRenderer(
           "Exploration resolution scale must be greater than zero and at most one.",
         );
       }
-      const scale = refine ? 1 : resolutionScale;
+      const scale = sampling === "photograph" ? 1 : resolutionScale;
       const nextWidth = Math.max(1, Math.floor(requestedWidth * scale));
       const nextHeight = Math.max(1, Math.floor(requestedHeight * scale));
       const resized = width !== nextWidth || height !== nextHeight;
@@ -238,33 +283,34 @@ export async function createRenderer(
         previous?.scene !== scene ||
         previous.appearance !== appearance ||
         previous.time !== time ||
-        previous.refine !== refine ||
+        previous.sampling !== sampling ||
         opticalView(previous.view) !== opticalView(view);
       if (invalidated) {
         samples = 0;
         coverage = undefined;
       }
-      if (invalidated || (refine && samples < 64)) {
+      const newSample = invalidated || samples < sampleCounts[sampling];
+      if (newSample) {
         coverage = undefined;
         const image = optics.encode(encoder, scene, width, height, {
           time,
           view: opticalView(view),
           appearance,
-          jitter: refine ? pixelJitter(samples) : [0, 0],
+          jitter: sampleOffset(sampling, samples),
         });
-        stokes = refine
-          ? {
-              radiance: accumulation.encode(encoder, image.radiance, samples),
-              q: qAccumulation.encode(encoder, image.q, samples),
-              u: uAccumulation.encode(encoder, image.u, samples),
-            }
-          : image;
-        if (refine) {
-          samples++;
-        }
+        stokes =
+          sampling !== "live"
+            ? {
+                radiance: accumulation.encode(encoder, image.radiance, samples),
+                q: qAccumulation.encode(encoder, image.q, samples),
+                u: uAccumulation.encode(encoder, image.u, samples),
+              }
+            : image;
+        samples++;
         scattered = undefined;
       }
-      if (stokes) {
+      const detectorChanged = previous?.analyzer !== analyzer || previous.view !== view;
+      if (stokes && (newSample || detectorChanged)) {
         displayed = polarimeter.encode(
           encoder,
           stokes,
@@ -272,7 +318,7 @@ export async function createRenderer(
           view === "polarization" || view === "angle" ? view : "image",
         );
       }
-      if (previous?.analyzer !== analyzer || previous.view !== view) {
+      if (detectorChanged) {
         scattered = undefined;
       }
       if (displayed && strength > 0 && !scattered) {
@@ -317,7 +363,7 @@ export async function createRenderer(
         exposureEV,
         whiteBalance: temperature,
         bloom: strength,
-        refine,
+        sampling,
         view,
         analyzer,
       };

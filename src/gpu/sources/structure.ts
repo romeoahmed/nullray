@@ -1,14 +1,25 @@
 import { compileShader } from "../device.ts";
 import source from "../wgsl/sources/noise.wgsl?raw";
 
-/** Borrowed field bindings; the generating owner controls the texture's lifetime. */
+/**
+ * Owner of the generated lattice texture with sampler bindings borrowed by consumers.
+ *
+ * @remarks
+ * Call `dispose` after dependent work is submitted; consumers must not destroy
+ * the borrowed texture independently. The generating device is not owned.
+ */
 export interface StructureField {
   readonly texture: GPUTexture;
   readonly sampler: GPUSampler;
   dispose(): void;
 }
 
-/** Generate the periodic scalar lattice in parallel; hardware interpolation serves every material cell. */
+/**
+ * Generate and submit a deterministic 64³ scalar lattice on the borrowed device.
+ *
+ * @returns The field owner after submission, without waiting for GPU completion.
+ * Subsequent work on the same queue observes the upload/generation order.
+ */
 export async function createStructureField(device: GPUDevice): Promise<StructureField> {
   const module = await compileShader(device, source, "material lattice");
   const pipeline = await device.createComputePipelineAsync({ layout: "auto", compute: { module } });

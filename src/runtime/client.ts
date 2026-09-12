@@ -1,17 +1,25 @@
 import type { Session } from "../scene/session.ts";
 import type { RenderEvent, RenderRequest } from "./protocol.ts";
 
-/** Transfer one fresh canvas and coalesce UI updates without exposing GPU lifetime to the DOM. */
+/**
+ * Transfer a fresh canvas to a dedicated worker and coalesce accepted UI intent.
+ *
+ * @param canvas - Canvas that has never been transferred; transfer cannot be undone.
+ * @param receive - Synchronous UI callback for current replies and lifecycle failures.
+ * @returns A client owning the worker; dispose it before remounting with a fresh canvas.
+ * Initialization/transfer failures throw. No GPU objects return through the protocol.
+ */
 export function createRenderClient(
   canvas: HTMLCanvasElement,
   receive: (event: RenderEvent) => void,
 ) {
-  const offscreen = canvas.transferControlToOffscreen();
+  using owned = new DisposableStack();
   const worker = new Worker(new URL("./worker/main.ts", import.meta.url), {
     type: "module",
   });
-  let disposed = false;
-  let failed = false;
+  owned.defer(() => worker.terminate());
+  const offscreen = canvas.transferControlToOffscreen();
+  let phase: "active" | "failed" | "disposed" = "active";
   let revision = 0;
   let scheduled = 0;
   let previous: Session | undefined;
@@ -29,34 +37,30 @@ export function createRenderClient(
     worker.postMessage(request, transfer);
   worker.addEventListener("message", ({ data }: MessageEvent<RenderEvent>) => {
     if (data.type === "disposed") {
-      worker.terminate();
+      lifetime.dispose();
       return;
     }
-    if (!disposed && (!("revision" in data) || data.revision === revision)) {
+    if (phase === "active" && (!("revision" in data) || data.revision === revision)) {
       receive(data);
     }
   });
   worker.addEventListener("error", (error) => {
-    failed = true;
+    lifetime.dispose();
+    if (phase !== "active") {
+      return;
+    }
+    phase = "failed";
     cancelAnimationFrame(scheduled);
     scheduled = 0;
     requested = undefined;
-    if (disposed) {
-      worker.terminate();
-    } else {
-      receive({ type: "error", message: error.message || "The render worker stopped." });
-    }
+    receive({ type: "error", message: error.message || "The render worker stopped." });
   });
-  try {
-    send({ type: "initialize", canvas: offscreen }, [offscreen]);
-  } catch (error) {
-    worker.terminate();
-    throw error;
-  }
+  send({ type: "initialize", canvas: offscreen }, [offscreen]);
+  const lifetime = owned.move();
 
   function flush() {
     scheduled = 0;
-    if (!requested || disposed) {
+    if (!requested || phase !== "active") {
       return;
     }
     const { session, hdr, visible, width, height, time } = requested;
@@ -90,15 +94,22 @@ export function createRenderClient(
   }
 
   return {
-    /** Inspect the central ray after the latest coalesced scene reaches the worker. */
+    /** Flush pending intent, then inspect a normalized image point; the default is the center. */
     inspect(point: readonly [number, number] = [0.5, 0.5]) {
-      if (!disposed && !failed) {
+      if (phase === "active") {
         cancelAnimationFrame(scheduled);
         flush();
         send({ type: "inspect", revision, point });
       }
     },
-    /** Queue the latest snapshot, preserving an explicit restore epoch across coalesced controls. */
+    /**
+     * Coalesce a session update while preserving a pending explicit epoch restore.
+     *
+     * @param width - Nonnegative integer content width in device pixels.
+     * @param height - Nonnegative integer content height in device pixels.
+     * @param time - Optional restored source epoch in M; omission retains the worker clock.
+     * @returns The new revision, or the unchanged revision after failure/disposal.
+     */
     update(
       session: Session,
       hdr: boolean,
@@ -107,7 +118,7 @@ export function createRenderClient(
       height: number,
       time?: number,
     ) {
-      if (disposed || failed) {
+      if (phase !== "active") {
         return revision;
       }
       revision++;
@@ -130,28 +141,38 @@ export function createRenderClient(
     },
     /** Request a snapshot of the current completed revision; stale replies are ignored. */
     exportPhoto() {
-      if (!disposed) {
+      if (phase === "active") {
         send({ type: "export", revision });
       }
     },
-    /** Retry recoverable device failure; false means the crashed worker requires a fresh canvas. */
+    /**
+     * Request device reinitialization while the worker is alive.
+     *
+     * @returns False after a worker crash, requiring a new canvas/client. True only
+     * means the request was sent; it does not certify successful reinitialization.
+     * A disposed client returns false and sends no request.
+     */
     retry() {
-      if (!disposed && !failed) {
+      if (phase === "active") {
         send({ type: "retry" });
       }
-      return !failed;
+      return phase === "active";
     },
     /** Stop scheduling and let the worker release its resources before termination. */
     dispose() {
-      if (disposed) {
+      if (phase === "disposed") {
         return;
       }
-      disposed = true;
+      const active = phase === "active";
+      phase = "disposed";
       cancelAnimationFrame(scheduled);
-      if (failed) {
-        worker.terminate();
-      } else {
+      scheduled = 0;
+      requested = undefined;
+      previous = undefined;
+      if (active) {
         send({ type: "dispose" });
+      } else {
+        lifetime.dispose();
       }
     },
   };

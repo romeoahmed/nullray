@@ -4,7 +4,16 @@ import type { Spacetime } from "./spacetime.ts";
 import type { MotionConstants } from "./motion.ts";
 import type { Vec3 } from "./vector.ts";
 
-/** Diagonal linear-P3 camera calibration: a blackbody at this temperature becomes neutral, with Y unchanged. */
+/**
+ * Compute diagonal linear-P3 gains that neutralize a reference blackbody.
+ *
+ * @remarks
+ * Preserves that reference's Y luminance, not every input color's luminance.
+ * This camera calibration does not change source temperature or physical redshift.
+ *
+ * @param temperature - Reference temperature in kelvin, from 2500 through 12000.
+ * @throws RangeError - If the reference temperature is nonfinite or outside that range.
+ */
 export function blackbodyWhiteBalance(temperature: number): Vec3 {
   if (!Number.isFinite(temperature) || temperature < 2500 || temperature > 12000) {
     throw new RangeError("White balance must lie between 2500 K and 12000 K.");
@@ -19,9 +28,15 @@ export function blackbodyWhiteBalance(temperature: number): Vec3 {
 }
 
 /**
- * Planck spectral radiance per unit wavelength, in W sr⁻¹ m⁻³.
+ * Evaluate Planck spectral radiance per wavelength, in W sr⁻¹ m⁻³.
+ *
+ * @remarks
+ * This is Bλ, not Bν. Extreme otherwise-admissible inputs can still overflow
+ * intermediate arithmetic; callers choose the supported spectral range.
+ *
  * @param wavelength - Positive finite wavelength in metres.
  * @param temperature - Nonnegative finite temperature in kelvin; zero emits no radiation.
+ * @throws RangeError - If the input-domain checks fail.
  */
 export function planck(wavelength: number, temperature: number): number {
   if (!(wavelength > 0) || !(temperature >= 0) || !Number.isFinite(wavelength + temperature)) {
@@ -38,7 +53,12 @@ export function planck(wavelength: number, temperature: number): number {
   return (2 * h * c * c) / (wavelength ** 5 * Math.expm1((h * c) / (wavelength * k * temperature)));
 }
 
-/** Integrate CIE XYZ over 360–830 nm using the source's 1 nm sampling. */
+/**
+ * Integrate a blackbody against the 360–830 nm CIE samples by trapezoidal quadrature.
+ *
+ * @param temperature - Nonnegative temperature in kelvin, subject to {@link planck} validation.
+ * @returns Unnormalized XYZ radiance, including the nanometre-to-metre integration factor.
+ */
 export function blackbodyXYZ(temperature: number): Vec3 {
   let x = 0;
   let y = 0;
@@ -62,7 +82,14 @@ export function xyzToLinearRGB([x, y, z]: Vec3): Vec3 {
   ];
 }
 
-/** Positive local emission energy is required even for E <= 0 photons. */
+/**
+ * Compute observed/emitted frequency for a positive-BL-time circular source.
+ *
+ * @param photon - Killing constants of a photon normalized to unit detector frequency.
+ * @param radius - Positive emitting radius in M.
+ * @returns The positive ratio, or `undefined` for an unsupported emitter or emitted energy.
+ * Zero and negative Killing energy remain admissible; source-block orientation is not handled here.
+ */
 export function diskFrequencyRatio(
   space: Spacetime,
   photon: Pick<MotionConstants, "energy" | "angularMomentum">,
@@ -86,11 +113,14 @@ export interface BlackbodyTable {
 }
 
 /**
- * Log-temperature lookup in scene-linear RGB, normalized to Y(6500 K) = 1.
- * The texture retains intensity variation with temperature; no per-row RGB
- * normalization or extra frequency-power multiplier belongs in the shader.
- * The fixed [100, 1e6] K range is shared with the WGSL lookup contract.
- * @returns Fresh binary32 RGB/alpha rows; negative working RGB components are preserved.
+ * Tabulate scene-linear sRGB radiance with the common normalization `Y(6500 K) = 1`.
+ *
+ * @remarks
+ * The 1024 rows span 100–1,000,000 K uniformly in log temperature, matching
+ * WGSL lookup bounds. Shift temperature once; do not renormalize rows or add
+ * a second frequency-power multiplier after lookup.
+ *
+ * @returns Caller-owned f32 RGBA rows; alpha is one and signed RGB is preserved.
  */
 export function createBlackbodyTable(): BlackbodyTable {
   const size = 1024;

@@ -2,7 +2,14 @@ import { cie1931 } from "../data/cie1931.ts";
 import { blackbodyXYZ, xyzToLinearRGB } from "./radiation.ts";
 import type { Jet } from "./jet.ts";
 
-/** Integral of the single-electron synchrotron kernel, tabulated in log frequency. */
+/**
+ * Build a local lookup of the normalized cumulative single-electron kernel.
+ *
+ * @remarks
+ * Integrates F(x) in log-frequency cells, using the low-frequency power-law
+ * limit below the grid and a saturated cumulative integral above it.
+ * The returned closure owns the table and expects positive x.
+ */
 function synchrotronCumulative(): (x: number) => number {
   const lower = -20,
     upper = Math.log(100),
@@ -52,9 +59,18 @@ function synchrotronCumulative(): (x: number) => number {
 }
 
 /**
- * Shifted CIE spectra of isotropic p=3 electrons above gammaMin in a tangled field.
- * RGB stores j_nu integrated through the observer response per M of affine path,
- * on the dimensionless synchrotron-frequency interval exp(-10 ... 10). The GPU supplies density and redshift powers.
+ * Tabulate finite-cutoff synchrotron emission for isotropic p = 3 electrons.
+ *
+ * @remarks
+ * Uses a tangled field and converts one M of path length using the black-hole
+ * mass. Rows span the dimensionless frequency interval exp(-10) to exp(10).
+ * The GPU supplies the remaining density, frequency, and refractive factors.
+ *
+ * @param jet - Validated source prescription, including positive field and electron cutoff.
+ * @param frequencyGHz - Optional positive observing frequency in GHz; selects a
+ * monochrome spectrum normalized to a 6500 K blackbody instead of CIE color.
+ * @returns Caller-owned f32 RGB/padding rows and their frequency-coordinate scale.
+ * @throws RangeError - If a stored spectrum is nonfinite.
  */
 export function createJetTable(
   jet: Jet,

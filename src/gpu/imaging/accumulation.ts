@@ -3,31 +3,17 @@ import { compileShader } from "../device.ts";
 import { createCoverageReader } from "./coverage.ts";
 
 /**
- * Equal-weight Halton points over the pixel box, centered at the pixel origin.
- * @param index - Zero-based sample index supplied by the bounded photographic sequence.
- * @returns Horizontal and vertical offsets in pixel units.
+ * Create a lazy f32 mean history and f16 output, borrowing the device.
+ *
+ * @remarks
+ * The returned owner handles one Stokes component. Index zero resets the sequence;
+ * missing weight remains in history alpha and is not renormalized away.
  */
-export function pixelJitter(index: number): readonly [number, number] {
-  const radicalInverse = (base: number) => {
-    let integer = index + 1;
-    let fraction = 1 / base;
-    let value = 0;
-    while (integer > 0) {
-      value += (integer % base) * fraction;
-      integer = Math.floor(integer / base);
-      fraction /= base;
-    }
-    return value - 0.5;
-  };
-  return [radicalInverse(2), radicalInverse(3)];
-}
-
-/** Lazily allocated photographic history; index zero resets the running mean. */
 export async function createAccumulation(device: GPUDevice) {
   const module = await compileShader(device, source, "radiance accumulation");
   const pipeline = await device.createComputePipelineAsync({ layout: "auto", compute: { module } });
   const readCoverage = await createCoverageReader(device);
-  const owned = new DisposableStack();
+  using owned = new DisposableStack();
   const uniform = owned.adopt(
     device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
     (value) => value.destroy(),
@@ -46,10 +32,18 @@ export async function createAccumulation(device: GPUDevice) {
       }
     | undefined;
   owned.defer(() => target?.resources.dispose());
+  const lifetime = owned.move();
   return {
-    /** Encode one sample into owned history; borrowed output remains valid until resize/disposal. */
+    /**
+     * Encode the next sample, with integer index 0–63; zero starts a new sequence.
+     *
+     * @remarks
+     * Submit before another encode updates the shared uniform. Resizing requires
+     * index zero. The returned texture is borrowed, overwritten on later encodes,
+     * and destroyed on resize/disposal. Invalid sequencing throws RangeError.
+     */
     encode(encoder: GPUCommandEncoder, radiance: GPUTexture, index: number): GPUTexture {
-      if (owned.disposed) {
+      if (lifetime.disposed) {
         throw new Error("Photographic history has been disposed.");
       }
       if (
@@ -115,14 +109,14 @@ export async function createAccumulation(device: GPUDevice) {
     },
     /** Submit a readback after the caller has submitted all encoded history writes. */
     coverage() {
-      if (!target || samples === 0 || owned.disposed) {
+      if (!target || samples === 0 || lifetime.disposed) {
         throw new Error("No photographic history is available.");
       }
       return readCoverage(target.history, samples);
     },
     /** Release history and its uniforms; the caller retains the device. */
     dispose() {
-      owned.dispose();
+      lifetime.dispose();
     },
   };
 }

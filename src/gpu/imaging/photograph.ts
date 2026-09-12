@@ -1,8 +1,16 @@
+import { displayValue } from "../../scene/presentation.ts";
 import { blackbodyWhiteBalance } from "../../physics/radiation.ts";
 
 /**
- * Reuse the presentation shader to snapshot SDR Display P3 pixels into a tagged PNG.
- * @returns An exporter that submits the snapshot before awaiting readback and owns its temporary resources.
+ * Create an SDR Display P3 PNG exporter using the presentation shader.
+ *
+ * @remarks
+ * Borrows the device/module. Each export validates display ranges and readback
+ * capacity, then submits the snapshot before its first await. Temporary GPU
+ * resources are released on success or failure. Keep the device alive through
+ * completion; the caller enforces any required photographic sample count.
+ *
+ * @returns An exporter producing 8-bit tagged PNG pixels without a metadata sidecar.
  */
 export async function createPhotoExporter(device: GPUDevice, module: GPUShaderModule) {
   const pipeline = await device.createRenderPipelineAsync({
@@ -19,10 +27,10 @@ export async function createPhotoExporter(device: GPUDevice, module: GPUShaderMo
     whiteBalance?: number,
     photographic = true,
   ): Promise<Blob> => {
-    if (!Number.isFinite(strength) || strength < 0 || strength > 1) {
+    if (!displayValue("bloom", strength)) {
       throw new RangeError("Bloom must be between zero and one.");
     }
-    if (!Number.isFinite(exposureEV) || exposureEV < -6 || exposureEV > 6) {
+    if (!displayValue("exposure", exposureEV)) {
       throw new RangeError("Photo exposure must be between −6 and +6 EV.");
     }
     const { width, height } = radiance;

@@ -1,15 +1,14 @@
-import { test } from "vitest";
+import { test, readPixels } from "../tests/support/gpu.ts";
 import { server } from "vitest/browser";
 import { createOptics } from "../src/gpu/optics/engine.ts";
 import type { OpticalImage } from "../src/gpu/optics/engine.ts";
-import { requestDevice } from "../src/gpu/device.ts";
 import { createScene, initialScene } from "../src/scene/scene.ts";
 import type { SceneInput } from "../src/scene/scene.ts";
 import { initialAppearance } from "../src/scene/appearance.ts";
 import type { SourceAppearance } from "../src/scene/appearance.ts";
 import { presets } from "../src/scene/presets.ts";
-import { sourceFingerprint, benchmarkFingerprint } from "./source.ts";
-import { captureRadiance, imageCoverage } from "./capture.ts";
+import { gpuContext } from "./context.ts";
+import { imageCoverage } from "./capture.ts";
 import { initialJet } from "../src/scene/jet.ts";
 import { initialPlasma } from "../src/scene/plasma.ts";
 
@@ -41,14 +40,12 @@ const workloads: readonly {
 
 test.for(workloads)(
   "$name optical frame",
-  async ({ name, input, appearance = initialAppearance }, { bench, annotate }) => {
+  async ({ name, input, appearance = initialAppearance }, { device, bench, annotate }) => {
     const scene = createScene(input);
     if (!scene.ok) {
       throw new Error(scene.error);
     }
-    const device = await requestDevice();
     using owned = new DisposableStack();
-    owned.defer(() => device.destroy());
     const optics = owned.adopt(await createOptics(device), (value) => value.dispose());
     const width = 320,
       height = 180;
@@ -71,10 +68,12 @@ test.for(workloads)(
     if (!image) {
       throw new Error("No benchmark image was rendered.");
     }
-    const pixels = await captureRadiance(device, image.radiance);
+    const pixels = await readPixels(device, image.radiance);
     const body = JSON.stringify(
       {
-        schema: 1,
+        ...(await gpuContext(device)),
+        sampling: { iterations: 8, warmupIterations: 1, time: 0, warmupTime: 0 },
+        epoch: 0,
         name,
         width,
         height,
@@ -88,14 +87,6 @@ test.for(workloads)(
           jet: scene.value.jet,
           plasma: scene.value.plasma,
         },
-        browser: navigator.userAgent,
-        adapter: {
-          vendor: device.adapterInfo.vendor,
-          architecture: device.adapterInfo.architecture,
-          device: device.adapterInfo.device,
-        },
-        sourceSHA256: new Uint8Array(await sourceFingerprint()).toHex(),
-        harnessSHA256: new Uint8Array(await benchmarkFingerprint()).toHex(),
         coverage: imageCoverage(pixels),
         scope:
           "One native optical sample on reused resources; initialization, readback, bloom and presentation are outside timing. Results are comparative measurements, not performance gates.",

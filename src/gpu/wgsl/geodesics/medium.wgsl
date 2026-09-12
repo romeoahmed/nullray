@@ -1,4 +1,7 @@
-/** Cartesian oblate Jacobians; all coordinates are regular in the exterior heated annulus. */
+/**
+ * Metric data and Cartesian spatial gradients in the exterior heated annulus.
+ * Columns of direction_gradient are ∇n_x, ∇n_y, ∇n_z; transpose it to push a tangent.
+ */
 struct MediumGeometry {
   frame: KerrGeometry,
   radial_gradient: vec3f,
@@ -28,13 +31,26 @@ fn medium_geometry(space: vec2f, radius: f32, direction: vec3f, chart: f32) -> M
   return MediumGeometry(g, radial_gradient, mat3x3f(nx, ny, nz), 2 * radius * radial_gradient + 2 * a * a * n.z * nz);
 }
 
+/**
+ * Detector-normalized χ = ν_p²/ν_o² and its covector gradient in (T,X,Y,Z).
+ */
 struct MediumPotential {
   cutoff: f32,
   gradient: vec4f,
 }
 
-/** Pressure-balanced heating: T/T0=1+contrast*window*wave and n_e/n_background=T0/T. */
-fn medium_potential(space: vec2f, geometry: MediumGeometry, profile: vec2f, heating: vec4f, time: f32) -> MediumPotential {
+/**
+ * Evaluate prescribed constant-pressure density reduction and its full spacetime gradient.
+ * The input time is selected null time w; the result differentiates with respect to KS T.
+ * The sixfold pattern uses canonical ingoing coordinates in either computational chart.
+ */
+fn medium_potential(
+  space: vec2f,
+  geometry: MediumGeometry,
+  profile: vec2f,
+  heating: vec4f,
+  time: f32
+) -> MediumPotential {
   let g = geometry.frame;
   let r = g.radius;
   let r2 = r * r;
@@ -78,7 +94,11 @@ fn medium_potential(space: vec2f, geometry: MediumGeometry, profile: vec2f, heat
     baseline_gradient / ratio - baseline / (ratio * ratio) * ratio_gradient));
 }
 
-/** A canonical photon in Cartesian Kerr–Schild components; position stores r and a unit direction. */
+/**
+ * Detector-normalized canonical state in the heated annulus.
+ * Position packs signed r and angular direction n; momentum is the KS covector p_μ.
+ * Time stores the selected null coordinate w, not Cartesian T.
+ */
 struct HeatState {
   position: vec4f,
   momentum: vec4f,
@@ -91,17 +111,21 @@ struct HeatRate {
 
 /** Conservative exponent bound leaves room for vector sums before any unsafe product is evaluated. */
 fn heat_product_safe(a: f32, b: f32) -> bool {
-  let ae = (bitcast<u32>(abs(a)) >> 23u) & 255u;
-  let be = (bitcast<u32>(abs(b)) >> 23u) & 255u;
+  let ae = extractBits(bitcast<u32>(a), 23u, 8u);
+  let be = extractBits(bitcast<u32>(b), 23u, 8u);
   return ae < 255u && be < 255u && ae + be <= 376u;
 }
 fn heat_maximum(value: vec4f) -> f32 {
   return max(max(abs(value.x), abs(value.y)), max(abs(value.z), abs(value.w)));
 }
 
-/** H=(g^ab p_a p_b+omega_p²)/2, reparameterized by d lambda_affine = Sigma d gamma. */
+/**
+ * Hamiltonian flow for H = (g^μν p_μ p_ν + χ)/2, with χ = ν_p²/ν_o².
+ * Uses dλ = Σ dγ for detector-normalized affine λ; p_T and p_φ may evolve.
+ * A false validity flag means unsupported arithmetic/domain, never physical termination.
+ */
 fn heat_derivative(space: vec2f, profile: vec2f, heating: vec4f, chart: f32, state: HeatState) -> HeatRate {
-  let invalid = HeatRate(HeatState(vec4f(0), vec4f(0), 0), false);
+  let invalid = HeatRate(HeatState(), false);
   let radius = state.position.x;
   let norm = dot(state.position.yzw, state.position.yzw);
   if (!(radius > 2 && norm > 0 && norm < 4)) { return invalid; }
@@ -148,7 +172,7 @@ fn heat_step(space: vec2f, profile: vec2f, heating: vec4f, chart: f32, state: He
   var end = heat_offset(heat_offset(heat_offset(state, k1.state, 2 * h / 9), k2.state, h / 3), k3.state, 4 * h / 9);
   let k4 = heat_derivative(space, profile, heating, chart, end);
   if (!k4.valid) { return invalid; }
-  let difference = heat_offset(heat_offset(heat_offset(heat_offset(HeatState(vec4f(0), vec4f(0), 0), k1.state, -5 * h / 72), k2.state, h / 12), k3.state, h / 9), k4.state, -h / 8);
+  let difference = heat_offset(heat_offset(heat_offset(heat_offset(HeatState(), k1.state, -5 * h / 72), k2.state, h / 12), k3.state, h / 9), k4.state, -h / 8);
   let position_error = abs(difference.position) / vec4f(1 + abs(end.position.x), 1, 1, 1);
   let momentum_error = abs(difference.momentum) / (1 + abs(end.momentum));
   let error = max(max(heat_maximum(position_error), heat_maximum(momentum_error)), max(abs(difference.time) / (1 + abs(end.time)), abs(difference.time) * heating.w));
@@ -156,8 +180,19 @@ fn heat_step(space: vec2f, profile: vec2f, heating: vec4f, chart: f32, state: He
   return HeatStep(end, error, true);
 }
 
-/** Cubic dense output through an accepted canonical step; the angular direction stays on the sphere. */
-fn heat_interpolate(start: HeatState, end: HeatState, first: HeatState, last: HeatState, h: f32, t: f32) -> HeatState {
+/**
+ * Hermite interpolation at fraction t in [0,1] of an accepted canonical step.
+ * Renormalizes n afterward; this is an event-location approximation, not an exact
+ * Hamiltonian trajectory or a guarantee of substep invariant preservation.
+ */
+fn heat_interpolate(
+  start: HeatState,
+  end: HeatState,
+  first: HeatState,
+  last: HeatState,
+  h: f32,
+  t: f32
+) -> HeatState {
   let t2 = t * t;
   let t3 = t2 * t;
   let weights = vec4f(2 * t3 - 3 * t2 + 1, -2 * t3 + 3 * t2, h * (t3 - 2 * t2 + t), h * (t3 - t2));
@@ -170,15 +205,18 @@ fn heat_interpolate(start: HeatState, end: HeatState, first: HeatState, last: He
 /** Physical canonical tangent, without reconstructing separated constants inside the heated field. */
 fn heat_tangent(space: vec2f, chart: f32, state: HeatState) -> vec4f {
   let g = medium_geometry(space, state.position.x, state.position.yzw, chart).frame;
-  let principal = vec4f(-1, chart * g.direction);
-  return vec4f(-state.momentum.x, state.momentum.yzw) - g.factor * dot(principal, state.momentum) * principal;
+  return kerr_raise(g, state.momentum);
 }
 
-/** Convert a physical canonical state back to pointwise Carter data at a material boundary. */
+/**
+ * Reconstruct pointwise separated data from a canonical state.
+ * Used for local material evaluation and for continuation after leaving heating;
+ * inside the nonseparable field these data are not global constants of motion.
+ */
 fn heat_orbit(space: vec2f, profile: vec2f, heating: vec4f, chart: f32, state: HeatState) -> KerrOrbit {
   let geometry = medium_geometry(space, state.position.x, state.position.yzw, chart);
   let g = geometry.frame;
-  let tangent = heat_tangent(space, chart, state);
+  let tangent = kerr_raise(g, state.momentum);
   var path = kerr_orbit(g, space.y, tangent, 0);
   let material = medium_potential(space, geometry, profile, heating, state.time);
   path.plasma = vec2f(material.cutoff * g.sigma * (1 + profile.y / (g.radius * g.radius)), profile.y);

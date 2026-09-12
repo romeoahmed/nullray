@@ -1,4 +1,4 @@
-type Image = { width: number; height: number; data: Float16Array };
+type Image = { readonly width: number; readonly height: number; readonly data: Float16Array };
 const sample = (image: Image, u: number, v: number, channel: number) => {
   const x = u * image.width - 0.5;
   const y = v * image.height - 0.5;

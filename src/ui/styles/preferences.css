@@ -28,13 +28,26 @@
     .wordmark {
       padding-inline: 8px;
       gap: 8px;
+      & h1 {
+        font-size: 12px;
+        letter-spacing: 0.2em;
+      }
       & p {
         display: none;
       }
     }
     .orbit-mark {
-      inline-size: 19px;
-      block-size: 19px;
+      display: none;
+    }
+    .observation {
+      inset-block-start: 78px;
+      padding: 8px 12px;
+      & .eyebrow {
+        display: none;
+      }
+      & #observation-name {
+        font-size: 14px;
+      }
     }
     .header-actions {
       gap: 4px;
@@ -67,20 +80,17 @@
     }
     .panel {
       --panel-space: 18px;
-      position-anchor: auto;
-      position-area: none;
       inset-inline: var(--edge);
       inline-size: auto;
       margin-inline: 0;
-      position-try-fallbacks: flip-block;
       max-block-size: calc(100dvh - 230px);
     }
     .settings,
     .about {
-      inset-block-start: anchor(bottom);
+      inset-block-start: max(66px, calc(env(safe-area-inset-top) + 54px));
     }
     .library {
-      inset-block-end: anchor(top);
+      inset-block-end: max(140px, calc(env(safe-area-inset-bottom) + 125px));
     }
     .panel > .panel-heading {
       padding-block: 14px;
@@ -92,7 +102,10 @@
   @media (height < 500px) and (width >= 600px) {
     .panel {
       max-block-size: calc(100dvh - 100px);
+      inset-block-start: 76px;
+      inset-block-end: auto;
     }
+    .observation,
     .navigation-hint {
       display: none;
     }
@@ -113,6 +126,7 @@
     .toolbar,
     .photo-card,
     .wordmark,
+    .observation,
     .header-actions button,
     .navigation-hint,
     .telemetry p:not(:empty) {
@@ -130,6 +144,7 @@
       --glass: var(--surface);
     }
     .wordmark,
+    .observation,
     .navigation-hint,
     .telemetry p:not(:empty) {
       background: var(--surface);

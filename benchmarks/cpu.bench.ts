@@ -34,7 +34,7 @@ const catalogue = [...createStars(), ...decodeFaintStars(Uint8Array.from(bytes).
 const workloads = [
   {
     name: "scene",
-    inputs: sceneInputs(initialScene),
+    inputs: { previous: sceneInputs(initialScene), observerAzimuth: 0.1 },
     scope: "Change observer azimuth; reuse unchanged source profile.",
     run: () =>
       prepare(
@@ -44,7 +44,7 @@ const workloads = [
   },
   {
     name: "freefall-camera",
-    inputs: sceneInputs(falling),
+    inputs: { previous: sceneInputs(falling), cameraTurn: [0.1, 0.2], fieldOfView: 0.5 },
     scope: "Turn the camera and widen the field of view at an already prepared free-fall event.",
     run: () =>
       prepare(
@@ -123,6 +123,8 @@ test.for(workloads)("$name preparation", async (workload, { bench, annotate }) =
   const body = JSON.stringify(
     {
       schema: 1,
+      recordedAt: new Date().toISOString(),
+      timing: { clock: "wall-clock", unit: "ms", completion: "synchronous" },
       workload: workload.name,
       inputs: workload.inputs,
       outputSHA256: createHash("sha256").update(output).digest("hex"),

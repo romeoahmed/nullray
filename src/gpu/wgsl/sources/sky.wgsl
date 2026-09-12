@@ -36,13 +36,16 @@ fn cube_texel_area(pixel: vec2u, width: u32) -> f32 {
   return 2 * (atan2(side * side, abc) + atan2(side * side, acd));
 }
 
-/** Static sky construction uses f32 interpolation: exponential dust amplifies hardware filter rounding.
- * The per-ray material path keeps hardware filtering; this one-time pass can afford eight exact texel loads.
+/**
+ * Interpolate eight stored lattice values explicitly in f32 for sky generation.
+ * The periodic lattice dimensions must be powers of two for masked addressing.
+ * Exponential dust amplifies hardware filtering differences. The per-ray
+ * material path retains hardware interpolation; this one-time pass uses explicit loads.
  */
 fn sky_noise(position: vec3f) -> f32 {
   let cell = vec3i(floor(position));
   let f = fract(position);
-  let weight = f * f * f * (f * (6 * f - 15) + 10);
+  let weight = lattice_weight(f);
   let mask = vec3i(textureDimensions(structure_field)) - 1;
   let a = textureLoad(structure_field, cell & mask, 0).r;
   let b = textureLoad(structure_field, (cell + vec3i(1, 0, 0)) & mask, 0).r;

@@ -1,7 +1,12 @@
 /**
- * Conservative electron-scattering Milne atmosphere: μ, I(μ)/I(0), linear polarization percent.
- * Selected h=0 entries of Silant'ev, Alekseeva & Ananjevskaja (2019), Table 4.
- * https://doi.org/10.1093/mnras/stz123 . Numerical data; attribution is recorded in NOTICE.md.
+ * Conservative Milne atmosphere rows `(μ, I(μ)/I(0), polarization percent)`.
+ *
+ * @remarks
+ * Selected h = 0 data from Silant'ev, Alekseeva and Ananjevskaja (2019), Table 4.
+ * These are tabulated atmosphere solutions, not measured fluid-state data.
+ * Attribution is recorded in NOTICE.md.
+ *
+ * @see https://doi.org/10.1093/mnras/stz123
  */
 export const milne: readonly (readonly [number, number, number])[] = [
   [0, 1, 11.713],

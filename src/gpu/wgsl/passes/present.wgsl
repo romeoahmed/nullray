@@ -11,16 +11,6 @@ struct Display {
 @group(0) @binding(2) var<uniform> display: Display;
 @group(0) @binding(3) var bloom: texture_2d<f32>;
 
-struct Vertex {
-  @builtin(position) position: vec4f,
-  @location(0) uv: vec2f,
-}
-
-@vertex fn vertex(@builtin(vertex_index) index: u32) -> Vertex {
-  let uv = vec2f(f32((index << 1u) & 2u), f32(index & 2u));
-  return Vertex(vec4f(uv * vec2f(2.0, -2.0) + vec2f(-1.0, 1.0), 0.0, 1.0), uv);
-}
-
 /**
  * Columns map linear sRGB through XYZ D65 into linear Display P3.
  * Signed working RGB must be transformed before destination-gamut clipping.
@@ -46,7 +36,7 @@ fn photographic_shoulder(radiance: vec3f, content_peak: f32) -> vec3f {
   return content_peak * compressed * (relative / peak + whitening) / (1 + whitening);
 }
 
-/** Map signed linear sRGB into P3 before clipping and camera calibration. */
+/** Convert signed sRGB to P3, clip negative P3 channels, then apply camera gains and exposure. */
 fn display_radiance(rgb: vec3f, exposure: f32, content_peak: f32) -> vec3f {
   let radiance = max(srgb_to_p3 * rgb, vec3f(0.0)) * display.white.rgb * exposure;
   if (display.white.w > 0) { return photographic_shoulder(radiance, content_peak); }
@@ -56,7 +46,7 @@ fn display_radiance(rgb: vec3f, exposure: f32, content_peak: f32) -> vec3f {
 
 /**
  * Display P3 uses the sRGB transfer curve, extended above one for HDR.
- * Both select operands are safe because display_radiance is nonnegative.
+ * Both select operands are evaluated; nonnegative display_radiance keeps the power branch in-domain.
  */
 fn encode_display_p3(linear: vec3f) -> vec3f {
   return select(12.92 * linear, 1.055 * pow(linear, vec3f(1.0 / 2.4)) - 0.055,

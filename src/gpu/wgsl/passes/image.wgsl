@@ -1,8 +1,24 @@
-fn disk_temperature(r: f32) -> f32 {
-  let count = arrayLength(&disk_profile);
-  let coordinate = clamp(log(r / optical_frame.space.z) / log(optical_frame.space.w / optical_frame.space.z), 0.0, 1.0) * f32(count - 1u);
-  let lower = min(u32(coordinate), count - 2u);
-  return mix(disk_profile[lower], disk_profile[lower + 1u], coordinate - f32(lower));
+/** One local camera basis for imaging and inspection; offsets use image-height units. */
+fn detector_direction(coordinate: vec2f) -> vec3f {
+  return normalize(optical_frame.forward.xyz + 2 * optical_frame.sampling.z *
+    (coordinate.x * optical_frame.right.xyz - coordinate.y * optical_frame.up.xyz));
+}
+
+struct DetectorRay {
+  orbit: KerrOrbit,
+  momentum: vec4f,
+}
+
+/** Initialize a propagating photon after the caller establishes cutoff < 1. */
+fn detector_ray(g: KerrGeometry, local: vec3f, cutoff: f32) -> DetectorRay {
+  let p = optical_frame.observer * vec4f(1, -sqrt(1 - cutoff) * local);
+  var initial = kerr_orbit(g, optical_frame.space.y, p, 0);
+  initial.plasma = optical_frame.plasma.xy;
+  if (optical_frame.heating.z > 0 && g.radius > optical_frame.heating.x && g.radius < optical_frame.heating.y) {
+    initial.plasma.x = cutoff * g.sigma * (1 + optical_frame.plasma.y / (g.radius * g.radius));
+  }
+  initial.state.radial.z = optical_frame.appearance.x;
+  return DetectorRay(initial, p);
 }
 
 @compute @workgroup_size(8, 8)
@@ -13,7 +29,7 @@ fn render_image(@builtin(global_invocation_id) id: vec3u) {
   textureStore(arrival_image, pixel, vec4f(0));
   textureStore(transmission_image, pixel, vec4f(0));
   let coordinate = (vec2f(id.xy) + 0.5 + optical_frame.sampling.xy - vec2f(size) / 2) / f32(size.y);
-  let local = normalize(optical_frame.forward.xyz + 2 * optical_frame.sampling.z * (coordinate.x * optical_frame.right.xyz - coordinate.y * optical_frame.up.xyz));
+  let local = detector_direction(coordinate);
   let g = kerr_geometry(optical_frame.space.xy, optical_frame.point.xyz, optical_frame.point.w);
   let detector_cutoff = plasma_cutoff(g, optical_frame.appearance.x);
   let index_squared = 1 - detector_cutoff;
@@ -24,18 +40,13 @@ fn render_image(@builtin(global_invocation_id) id: vec3u) {
     textureStore(domain_image, pixel, vec4i(0));
     return;
   }
-  let p = optical_frame.observer * vec4f(1, -sqrt(index_squared) * local);
-  var initial = kerr_orbit(g, optical_frame.space.y, p, 0);
-  initial.plasma = optical_frame.plasma.xy;
-  if (optical_frame.heating.z > 0 && g.radius > optical_frame.heating.x && g.radius < optical_frame.heating.y) {
-    initial.plasma.x = detector_cutoff * g.sigma * (1 + optical_frame.plasma.y / (g.radius * g.radius));
-  }
-  initial.state.radial.z = optical_frame.appearance.x;
+  let launch = detector_ray(g, local, detector_cutoff);
+  let initial = launch.orbit;
   let screen_up = normalize(optical_frame.up.xyz - local * dot(optical_frame.up.xyz, local));
   let screen_right = cross(local, screen_up);
   let up = optical_frame.observer * vec4f(0, screen_up);
   let right = optical_frame.observer * vec4f(0, screen_right);
-  let screen = PolarizationScreen(walker_penrose(g, p, up), walker_penrose(g, p, right), vec2f(-right.w, up.w));
+  let screen = PolarizationScreen(walker_penrose(g, launch.momentum, up), walker_penrose(g, launch.momentum, right), vec2f(-right.w, up.w));
   let ray = trace_ray(initial, false, screen);
   var color = vec4f(0);
   var stokes_q = vec3f(0);
@@ -71,12 +82,10 @@ fn render_image(@builtin(global_invocation_id) id: vec3u) {
       let omega = root / (r * r + a * root);
       let phi = atan2(ray.path.state.direction.y, ray.path.state.direction.x);
       let emitter_g = kerr_geometry(ray.path.space, vec3f(r, 1.570796326794897, phi), ray.path.chart);
-      let trial_velocity = vec4f(1, omega * cross(vec3f(0, 0, 1), emitter_g.position));
-      let norm = -dot(kerr_lower(emitter_g, trial_velocity), trial_velocity);
-      if (norm > 0) {
-        var side = ray.block.z;
-        if (ray.block.x == 4) { side = 1; }
-        let ut = f32(side) * inverseSqrt(norm);
+      let side = select(ray.block.z, 1, ray.block.x == 4);
+      let emitter = kerr_circular_velocity(emitter_g, omega, side);
+      if (emitter.x != 0) {
+        let ut = emitter.x;
         let frequency = ut * (ray.path.constants.x - omega * ray.path.constants.y);
         if (frequency > 0 && frequency * frequency > plasma_cutoff(emitter_g, ray.path.state.radial.z)) {
           let photon = kerr_tangent(ray.path);
@@ -94,7 +103,7 @@ fn render_image(@builtin(global_invocation_id) id: vec3u) {
             cloud = disk_cloud(ray.path.space, optical_frame.space.z, r, emission_phi, 0, emission_time, omega, vec4f(0));
           }
           let temperature = optical_frame.appearance.y * disk_temperature(r)
-            * exp(1.1 * optical_frame.appearance.z * cloud.z) * pow(source_light(ray.block), 0.25);
+            * exp(0.9 * optical_frame.appearance.z * cloud.z) * pow(source_light(ray.block), 0.25);
           if (optical_frame.plasma.w != 0 || frequency >= temperature / 1000000) {
             let spectrum = source_spectrum(temperature / frequency);
             color = vec4f(spectrum.rgb * atmosphere.x, spectrum.a);
@@ -106,7 +115,7 @@ fn render_image(@builtin(global_invocation_id) id: vec3u) {
                 // Its orthogonal screen direction supplies the degenerate principal-ray limit.
                 direction = screen.equatorial;
               } else {
-                let f = electric_vector(emitter_g, photon, ut * trial_velocity, vec4f(0, 0, 0, 1));
+                let f = electric_vector(emitter_g, photon, emitter, vec4f(0, 0, 0, 1));
                 let source = walker_penrose(emitter_g, photon, f);
                 direction = vec2f(dot(source, screen.up), dot(source, screen.right));
               }
@@ -146,6 +155,8 @@ fn render_image(@builtin(global_invocation_id) id: vec3u) {
     }
   }
   let peak = max(max(abs(color.r), abs(color.g)), abs(color.b));
+  // Share the f16 storage scale across I/Q/U; saturation remains lossy and
+  // does not mark the sample unresolved.
   if (peak > 65504) {
     let storage_scale = 65504 / peak;
     color = vec4f(color.rgb * storage_scale, color.a);
@@ -163,20 +174,14 @@ fn render_image(@builtin(global_invocation_id) id: vec3u) {
 @compute @workgroup_size(1)
 fn inspect_ray() {
   inspected_ray.summary = vec4i(0);
-  let local = normalize(optical_frame.forward.xyz + 2 * optical_frame.sampling.z *
-    (optical_frame.work.z * optical_frame.right.xyz - optical_frame.work.w * optical_frame.up.xyz));
+  let local = detector_direction(optical_frame.work.zw);
   let g = kerr_geometry(optical_frame.space.xy, optical_frame.point.xyz, optical_frame.point.w);
   let detector_cutoff = plasma_cutoff(g, optical_frame.appearance.x);
   let index_squared = 1 - detector_cutoff;
   if (!(index_squared > 0)) { return; }
-  let p = optical_frame.observer * vec4f(1, -sqrt(index_squared) * local);
-  var initial = kerr_orbit(g, optical_frame.space.y, p, 0);
-  initial.plasma = optical_frame.plasma.xy;
-  if (optical_frame.heating.z > 0 && g.radius > optical_frame.heating.x && g.radius < optical_frame.heating.y) {
-    initial.plasma.x = detector_cutoff * g.sigma * (1 + optical_frame.plasma.y / (g.radius * g.radius));
-  }
-  initial.state.radial.z = optical_frame.appearance.x;
-  let ray = trace_ray(initial, true, PolarizationScreen(vec2f(0), vec2f(0), vec2f(0)));
+  let launch = detector_ray(g, local, detector_cutoff);
+  let initial = launch.orbit;
+  let ray = trace_ray(initial, true, PolarizationScreen());
   inspected_ray.summary.y = i32(ray.kind);
   inspected_ray.summary.z = i32(ray.end_sign);
   inspected_ray.summary.w = i32(ray.crossings);

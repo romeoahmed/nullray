@@ -2,7 +2,16 @@ import { turnCamera } from "../scene/camera.ts";
 import { translateCamera } from "../scene/navigation.ts";
 import type { SceneInput, Scene } from "../scene/scene.ts";
 
-/** Orbit or freely place the selected observer; navigation never adds physical velocity. */
+/**
+ * Bind pointer, wheel, and keyboard placement controls under an abort signal.
+ *
+ * @remarks
+ * Free mode changes camera orientation/placement; orbit mode changes spherical
+ * placement. The caller owns the canvas and cancels listeners with the signal.
+ *
+ * @param change - Commits proposed inputs through scene validation; navigation adds no physical velocity.
+ * @param getScene - Reads the latest accepted scene for each input event.
+ */
 export function bindNavigation(
   canvas: HTMLCanvasElement,
   getScene: () => Scene,

@@ -1,30 +1,12 @@
-# Nullray
+# Documentation
 
-Nullray is an interactive Kerr–Newman observatory built with TypeScript and native WebGPU/WGSL. A dedicated worker traces light through a finite thermal disk and prescribed jets, then forms a photograph from spectral radiation and catalogue stars.
+Start with the [project overview and setup](../README.md) or [controls and visual priorities](design/experience.md). [Coverage](validation/coverage.md) distinguishes implemented behavior from unverified domains.
 
-The renderer is an optical prototype. It implements physical observers, signed-radius and horizon continuation, vacuum linear polarization, and a time-dependent narrowband plasma model. General critical-ray accuracy, nonlinear stellar-image completeness and magnetized transfer remain open; [Coverage](coverage.md) separates executable evidence from those limitations.
+| Area        | Contents                                                                                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Physics     | [Spacetime and conventions](physics/spacetime.md), [observers](physics/observers.md), [emission](physics/emission.md), [transport](physics/transport.md), [plasma](physics/plasma.md) |
+| Numerics    | [Geodesics and events](numerics/geodesics.md), [image formation and approximation](numerics/image-formation.md)                                                                       |
+| Engineering | [Architecture](engineering/architecture.md), [development](engineering/development.md), [WGSL](engineering/shaders.md)                                                                |
+| Validation  | [Capabilities and open coverage](validation/coverage.md), [tests and measurements](validation/methods.md)                                                                             |
 
-## Start
-
-Use Node.js 26 or newer, pnpm and a browser meeting the [native platform requirements](tooling.md#native-browser-baseline):
-
-```sh
-pnpm install --frozen-lockfile
-pnpm dev
-```
-
-Choose one of six views, drag the image to explore, and open Settings to change the observer or light sources. Refine freezes the emission epoch and accumulates 64 samples at native resolution. Saved views remain in the browser; a view link carries the physical and display inputs in schema 1.
-
-## Project guide
-
-| Document                             | Owns                                                           |
-| ------------------------------------ | -------------------------------------------------------------- |
-| [Physics](physics.md)                | Units, equations, source prescriptions and physical limits     |
-| [Numerics](numerics.md)              | Coordinates, integration, events, sampling and failure meaning |
-| [Architecture](architecture.md)      | Domain boundaries, worker protocol and resource ownership      |
-| [Visual design](visual-direction.md) | Composition, interface hierarchy and visual acceptance         |
-| [Validation](validation.md)          | Required checks and reference/comparison policy                |
-| [Coverage](coverage.md)              | Executable evidence and outstanding numerical coverage         |
-| [Tooling](tooling.md)                | Commands, compiler policy and platform requirements            |
-| [Agent guide](../AGENTS.md)          | Operational repository instructions                            |
-| [Attribution](../NOTICE.md)          | Included data, adapted code and licenses                       |
+Keep formulas in physics/numerics, operational contracts in engineering, and implementation status in coverage. [AGENTS.md](../AGENTS.md) gives coding-agent instructions; [NOTICE](../NOTICE.md) owns third-party attribution and data provenance.

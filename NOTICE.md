@@ -1,5 +1,11 @@
 # Third-party attribution
 
+Nullray's original code and documentation are licensed under [MIT](LICENSE). The material identified below retains its stated terms; the root license does not replace them.
+
+## Example photographs
+
+[Classic disk](docs/media/classic-disk.png) and [Blue accretion flow](docs/media/blue-accretion-flow.png) are rendered with Nullray, © 2026 Romeo Ahmed, and distributed under [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/). They use the HYG catalogue and CIE colour-matching data credited below. The renderings apply Nullray's source, spectral and display models to those data.
+
 ## Photographic tone mapping
 
 The highlight shoulder in [present.wgsl](src/gpu/wgsl/passes/present.wgsl) adapts the peak-compression and neutral-highlight construction of the [Khronos PBR Neutral tone mapper](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral), copyright 2024 The Khronos Group, Inc., under [Apache-2.0](licenses/Khronos-Apache-2.0.txt). Nullray omits the surface-reflection offset, changes the compression/desaturation parameters and applies the shoulder to Display P3 with an explicit SDR/HDR content peak. These changes do not implement the complete PBR Neutral transform or imply Khronos endorsement.
@@ -10,17 +16,30 @@ The highlight shoulder in [present.wgsl](src/gpu/wgsl/passes/present.wgsl) adapt
 
 The data is licensed under [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/). This license applies to the included data and its adaptations. The conversion preserves all decimal values and makes the 360–830 nm wavelength column implicit in the array index. It does not imply CIE endorsement of Nullray.
 
-Original file: `CIE_xyz_1931_2deg.csv`. SHA-256: `fa663e3535a7e0763a745993a1f0a192eb0275ac46ad2d1befd7626841e713c1`. The checksum was verified before conversion. See the [dataset page](https://cie.co.at/datatable/cie-1931-colour-matching-functions-2-degree-observer) and its linked metadata for provenance.
+Original file: `CIE_xyz_1931_2deg.csv`. SHA-256: `fa663e3535a7e0763a745993a1f0a192eb0275ac46ad2d1befd7626841e713c1`. See the [dataset page](https://cie.co.at/datatable/cie-1931-colour-matching-functions-2-degree-observer) and its linked metadata for provenance.
 
 ## HYG star catalogue
 
-[src/data/bright-stars.ts](src/data/bright-stars.ts) adapts David Nash / Astronexus's [HYG Database 4.1](https://github.com/astronexus/HYG-Database/tree/main/hyg), licensed under [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/). That license applies to the included catalogue and its adaptations. No endorsement is implied.
+[src/data/bright-stars.ts](src/data/bright-stars.ts) and [src/data/faint-stars.bin](src/data/faint-stars.bin) adapt David Nash / Astronexus's [HYG Database 4.4](https://codeberg.org/astronexus/hyg), licensed under [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/). That license applies to the included catalogue and its adaptations. No endorsement is implied. The upstream repository has moved from GitHub to Codeberg.
 
-Original file: [`hygdata_v41.csv`](https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv). SHA-256: `d9f69fd86bbf90a4e4d52b4c5c53eacfa6dfc0bfdef85bfd94f095e0bebe4ebd`. The conversion selects finite apparent visual magnitudes at most 6.5 and excludes the Sun (`id = 0`), retaining 8,920 records as `[id, rarad, decrad, mag, ci]`. Right ascension and declination are radians in the catalogue's J2000 frame. Forty absent color indices remain `null`. Values are parsed as numbers without coordinate rounding. Version 4.1 is pinned to this verified archive; [the author's revision notes](https://www.astronexus.com/projects/hyg-details) state that 4.2 changes names only.
+### Pinned source
 
-The catalogue supplies observed directions and relative visual magnitudes. The renderer's blackbody color approximation, missing-color assumption, scene normalization, and diffuse background are described in [physics](docs/physics.md#distant-sky); they are not additional catalogue measurements.
+The source is [`data/hyg/CURRENT/hyg_v44.csv.gz`](https://codeberg.org/astronexus/hyg/src/commit/53e3df311869e813ace5f1ad2ec4ce909f13256c/data/hyg/CURRENT/hyg_v44.csv.gz) at commit `53e3df311869e813ace5f1ad2ec4ce909f13256c`, dated 2026-07-12. Import uses the original HYG catalogue, not the separate AT-HYG/HYGLike dataset in the same repository. The [upstream dataset notes](https://codeberg.org/astronexus/hyg/src/commit/53e3df311869e813ace5f1ad2ec4ce909f13256c/data/hyg/README.md) describe the version's duplicate cleanup, labeling and astrometric changes; the [dataset license](https://codeberg.org/astronexus/hyg/src/commit/53e3df311869e813ace5f1ad2ec4ce909f13256c/data/hyg/CURRENT/LICENSE) records CC BY-SA 4.0.
 
-[src/data/faint-stars.bin](src/data/faint-stars.bin) extends the same archive with 99,151 records at $6.5<m_V\le10$, under the same CC BY-SA 4.0 license. Each 16-byte record contains little-endian f32 right ascension (rad), declination (rad), apparent V magnitude and the derived blackbody temperature (K). B−V uses the approximation described in [physics](docs/physics.md#distant-sky); 319 missing colors use 6500 K. Coordinates, magnitudes and derived temperatures are rounded once to f32. SHA-256: `ba6db908862ade69e6cdcb923df1904dc54eacd87012a709a44272454c8fd4bf`.
+| Artifact                  |      Bytes | SHA-256                                                            |
+| ------------------------- | ---------: | ------------------------------------------------------------------ |
+| Upstream gzip             | 13,636,362 | `00b349893b9a53106dd488d8371e8d2fa586043e500bb3cdb8bff3931682197d` |
+| Decompressed CSV          | 33,929,696 | `ea0e1699a1e7d48daa197b5fe567fcf447420e367f37619862ee1d6f077599cd` |
+| Bundled faint-star binary |  1,586,352 | `ff74992bccb2773567a2d901b64ad58de42c3eee1fadc742a6d30c3b886cd886` |
+
+### Selection and conversion
+
+Read the gzip as UTF-8 CSV with its header and preserve source row order. Exclude the Sun (`id = 0`) and select finite apparent visual magnitudes $m_V\le10$. This retains 108,067 sources from 119,614 CSV data rows, including the excluded Solar row in the upstream count. Use `rarad` and `decrad` directly: they are right ascension and declination in radians in the catalogue's J2000 frame.
+
+- Bright sources: retain the 8,920 rows with $m_V\le6.5$ as `[id, rarad, decrad, mag, ci]`. Parse numeric fields without additional coordinate rounding; 40 absent B−V color indices remain `null`.
+- Faint sources: retain the 99,147 rows with $6.5<m_V\le10$. Each 16-byte record stores little-endian f32 `rarad`, `decrad`, `mag` and a derived blackbody-proxy temperature in kelvin. For a present color index, evaluate the [Ballesteros approximation](docs/physics/emission.md#distant-sky) in binary64 before the single f32 storage rounding. The 319 absent colors use 6500 K. The binary has no header, IDs or padding.
+
+The catalogue supplies observed directions and relative visual magnitudes. The renderer's blackbody color approximation, missing-color assumption, scene normalization and diffuse background are described in [the emission model](docs/physics/emission.md#distant-sky); they are not additional catalogue measurements.
 
 ## Milne scattering atmosphere
 

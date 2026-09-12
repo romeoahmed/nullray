@@ -17,8 +17,9 @@ export function linear(a: Vec3, x: number, b: Vec3, y: number): Vec3 {
 }
 
 /**
- * Return a unit vector without changing the input.
- * @throws RangeError when the Euclidean length is zero or nonfinite.
+ * Return a fresh Euclidean unit vector in the input frame.
+ *
+ * @throws RangeError - If the Euclidean length is zero or nonfinite.
  */
 export function normalize(v: Vec3): Vec3 {
   const length = Math.hypot(...v);

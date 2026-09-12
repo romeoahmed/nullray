@@ -12,7 +12,12 @@ export const initialJet: Jet = {
   gammaMin: 600,
 };
 
-/** Validate a complete material prescription; null disables the outflow. */
+/**
+ * Decode jet source fields and quantize geometric controls for GPU use.
+ *
+ * @returns A source, null for an explicitly disabled jet, or `undefined` for
+ * invalid data. Horizon placement and spectral-table finiteness are checked downstream.
+ */
 export function decodeJet(input: unknown): Jet | null | undefined {
   if (input === null) {
     return null;

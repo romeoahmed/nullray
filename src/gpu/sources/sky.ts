@@ -6,7 +6,11 @@ import fieldSource from "../wgsl/sources/field.wgsl?raw";
 import skySource from "../wgsl/sources/sky.wgsl?raw";
 import faintStarsURL from "../../data/faint-stars.bin?url";
 
-/** Decode the bundled catalogue into one caller-owned spectral source tree. */
+/**
+ * Load the bundled faint catalogue and combine it with the bright-source tree.
+ *
+ * @returns Caller-owned f32 tree storage. Fetch, decoding, or source validation failures reject.
+ */
 export async function createCelestialData(): Promise<Float32Array<ArrayBuffer>> {
   const response = await fetch(faintStarsURL);
   if (!response.ok) {
@@ -16,7 +20,14 @@ export async function createCelestialData(): Promise<Float32Array<ArrayBuffer>> 
   return createStarTree([...createStars(), ...faint]);
 }
 
-/** Generate a spectral cube and its solid-angle-weighted mips on the GPU. The caller owns the result. */
+/**
+ * Generate a spectral cube and solid-angle-weighted mip chain on the GPU.
+ *
+ * @param field - Borrowed lattice bindings kept alive through generation completion.
+ * @param size - Power-of-two face size from 1 through 1024 texels.
+ * @returns A caller-owned f16 texture after GPU completion; f32 work storage is released.
+ * Invalid sizes or GPU failures reject, with the output destroyed on generation failure.
+ */
 export async function createSkyTexture(
   device: GPUDevice,
   field: StructureField,

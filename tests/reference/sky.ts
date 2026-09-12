@@ -62,7 +62,7 @@ export function cubeDirection(face: number, u: number, v: number): Vec3 {
 const solidAnglePrimitive = (u: number, v: number) =>
   Math.atan2(u * v, Math.sqrt(1 + u * u + v * v));
 
-/** Exact solid angle of a cube texel, from the projected rectangle's four corners. */
+/** Closed-form cube-texel solid angle from projected corners, evaluated in binary64. */
 export function cubeTexelSolidAngle(size: number, x: number, y: number): number {
   const left = (2 * x) / size - 1;
   const right = (2 * (x + 1)) / size - 1;
@@ -76,13 +76,24 @@ export function cubeTexelSolidAngle(size: number, x: number, y: number): number 
   );
 }
 
-/** Diffuse spectral radiance with solid-angle-weighted mip levels. Point stars are separate. */
+/**
+ * Generate the diffuse spectral cube and its solid-angle-weighted reference mips.
+ *
+ * @remarks
+ * Geometry/integration use binary64; working arrays and stored mip coefficients
+ * are deliberately quantized to match the production storage contract.
+ * Catalogue point sources are evaluated separately.
+ *
+ * @param size - Power-of-two face size from 1 through 1024 texels.
+ * @returns Caller-owned levels in WebGPU cube-face order.
+ * @throws RangeError - If the face size is unsupported.
+ */
 export function createSkyMap(size = 256): readonly SkyLevel[] {
   if (!Number.isSafeInteger(size) || size < 1 || size > 1024 || (size & (size - 1)) !== 0) {
     throw new RangeError("Sky face size must be a power of two between 1 and 1024.");
   }
   let current = new Float32Array(size * size * 6 * 4);
-  // J2000 north Galactic pole; see the source-frame contract in docs/physics.md.
+  // J2000 north Galactic pole; see the source-frame contract in docs/physics/emission.md.
   const poleRA = (192.8594812065348 * Math.PI) / 180;
   const poleDec = (27.12825118085622 * Math.PI) / 180;
   const galacticNormal: Vec3 = [

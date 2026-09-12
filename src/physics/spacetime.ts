@@ -1,15 +1,34 @@
-/** Dimensionless Kerr–Newman parameters, in units G = c = M = 1. */
+/**
+ * Signed Kerr–Newman spin and charge in units `G = c = M = 1`.
+ *
+ * @remarks
+ * `spin = Jc/(GM²)` and `charge = Q/(sqrt(4πε₀G) M)` in terms of SI inputs.
+ * This value type does not validate the parameters or require a horizon.
+ */
 export interface Spacetime {
   readonly spin: number;
   readonly charge: number;
 }
 
-/** Outer horizon used by the subextremal circular-orbit branch. */
+/**
+ * Evaluate the outer root in M for finite `a² + q² ≤ 1`.
+ *
+ * @remarks
+ * This unchecked circular-orbit helper returns NaN outside that domain.
+ * Use the geometry module's horizon classifier for general scene topology.
+ */
 export function outerHorizon({ spin: a, charge: q }: Spacetime): number {
   return 1 + Math.sqrt(1 - a * a - q * q);
 }
 
-/** Specific neutral-particle constants for a circular equatorial emitter. */
+/**
+ * Neutral equatorial circular-orbit data with positive BL-time normalization.
+ *
+ * @remarks
+ * `omega` is `dφ/dt` in radians per M, `ut` is `dt/dτ`, and the energy and
+ * angular momentum are specific constants per unit rest mass. Stability is
+ * reported separately from existence of a timelike orbit.
+ */
 export interface CircularOrbit {
   readonly omega: number;
   readonly ut: number;
@@ -19,7 +38,13 @@ export interface CircularOrbit {
   readonly radialStability: number;
 }
 
-/** Neutral equatorial circular emitter, including horizonless geometry; absent when not timelike. */
+/**
+ * Evaluate a neutral circular emitter at positive radius in M.
+ *
+ * @param direction - Orbital orientation; +1 is prograde only for positive spin.
+ * @returns Orbit data, or `undefined` when radial-domain or timelike checks fail.
+ * Existence alone does not imply stability or an exterior source boundary.
+ */
 export function circularOrbit(
   space: Spacetime,
   r: number,
@@ -50,7 +75,16 @@ export function circularOrbit(
   return { omega, ut, energy, angularMomentum, radialStability };
 }
 
-/** Follow the stable exterior branch inward, then refine its marginal orbit. */
+/**
+ * Locate the marginal orbit on the stable branch connected to large radius.
+ *
+ * @remarks
+ * Requires finite subextremal parameters. The search brackets inward from
+ * 16 M and refines the stability sign; it is not a general naked-orbit solver.
+ *
+ * @returns The binary64 midpoint of the final radial bracket, in M.
+ * Scene construction rounds a source edge outward before f32 use.
+ */
 export function isco(space: Spacetime, direction: 1 | -1): number {
   const horizon = outerHorizon(space);
   let stable = 16;

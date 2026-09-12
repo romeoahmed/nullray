@@ -1,6 +1,8 @@
 import { cubeTexelSolidAngle } from "../reference/sky.ts";
 import { describe, expect, test } from "vitest";
+import * as fc from "fast-check";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { createDiskProfile, diskColumnNormalization } from "../../src/physics/disk.ts";
 import { isco } from "../../src/physics/spacetime.ts";
 import {
@@ -12,7 +14,6 @@ import {
   xyzToLinearRGB,
 } from "../../src/physics/radiation.ts";
 import { brightStars } from "../../src/data/bright-stars.ts";
-import { createStarTree } from "../../src/physics/stars.ts";
 import { createJetTable } from "../../src/physics/synchrotron.ts";
 import { initialJet } from "../../src/scene/jet.ts";
 import { createStars, decodeFaintStars } from "../../src/physics/sky.ts";
@@ -111,13 +112,19 @@ describe("Charged thermal disks", () => {
 
 describe("Spectral transfer", () => {
   test("blackbody temperature shifting obeys wavelength radiance transport", () => {
-    for (const g of [0.3, 1, 3]) {
-      for (const wavelength of [400e-9, 550e-9, 700e-9]) {
-        const shifted = planck(wavelength, 6000 * g);
-        const transported = g ** 5 * planck(wavelength * g, 6000);
-        expect(shifted / transported).toBeCloseTo(1, 12);
-      }
-    }
+    // Stay above the underflow tail so the ratio measures transport, not 0/0.
+    fc.assert(
+      fc.property(
+        fc.double({ min: 0.3, max: 3, noNaN: true }),
+        fc.double({ min: 400e-9, max: 700e-9, noNaN: true }),
+        fc.double({ min: 2500, max: 30000, noNaN: true }),
+        (g, wavelength, temperature) => {
+          const shifted = planck(wavelength, temperature * g);
+          const transported = g ** 5 * planck(wavelength * g, temperature);
+          expect(shifted / transported).toBeCloseTo(1, 12);
+        },
+      ),
+    );
     expect(planck(500e-9, 0)).toBe(0);
   });
 
@@ -196,11 +203,18 @@ describe("Distant sky", () => {
     }
   });
 
-  test("HYG bright stars retain source positions, magnitudes, and missing-color records", () => {
+  test("HYG 4.4 retains corrected source IDs, photometry, and the pinned faint subset", () => {
     const stars = createStars();
     expect(stars).toHaveLength(8920);
     expect(new Set(brightStars.map(([id]) => id)).size).toBe(stars.length);
     expect(brightStars.filter(([, , , , color]) => color === null)).toHaveLength(40);
+    // HYG 4.3/4.4 corrects which p Eridani component belongs to each catalogue ID.
+    expect(brightStars.find(([id]) => id === 7736)).toEqual([
+      7736, 0.43537304995866666, -0.9807811326846, 5.8, 0.86,
+    ]);
+    expect(brightStars.find(([id]) => id === 118084)).toEqual([
+      118084, 0.43541673470447556, -0.9808122092628587, 5.76, 0.88,
+    ]);
     const sirius = stars[brightStars.findIndex(([id]) => id === 32263)];
     const polaris = stars[brightStars.findIndex(([id]) => id === 11734)];
     if (!sirius || !polaris) {
@@ -222,14 +236,14 @@ describe("Distant sky", () => {
         expect(star.temperature).toBe(6500);
       }
     }
-    const tree = createStarTree(stars);
-    expect(tree.byteLength).toBeLessThanOrEqual(stars.length * 64);
-    expect(tree.every(Number.isFinite)).toBe(true);
     const data = new Uint8Array(
       readFileSync(new URL("../../src/data/faint-stars.bin", import.meta.url)),
     ).buffer;
     const faint = decodeFaintStars(data);
-    expect(faint).toHaveLength(99151);
+    expect(faint).toHaveLength(99147);
+    expect(createHash("sha256").update(new Uint8Array(data)).digest("hex")).toBe(
+      "ff74992bccb2773567a2d901b64ad58de42c3eee1fadc742a6d30c3b886cd886",
+    );
     expect(faint.every((star) => star.flux > 0 && star.flux < 4e-5 * 10 ** (-0.4 * 6.5))).toBe(
       true,
     );

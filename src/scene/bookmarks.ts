@@ -1,3 +1,4 @@
+import { record } from "./decode.ts";
 import { decodeView } from "./view.ts";
 
 /** A named, validated view fragment; persistence belongs to the browser adapter. */
@@ -7,10 +8,12 @@ export interface Bookmark {
 }
 
 /**
- * Decode the complete collection atomically; corrupt storage must never become an empty library.
- * @param serialized - Stored JSON, or null when the browser has no collection yet.
- * @returns Fresh entries with unique names and validated versioned view fragments.
- * @throws Error when JSON, collection limits, names, or any view fail validation.
+ * Decode a saved-view collection atomically.
+ *
+ * @param serialized - Stored JSON; null alone means no library has been stored.
+ * @returns Fresh validated entries with unique names; corrupt storage is not an empty library.
+ * @throws SyntaxError - If the stored text is not JSON.
+ * @throws Error - If collection limits, names, or view fragments fail validation.
  */
 export function decodeBookmarks(serialized: string | null): readonly Bookmark[] {
   if (serialized === null) {
@@ -25,10 +28,7 @@ export function decodeBookmarks(serialized: string | null): readonly Bookmark[] 
   const items: readonly unknown[] = values;
   for (const value of items) {
     if (
-      typeof value !== "object" ||
-      value === null ||
-      !("name" in value) ||
-      !("fragment" in value) ||
+      !record(value) ||
       typeof value.name !== "string" ||
       !value.name.trim() ||
       value.name.length > 80 ||

@@ -11,8 +11,15 @@ export interface Coverage {
 }
 
 /**
- * Read unresolved weights from a submitted photographic history without copying its image.
- * @returns A reader that owns temporary readback buffers and borrows the history for each call.
+ * Create a reader for missing weights in submitted f32 image histories.
+ *
+ * @remarks
+ * The returned function expects a history and its completed count from 1 to 64.
+ * It submits its own reduction/readback, retains the borrowed texture through
+ * completion, and releases temporary buffers on success or failure. The caller
+ * must submit prior history writes and keep the device alive until settlement.
+ *
+ * @returns A reusable reader; invalid counts or GPU readback failures reject.
  */
 export async function createCoverageReader(device: GPUDevice) {
   const module = await compileShader(device, source, "sampling coverage");

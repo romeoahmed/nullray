@@ -23,7 +23,17 @@ function blockWords(block: SpacetimeBlock): readonly [number, number, number, nu
   }
 }
 
-/** Write the WGSL frame ABI into caller-owned 288-byte storage; both views must share that storage. */
+/**
+ * Write the 288-byte optical uniform ABI into caller-owned storage.
+ *
+ * @remarks
+ * Both views are mutated and must alias. Inputs are already validated; this
+ * function does not upload to the GPU. Field order matches imaging/frame.wgsl.
+ *
+ * @param values - f32 view covering 72 lanes at the start of the frame storage.
+ * @param words - i32 view covering the same bytes and byte offset for block metadata.
+ * @param jetScale - Prepared dimensionless jet-table frequency scale.
+ */
 export function writeOpticalFrame(
   values: Float32Array,
   words: Int32Array,

@@ -1,8 +1,12 @@
 /**
- * CIE 1931 2-degree colour-matching functions, 360–830 nm at 1 nm spacing.
- * CIE (2019), DOI: 10.25039/CIE.DS.xvudnb9b. CC BY-SA 4.0; see NOTICE.md.
+ * CIE 1931 two-degree color-matching rows `(x̄,ȳ,z̄)` at 1 nm spacing.
+ *
+ * @remarks
+ * Row i corresponds to 360 + i nm through 830 nm. Decimal values are retained;
+ * only CSV representation changes. CIE (2019), CC BY-SA 4.0; see NOTICE.md.
  * Original CSV SHA-256: fa663e3535a7e0763a745993a1f0a192eb0275ac46ad2d1befd7626841e713c1.
- * Only the representation changed: wavelength is implicit, decimal values retained.
+ *
+ * @see https://doi.org/10.25039/CIE.DS.xvudnb9b
  */
 export const cie1931: ReadonlyArray<readonly [number, number, number]> = [
   [0.0001299, 0.000003917, 0.0006061],

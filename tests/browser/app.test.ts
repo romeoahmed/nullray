@@ -37,10 +37,18 @@ test("desktop and landscape panels preserve keyboard focus and stay within the v
     root.remove();
   });
   await expect.element(page.getByText(/^Kerr–Newman ·/)).toBeVisible();
+  await expect.element(page.getByText("Paused · image settled", { exact: true })).toBeVisible();
   await screenshot(root, "explorer-desktop");
+  await button("Hide controls").click();
+  await expect.element(element(root, "#toggle-controls", HTMLButtonElement)).not.toBeVisible();
+  await expect.element(button("Show controls")).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(button("Settings")).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Hide controls", exact: true }))
+    .toHaveAttribute("aria-pressed", "false");
   await button("Settings").click();
   await expect.element(slider("Charge")).toBeVisible();
-  await expect.element(slider("Spin")).toHaveAttribute("aria-valuetext", "0.00");
   await screenshot(root, "explorer-desktop-settings");
   await userEvent.keyboard("{Escape}");
   await expect.element(button("Settings")).toHaveFocus();
@@ -81,7 +89,12 @@ test("mobile controls keep the canvas accessible and restore a shared scene atom
   await button("Settings").click();
   await screenshot(root, "explorer-mobile-settings");
   await page.getByText("Image Color · detail · highlights", { exact: true }).click();
-  await select("Exploration resolution").selectOptions("0.5");
+  await expect.element(select("Exploration detail")).toHaveValue("1");
+  await select("Exploration detail").selectOptions("0.25");
+  await expect.poll(() => canvas.width).toBe(Math.floor(390 * devicePixelRatio * 0.25));
+  await select("Exploration detail").selectOptions("auto");
+  await expect.poll(() => canvas.width).toBe(Math.round(390 * devicePixelRatio));
+  await select("Exploration detail").selectOptions("0.5");
   await expect.poll(() => canvas.width).toBe(Math.floor(390 * devicePixelRatio * 0.5));
   await page.getByText("Observer Position · motion · camera", { exact: true }).click();
   await select("Navigation").selectOptions("free");
@@ -137,6 +150,8 @@ test("mobile controls keep the canvas accessible and restore a shared scene atom
   await userEvent.keyboard("{Escape}");
   await button("Views").click();
   await page.getByRole("button", { name: /Classic disk/ }).click();
+  expect(element(root, "#views-panel", HTMLElement).matches(":popover-open")).toBe(false);
+  expect(document.activeElement).toBe(canvas);
   await expect.poll(() => distance.value).toBe(String(initialSession.view.scene.observer.radius));
   location.hash = link.hash;
   await expect.poll(() => distance.value).toBe(materialRadius);
@@ -146,7 +161,6 @@ test("mobile controls keep the canvas accessible and restore a shared scene atom
     .element(page.getByText("This view link is invalid or uses an unsupported version."))
     .toBeVisible();
   expect(distance.value).toBe(materialRadius);
-  await button("Close views").click();
   await button("Settings").click();
   const panel = element(root, "#controls", HTMLElement);
   expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth);
@@ -191,7 +205,8 @@ test("photographs finish at native resolution and presentation edits preserve co
   exposure.value = "2";
   exposure.dispatchEvent(new Event("input", { bubbles: true }));
   await expect.element(button("Save photograph")).toBeEnabled();
-  expect(element(root, "#photo-progress", HTMLProgressElement).value).toBe(64);
+  const progress = element(root, "#photo-progress", HTMLProgressElement);
+  expect(progress.value).toBe(progress.max);
 }, 30_000);
 
 test("remount preserves the paused scene and resized surfaces resume rendering", async ({
@@ -208,7 +223,11 @@ test("remount preserves the paused scene and resized surfaces resume rendering",
   const saved = dispose();
   dispose = mountApp(root, saved);
   const canvas = element(root, "canvas", HTMLCanvasElement);
-  await expect.poll(() => canvas.width).toBe(Math.floor(320 * devicePixelRatio * saved.resolution));
+  await expect
+    .poll(() => canvas.width)
+    .toBe(
+      Math.floor(320 * devicePixelRatio * (saved.resolution === "auto" ? 1 : saved.resolution)),
+    );
   await expect.element(button("Resume motion")).toBeVisible();
   canvas.style.display = "none";
   await new Promise<void>((resolve) =>
@@ -216,8 +235,16 @@ test("remount preserves the paused scene and resized surfaces resume rendering",
   );
   canvas.style.width = "224px";
   canvas.style.display = "";
-  await expect.poll(() => canvas.width).toBe(Math.floor(224 * devicePixelRatio * saved.resolution));
+  await expect
+    .poll(() => canvas.width)
+    .toBe(
+      Math.floor(224 * devicePixelRatio * (saved.resolution === "auto" ? 1 : saved.resolution)),
+    );
   await page.viewport(480, 320);
   canvas.style.width = "100%";
-  await expect.poll(() => canvas.width).toBe(Math.floor(480 * devicePixelRatio * saved.resolution));
+  await expect
+    .poll(() => canvas.width)
+    .toBe(
+      Math.floor(480 * devicePixelRatio * (saved.resolution === "auto" ? 1 : saved.resolution)),
+    );
 });

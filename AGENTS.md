@@ -1,85 +1,48 @@
 # Working on Nullray
 
-## Project and status
-
-Nullray is a TypeScript + native WebGPU/WGSL black-hole renderer. Its core is a horizon-regular Kerr–Newman optical solver with physical observers and thermal radiation; extended topology, polarized matter, stellar filtering, and interactive exploration are active work.
-
-Start at [docs/README.md](docs/README.md). Read [physics](docs/physics.md) and [numerics](docs/numerics.md) before changing optical calculations; read [architecture](docs/architecture.md), [tooling](docs/tooling.md), and [validation](docs/validation.md) for implementation work.
-
-The source is an optical prototype. `src/scene/` and `src/physics/` own pure inputs and preparation; `src/gpu/` owns GPU execution; `src/runtime/` owns the worker boundary; `src/ui/` owns browser interaction. Independent binary64 trajectory and image references live in `tests/reference/`; concrete reproduced failures live in `tests/regressions/`. GPU ownership is split into `optics/`, `sources/` and `imaging/`. Check the coverage ledger before making status claims.
+Nullray is an unreleased TypeScript + native WebGPU/WGSL Kerr–Newman optical prototype. Start with [docs/README.md](docs/README.md) and [coverage](docs/validation/coverage.md). Before optical changes, read [spacetime conventions](docs/physics/spacetime.md), the relevant source/transport model and [numerics](docs/numerics/geodesics.md). For runtime work, read [architecture](docs/engineering/architecture.md).
 
 ## Commands
 
-Use pnpm and the existing lockfile. Inspect `package.json` for current scripts and runtime requirements.
+Use Node.js 26+ and pnpm with the existing lockfile. [package.json](package.json) owns scripts; [development](docs/engineering/development.md) explains configuration and browser prerequisites.
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
+pnpm check
 pnpm build
-pnpm preview
+pnpm test
+pnpm test:gpu
+pnpm test:ui
+pnpm test:visual
+pnpm fmt:check
 ```
 
-The build runs `pnpm check` and Vite. `pnpm test` runs CPU tests, `pnpm test:gpu` executes the production image path and physical GPU checks, and `pnpm test:ui` checks browser/worker interaction. Report failures and missing coverage explicitly; critical-image, derivative, and stellar-flux completeness are not yet certified for the current solver. Benchmarks use `pnpm bench` and `pnpm bench:gpu` as comparative measurements, not speed gates. For documentation-only changes:
+`build` includes static checks. `test` is CPU-only; GPU, UI and visual projects use real Chromium. Install a missing browser with `pnpm exec playwright install chromium`. Report unavailable adapters and skipped required checks. Mocks and empty runs do not validate GPU code.
 
-```sh
-pnpm exec oxfmt --check docs AGENTS.md
-```
+For documentation-only edits, run `pnpm exec oxfmt --check README.md docs AGENTS.md NOTICE.md`; check links, anchors, formulas, commands and status. Choose other checks from [the validation matrix](docs/validation/methods.md#checks-by-change-type). Benchmark only for a concrete comparison.
 
-See [tooling](docs/tooling.md#commands) for command details. An installed dependency or a run with no tests is not validation.
+## Implementation
 
-If a required check cannot run, report the missing prerequisite and complete independent checks.
+- Keep validated inputs in `src/scene/`, pure calculations in `src/physics/`, GPU ownership in `src/gpu/`, worker scheduling in `src/runtime/`, and browser interaction in `src/ui/`.
+- Prefer readonly records, explicit inputs, discriminated unions and exhaustive handling. Validate external data as `unknown`; casts and brands do not validate it. Keep loops and local mutation in numerical hot paths; document writes to caller-owned storage.
+- Use native ESM and type-only imports under the existing compiler/environment boundaries. Edit unshipped schema-1 formats directly and remove obsolete branches.
+- Route coupled physical changes and camera placement through scene validation. Navigation does not imply observer velocity; camera-only edits must reuse the free-fall endpoint.
+- Give resources explicit owners and cleanup. Reject stale asynchronous results; preserve revisions and bounded worker submissions. Canvas transfer is permanent, so remount with a fresh element.
+- Native pixels are the default. Honor fixed scales; only explicit Auto adapts playback. Raster policy must not change optical validity or tolerance.
+- Write English declaration contracts and local algorithm reasoning using the [comment conventions](docs/engineering/development.md#comments-and-declaration-documentation). Keep WGSL explicit; Oxfmt/Oxlint do not validate it.
 
-## Implementation conventions
+## Numerical invariants
 
-- The project is unreleased. Custom schemas remain version 1; change them directly and remove obsolete branches instead of adding migrations or parallel compatibility paths.
+- Preserve units, signature, Carter convention and future photon momentum with backward integration. Retain zero/negative Killing energy; do not normalize all data by it.
+- Distinguish chart changes, block transitions, signed infinity, emission, singularity, proven source exclusion and unresolved work. Budget exhaustion or arbitrary NaNs must not become physical success.
+- Use neutral Kerr–Newman emitters for charged geometry. Separate source prescriptions, frequency transport and display transforms; do not double-apply frequency or lensing amplification.
+- Preserve ordered boundaries and missing sample weights. Settling and photographs trace direct rays. Reconstruction needs an end-to-end benefit at comparable image error without losing source domains or unfinished work.
+- Guard divisions and roots before evaluation; WGSL `select` is not lazy. Formula rearrangements and reduced precision require numerical verification. Optical arithmetic remains f32.
+- Request the shared GPU requirements. Subgroup code must assume neither fixed width nor lane/workgroup correspondence; follow [WGSL layout and arithmetic contracts](docs/engineering/shaders.md).
 
-- Prefer pure functions, readonly domain values, discriminated unions, explicit inputs, and exhaustive handling.
-- Keep local mutation and direct loops in numerical hot paths. Clearly name operations that mutate caller-owned buffers.
-- Use native ESM and type-only imports. Enable the documented strict compiler policy when implementing the toolchain.
-- Validate untrusted data as `unknown`; casts and brands are not runtime validation.
-- Keep coupled physical parameters valid through one construction/update path.
-- Keep GPU handles, DOM access, clocks, randomness, and persistence outside the domain core.
-- Route camera changes through scene validation; all optical samples use the same local camera basis. Navigation never implies physical observer velocity.
-- Give GPU resources a clear owner and explicit cleanup. Reject stale asynchronous results after replacement/disposal.
-- Request the shared required GPU features; photographic history needs texture formats tier 2 and WGSL read/write storage textures.
-- Keep rendering on its dedicated worker; canvas transfer is permanent, so remount with a fresh element. Preserve input revisions and bounded scheduling.
-- Keep WGSL explicit and close to reviewed formulas. Avoid an additional runtime framework or shader DSL without concrete benefit.
-- Document declaration contracts with JSDoc blocks: units, domains, ownership, and failure meaning. Keep local algorithm reasoning in line comments; do not duplicate types.
-- Use Oxfmt/Oxlint for their supported languages. Do not assume they validate or format WGSL.
-- Keep changes scoped and preserve unrelated user work. Do not update dependencies or reformat unrelated files incidentally.
+## Verification and delivery
 
-## Physical and numerical invariants
+Use independent references, shared quantized inputs and quantity-specific tolerances. WGSL/ABI changes need actual GPU execution; worker/UI changes need browser lifetime checks. Retain minimized failures and replay provenance. Complete coherent implementation before concentrated runtime and visual validation; stop unnecessary servers and watchers.
 
-- Use the units, signature, Carter-constant convention, and backward-tracing orientation in [physics](docs/physics.md).
-- Retain zero/negative Killing-energy cases; do not divide all photon data by energy unconditionally.
-- Distinguish capture, escape, emission hits, invalid inputs, and unresolved numerical work.
-- Never turn exhausted budgets or arbitrary NaNs into successful physical results.
-- Do not hide branch errors by broad clamping, fixed epsilon injection, or unexplained parameter exclusions.
-- Use the corresponding Kerr–Newman emitter model when charge is nonzero.
-- Keep optical, spectral-transfer, and display assumptions separate. Do not double-apply frequency or lensing amplification.
-- Apply the documented source-boundary and disk-surface conventions; order events along the backward path.
-- Guard unsafe WGSL arithmetic before evaluation; do not rely on NaN propagation or `select` as a lazy guard.
-- Treat formula rearrangements and reduced precision as numerical changes requiring verification.
-- Use native subgroup operations without assuming lane/workgroup correspondence or a fixed subgroup size. Optical calculations remain f32.
-
-## Verification
-
-Complete coherent implementation work before concentrated runtime validation. During development use source review and static checks; do not keep development servers or test watchers running unnecessarily. Benchmark only to answer a specific comparison, and use final visual review to assess the accuracy/performance tradeoff.
-
-Choose checks appropriate to the change using [the validation matrix](docs/validation.md#checks-by-change-type).
-
-- Numerical work needs independent references, relevant properties, and explicit supported domains.
-- WGSL and GPU layout work needs actual browser GPU execution; mocks are insufficient.
-- Compare CPU and GPU on the same quantized inputs and use quantity-specific tolerances.
-- Save concrete minimized failures alongside seed/path and version metadata.
-- Measure performance at comparable image quality and record hardware, sampling, error, and unresolved cases.
-- For documentation-only edits, check formatting, relative links, formulas, commands, and status labels. Do not add artificial runtime tests.
-- Report what changed, what was checked, and any remaining limitation. Never label an unrun or skipped required GPU check as passed.
-
-## Documentation
-
-Write documentation and code comments in English. Use descriptive Markdown headings, language-tagged fences, and relative repository links. Keep equations and decisions in their owning documents and link to them instead of duplicating long explanations.
-
-Cite primary sources for physical equations and platform behavior. Preserve attribution and check licenses before adapting code or assets. Distinguish accepted design, experiments, implemented behavior, and measurements.
-
-Update this guide and the relevant design documents when commands, physical contracts, supported domains, or architectural boundaries change. Keep this file operational and concise; detailed derivations belong in `docs/`.
+Preserve unrelated staged and working-tree changes. Avoid incidental dependency upgrades or formatting. Check [NOTICE](NOTICE.md) and licenses before adapting external material. Keep equations in their owning document and status in coverage; update affected links. Report changes, checks and remaining limits. Do not claim complete maximal extension, critical-image or nonlinear stellar-flux coverage without evidence.

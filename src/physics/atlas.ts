@@ -2,7 +2,14 @@ import type { KerrChart } from "./geometry.ts";
 import { horizons } from "./geometry.ts";
 import type { Spacetime } from "./spacetime.ts";
 
-/** A block in the unquotiented analytic extension; negative r belongs to an interior block. */
+/**
+ * Source-domain identity along the implemented analytic continuation.
+ *
+ * @remarks
+ * `universe` labels exterior copies and `side` labels stationary time orientation.
+ * Negative radius can belong to an interior, naked, or disconnected component.
+ * This bookkeeping does not certify a complete maximal atlas.
+ */
 export type SpacetimeBlock =
   | { readonly kind: "exterior" | "interior"; readonly universe: number; readonly side: 1 | -1 }
   | { readonly kind: "black-hole" | "white-hole"; readonly universe: number }
@@ -43,9 +50,12 @@ export function initialBlock(space: Spacetime, radius: number, chart: KerrChart)
 }
 
 /**
- * Cross one nondegenerate horizon, preserving its causal component.
- * radialSign is the future radial tangent, even when evaluating a ray backward.
- * side is the sign of P on the stationary side of the crossed horizon.
+ * Update block identity across one ordinary nondegenerate horizon.
+ *
+ * @param radialSign - Sign of the future radial tangent, even during backward tracing.
+ * @param side - Sign of P on the stationary side of the crossed horizon.
+ * @returns The adjoining block without changing coordinates or the input block.
+ * @throws RangeError - If the current block cannot adjoin the specified horizon.
  */
 export function crossHorizon(
   block: SpacetimeBlock,
@@ -85,7 +95,14 @@ export function crossHorizon(
   }
 }
 
-/** Degenerate-horizon continuation has no intervening black/white-hole block. */
+/**
+ * Join exterior and interior blocks across a degenerate horizon.
+ *
+ * @remarks
+ * There is no intervening black/white-hole block. Signs follow {@link crossHorizon}.
+ *
+ * @throws RangeError - If the current block is neither exterior nor interior.
+ */
 export function crossExtremalHorizon(
   block: SpacetimeBlock,
   radialSign: 1 | -1,
@@ -106,8 +123,15 @@ export function crossExtremalHorizon(
 }
 
 /**
- * Antiderivatives of 1/Δ and (r²+a²)/Δ, normalized by explicit logarithms in units M.
- * Undefined at a horizon: transition charts in an overlap, not on the pole.
+ * Evaluate the longitude and tortoise primitives `(a I, r*)`.
+ *
+ * @remarks
+ * Their radial derivatives are `a/Δ` and `(r²+a²)/Δ`, respectively.
+ * Logarithms use dimensionless radii in M; additive constants fix the source
+ * pattern's chart convention. Change charts in an overlap, away from poles.
+ *
+ * @param radius - Signed oblate radius in M.
+ * @returns The two primitives, or `undefined` at a horizon pole or nonfinite evaluation.
  */
 export function chartPrimitives(
   { spin: a, charge: q }: Spacetime,

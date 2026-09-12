@@ -1,5 +1,6 @@
 import { test, readPixels } from "./compute.ts";
 import { describe, expect } from "vitest";
+import * as fc from "fast-check";
 import { createAccumulation } from "../../src/gpu/imaging/accumulation.ts";
 import { createCoverageReader } from "../../src/gpu/imaging/coverage.ts";
 
@@ -9,7 +10,6 @@ describe("Photographic history", () => {
   }) => {
     using owned = new DisposableStack();
 
-    device.pushErrorScope("validation");
     const accumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
     const texture = (format: GPUTextureFormat) =>
       owned.adopt(
@@ -60,18 +60,6 @@ describe("Photographic history", () => {
         RangeError,
       );
     }
-    for (let index = 0; index < 64; index++) {
-      // Sequential uploads reuse the sample textures and accumulated history.
-      // oxlint-disable-next-line no-await-in-loop
-      await frame(index, 2, index % 3 === 0 || index % 7 === 0 ? 0 : 1);
-    }
-    expect(await accumulation.coverage()).toEqual({
-      pixels: 2,
-      samplesPerPixel: 64,
-      unresolvedPixels: 1,
-      unresolvedSamples: 28,
-    });
-    expect(await device.popErrorScope()).toBeNull();
   });
 });
 
@@ -112,4 +100,63 @@ describe("Unresolved coverage", () => {
       unresolvedSamples,
     });
   });
+});
+
+test("generated HDR histories match direct sums without renormalizing missing samples", async ({
+  device,
+}) => {
+  using owned = new DisposableStack();
+  const history = owned.adopt(await createAccumulation(device), (value) => value.dispose());
+  const input = owned.adopt(
+    device.createTexture({
+      size: [1, 1],
+      format: "rgba16float",
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    }),
+    (value) => value.destroy(),
+  );
+  const sample = fc.tuple(fc.integer({ min: -256, max: 1024 }), fc.integer({ min: 0, max: 16 }));
+  await fc.assert(
+    fc.asyncProperty(fc.array(sample, { minLength: 1, maxLength: 64 }), async (samples) => {
+      let sum = 0;
+      let missing = 0;
+      let output: GPUTexture | undefined;
+      for (const [index, [intensity, coverage]] of samples.entries()) {
+        // Dyadic inputs are exact in f16; compare the incremental GPU mean with a direct binary64 sum.
+        device.queue.writeTexture(
+          { texture: input },
+          new Float16Array([intensity, intensity / 2, -intensity / 4, coverage / 16]),
+          { bytesPerRow: 8 },
+          [1, 1],
+        );
+        const encoder = device.createCommandEncoder();
+        output = history.encode(encoder, input, index);
+        device.queue.submit([encoder.finish()]);
+        sum += coverage === 0 ? 0 : intensity;
+        missing += 1 - coverage / 16;
+      }
+      if (!output) {
+        throw new Error("Missing generated history.");
+      }
+      const mean = sum / samples.length;
+      const actual = await readPixels(device, output);
+      for (const [channel, expected] of [
+        mean,
+        mean / 2,
+        -mean / 4,
+        1 - missing / samples.length,
+      ].entries()) {
+        // f32 mean arithmetic and one f16 output rounding; absolute term covers cancellation near zero.
+        expect(Math.abs((actual[channel] ?? NaN) - expected)).toBeLessThanOrEqual(
+          0.001 * Math.abs(expected) + 1e-4,
+        );
+      }
+      const coverage = await history.coverage();
+      expect(coverage.pixels).toBe(1);
+      expect(coverage.samplesPerPixel).toBe(samples.length);
+      expect(coverage.unresolvedPixels).toBe(Number(missing > 0));
+      expect(coverage.unresolvedSamples).toBeCloseTo(missing, 4);
+    }),
+    { numRuns: 16, examples: [[Array.from({ length: 64 }, (_, i) => [i * 16, i % 17])]] },
+  );
 });

@@ -4,7 +4,12 @@ import { between, finite, record } from "./decode.ts";
 
 export const initialPlasma: Plasma = { density: 1e12, radius: 10, frequencyGHz: 10, heating: 0 };
 
-/** Validate physical inputs and their GPU coefficients; null selects vacuum optical imaging. */
+/**
+ * Decode plasma controls and check representability of derived GPU coefficients.
+ *
+ * @returns A profile input, null for vacuum, or `undefined` for invalid fields.
+ * Scene construction separately checks observer propagation and heating-pattern placement.
+ */
 export function decodePlasma(input: unknown): Plasma | null | undefined {
   if (input === null) {
     return null;

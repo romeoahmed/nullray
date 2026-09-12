@@ -2,11 +2,17 @@ import source from "../wgsl/passes/polarimeter.wgsl?raw";
 import { compileShader } from "../device.ts";
 import type { OpticalImage } from "../optics/engine.ts";
 
-/** Detector-owned output and uniforms; changing analyzer angle reuses physical Stokes images. */
+/**
+ * Create a detector pass that reuses physical Stokes images.
+ *
+ * @remarks
+ * Borrows the device and owns its output/uniform. The caller disposes the owner
+ * and submits encoded work before changing the shared measurement uniform.
+ */
 export async function createPolarimeter(device: GPUDevice) {
   const module = await compileShader(device, source, "polarimeter");
   const pipeline = await device.createComputePipelineAsync({ layout: "auto", compute: { module } });
-  const owned = new DisposableStack();
+  using owned = new DisposableStack();
   const uniform = owned.adopt(
     device.createBuffer({
       size: 16,
@@ -19,14 +25,23 @@ export async function createPolarimeter(device: GPUDevice) {
   let bound: Pick<OpticalImage, "radiance" | "q" | "u"> | undefined;
   let bindings: GPUBindGroup | undefined;
   owned.defer(() => target?.destroy());
+  const lifetime = owned.move();
   return {
+    /**
+     * Encode an analyzer or polarization diagnostic in the common detector basis.
+     *
+     * @param image - Borrowed, equally sized I/Q/U textures from the same sample sequence.
+     * @param analyzer - Validated angle in radians, or null to bypass linear analysis.
+     * @returns Borrowed input I when bypassed, otherwise the pass-owned output overwritten on
+     * later encodes and destroyed on resize/disposal. This method does not submit.
+     */
     encode(
       encoder: GPUCommandEncoder,
       image: Pick<OpticalImage, "radiance" | "q" | "u">,
       analyzer: number | null,
       diagnostic: "image" | "polarization" | "angle",
     ): GPUTexture {
-      if (owned.disposed) {
+      if (lifetime.disposed) {
         throw new Error("The polarimeter is disposed.");
       }
       if (analyzer === null && diagnostic === "image") {
@@ -80,7 +95,7 @@ export async function createPolarimeter(device: GPUDevice) {
       return target;
     },
     dispose() {
-      owned.dispose();
+      lifetime.dispose();
     },
   };
 }

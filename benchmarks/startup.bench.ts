@@ -1,14 +1,10 @@
-import { requestDevice, requiredFeatures, requiredLimits } from "../src/gpu/device.ts";
-import { expect, test } from "vitest";
+import { requiredFeatures, requiredLimits } from "../src/gpu/device.ts";
+import { test } from "../tests/support/gpu.ts";
 import { server } from "vitest/browser";
 import { createOptics } from "../src/gpu/optics/engine.ts";
-import { sourceFingerprint, benchmarkFingerprint } from "./source.ts";
+import { gpuContext } from "./context.ts";
 
-test("optical initialization on an existing device", async ({ bench, annotate }) => {
-  const device = await requestDevice();
-  using owned = new DisposableStack();
-  owned.defer(() => device.destroy());
-  device.pushErrorScope("validation");
+test("optical initialization on an existing device", async ({ device, bench, annotate }) => {
   await bench(
     "optical initialization / wall-clock ms",
     { writeResult: "test-results/bench/gpu-startup.json" },
@@ -21,23 +17,12 @@ test("optical initialization on an existing device", async ({ bench, annotate })
       }
     },
   ).run({ iterations: 5, time: 0, warmupIterations: 1, warmupTime: 0 });
-  expect(await device.popErrorScope()).toBeNull();
-  const digest = await sourceFingerprint();
   const body = JSON.stringify(
     {
-      schema: 1,
+      ...(await gpuContext(device)),
+      sampling: { iterations: 5, warmupIterations: 1, time: 0, warmupTime: 0 },
       requiredFeatures: [...requiredFeatures],
       requiredLimits,
-      enabledFeatures: [...device.features],
-      browser: navigator.userAgent,
-      adapter: {
-        vendor: device.adapterInfo.vendor,
-        architecture: device.adapterInfo.architecture,
-        device: device.adapterInfo.device,
-        description: device.adapterInfo.description,
-      },
-      sourceSHA256: new Uint8Array(digest).toHex(),
-      harnessSHA256: new Uint8Array(await benchmarkFingerprint()).toHex(),
       scope:
         "Existing device; module diagnostics, pipeline creation, catalogue decoding and tree construction, spectral tables, GPU noise/cube generation, uploads, completion and disposal. No optical frame or canvas presentation.",
       cache:

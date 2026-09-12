@@ -7,6 +7,20 @@ import { createScene } from "../../scene/scene.ts";
 import { createAppearance } from "../../scene/appearance.ts";
 import { initialSession } from "../../scene/session.ts";
 
+import { sampleCounts } from "../../gpu/imaging/sampling.ts";
+import { initialPixelBudget, resolutionScale, nextPixelBudget } from "./resolution.ts";
+
+/** Diagnostics retain categorical samples; ordinary paused images settle automatically. */
+const samplingMode = (
+  motion: RenderIntent["motion"],
+  view: RenderIntent["presentation"]["diagnostic"],
+) =>
+  motion === "refining"
+    ? "photograph"
+    : motion === "paused" && view === "image"
+      ? "settle"
+      : "live";
+
 const port = self as DedicatedWorkerGlobalScope;
 const lifetime = new AbortController();
 let phase: "idle" | "starting" | "ready" | "failed" | "disposed" = "idle";
@@ -29,7 +43,7 @@ let intent: RenderIntent = {
     analyzer: initialSession.view.analyzer,
   },
   motion: "paused",
-  resolution: 0.5,
+  resolution: initialSession.resolution,
   hdr: false,
   visible: true,
   width: 0,
@@ -61,6 +75,9 @@ function prepareIntent(
 
 let completedRevision = -1;
 let samples = 0;
+let pixelBudget = initialPixelBudget;
+let liveFrames = 0;
+let liveMilliseconds = 0;
 let time = 0;
 let previousTick: number | undefined;
 let scheduled = 0;
@@ -94,7 +111,7 @@ function schedule() {
     revision !== completedRevision ||
     requestedInspection?.revision === revision ||
     motion === "playing" ||
-    (motion === "refining" && samples < 64)
+    samples < sampleCounts[samplingMode(motion, intent.presentation.diagnostic)]
   ) {
     scheduled = requestAnimationFrame((now) => {
       void draw(now);
@@ -102,7 +119,7 @@ function schedule() {
   }
 }
 
-/** At most one submitted frame; incoming controls replace intent while it completes. */
+/** Keep at most one frame completion pending; incoming controls may replace the next intent. */
 async function draw(now: number) {
   const {
     scene,
@@ -135,6 +152,7 @@ async function draw(now: number) {
   }
   try {
     submitted.resize(width, height);
+    const started = performance.now();
     const count = submitted.render(scene, {
       appearance,
       exposureEV: presentation.exposureEV,
@@ -142,14 +160,36 @@ async function draw(now: number) {
       bloom: presentation.bloom,
       view: presentation.diagnostic,
       analyzer: presentation.analyzer,
-      resolutionScale: resolution,
+      resolutionScale: resolutionScale(
+        resolution,
+        motion === "playing",
+        width,
+        height,
+        pixelBudget,
+      ),
       hdr,
       time: submittedTime,
-      refine: motion === "refining",
+      sampling: samplingMode(motion, presentation.diagnostic),
     });
     await submitted.finished();
     if (renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready") {
       return;
+    }
+    if (motion === "playing" && resolution === "auto") {
+      liveMilliseconds += performance.now() - started;
+      liveFrames++;
+      if (liveFrames === 8) {
+        pixelBudget = nextPixelBudget(
+          pixelBudget,
+          (canvas?.width ?? 0) * (canvas?.height ?? 0),
+          liveMilliseconds / liveFrames,
+        );
+        liveFrames = 0;
+        liveMilliseconds = 0;
+      }
+    } else {
+      liveFrames = 0;
+      liveMilliseconds = 0;
     }
     if (inspect) {
       try {
@@ -177,6 +217,7 @@ async function draw(now: number) {
       revision: submittedRevision,
       time: submittedTime,
       samples: count,
+      targetSamples: sampleCounts[samplingMode(motion, presentation.diagnostic)],
       width: canvas?.width ?? 0,
       height: canvas?.height ?? 0,
       ...(coverage ? { coverage } : {}),
@@ -218,6 +259,9 @@ async function initialize() {
     renderer = value;
     phase = "ready";
     samples = 0;
+    pixelBudget = initialPixelBudget;
+    liveFrames = 0;
+    liveMilliseconds = 0;
     completedRevision = -1;
     previousTick = undefined;
     void value.lost.then(() => {
@@ -280,6 +324,16 @@ port.addEventListener("message", ({ data }: MessageEvent<RenderRequest>) => {
         }
         if (intent.motion !== next.motion || intent.visible !== next.visible) {
           previousTick = undefined;
+        }
+        if (
+          intent.resolution !== next.resolution ||
+          intent.motion !== next.motion ||
+          intent.visible !== next.visible ||
+          intent.width !== next.width ||
+          intent.height !== next.height
+        ) {
+          liveFrames = 0;
+          liveMilliseconds = 0;
         }
         intent = next;
         if (requestedInspection?.revision !== intent.revision) {

@@ -23,12 +23,26 @@
           </div>
         </div>
         <div class="header-actions">
+          <button
+            id="focus-view"
+            type="button"
+            aria-label="Hide controls"
+            aria-pressed="false"
+            title="Image only · H"
+          >
+            ◩
+          </button>
           <button type="button" class="quiet" popovertarget="about" aria-label="About the model">
             About
           </button>
           <button id="toggle-controls" type="button" popovertarget="controls">Settings</button>
         </div>
       </header>
+      <aside class="observation" aria-label="Observation">
+        <p class="eyebrow">FIELD OBSERVATION <span aria-hidden="true">/ 01</span></p>
+        <p id="observation-name">Thermal disk</p>
+        <p id="observation-state" class="hint">Acquiring light</p>
+      </aside>
 
       <section id="controls" class="panel settings" popover="auto" aria-label="Scene settings">
         <div class="panel-heading">
@@ -255,14 +269,19 @@
               ><input id="bloom" type="range" min="0" max="1" step="0.01" />
             </div>
             <div class="control">
-              <label for="exploration-resolution">Exploration resolution</label
+              <label for="exploration-resolution">Exploration detail</label
               ><select id="exploration-resolution">
-                <option value="1">100% · Full detail</option>
+                <option value="1">100% · Native</option>
                 <option value="0.75">75%</option>
                 <option value="0.5">50% · Faster</option>
+                <option value="0.25">25% · Lightest</option>
+                <option value="auto">Auto · Adaptive playback</option>
               </select>
             </div>
-            <p class="hint">Photographs use full resolution and freeze the emission time.</p>
+            <p class="hint">
+              100% uses native display pixels. Auto adapts during playback and returns to native
+              detail when paused. Photographs always use native resolution.
+            </p>
             <div class="control">
               <label for="display-mode">Display</label
               ><select id="display-mode">
@@ -458,7 +477,8 @@
         <p class="section-label">At the canvas</p>
         <p>
           <kbd>Arrows</kbd> turn · <kbd>+</kbd> / <kbd>−</kbd> approach<br /><kbd>Space</kbd> pause
-          · <kbd>R</kbd> reset
+          · <kbd>R</kbd> reset · <kbd>H</kbd> image only<br />
+          Pause to let the image settle. Photograph captures a full-resolution still.
         </p>
       </section>
 

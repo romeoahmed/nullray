@@ -1,34 +1,10 @@
-/** Read a completed RGBA16F image after timing; rows retain WebGPU's required padding. */
-export async function captureRadiance(device: GPUDevice, image: GPUTexture): Promise<Float32Array> {
-  const stride = Math.ceil((image.width * 8) / 256) * 256;
-  using owned = new DisposableStack();
-  const staging = owned.adopt(
-    device.createBuffer({
-      size: stride * image.height,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    }),
-    (value) => value.destroy(),
-  );
-  const encoder = device.createCommandEncoder();
-  encoder.copyTextureToBuffer({ texture: image }, { buffer: staging, bytesPerRow: stride }, [
-    image.width,
-    image.height,
-  ]);
-  device.queue.submit([encoder.finish()]);
-  await staging.mapAsync(GPUMapMode.READ);
-  const source = new Float16Array(staging.getMappedRange());
-  const result = new Float32Array(image.width * image.height * 4);
-  for (let y = 0; y < image.height; y++) {
-    result.set(
-      source.subarray((y * stride) / 2, (y * stride) / 2 + image.width * 4),
-      y * image.width * 4,
-    );
-  }
-  staging.unmap();
-  return result;
-}
-
-/** Record image quality evidence without imposing a performance acceptance threshold. */
+/**
+ * Summarize finite pixel values and missing weights after benchmark timing.
+ *
+ * @returns Pixel count, missing-weight sum, and absolute RGB sum. The latter is
+ * a sanity statistic, not physical integrated flux or a reference-image error.
+ * @throws Error - If a pixel is nonfinite or its coverage is outside [0,1].
+ */
 export function imageCoverage(pixels: Float32Array) {
   let unresolvedWeight = 0;
   let radiance = 0;

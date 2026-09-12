@@ -51,35 +51,37 @@ describe("Session transitions", () => {
     expect(encodeView(initialSession.view)).toBe(before);
   });
 
-  test("presentation edits preserve physical inputs and survive a view round trip", () => {
+  test("presentation action sequences retain physical state, last writes, and input immutability", () => {
+    const controls = fc.record({
+      exposure: fc.double({ min: -6, max: 6, noNaN: true }),
+      bloom: fc.double({ min: 0, max: 1, noNaN: true }),
+      whiteBalance: fc.integer({ min: 2500, max: 12000 }),
+    });
     fc.assert(
-      fc.property(
-        fc.double({ min: -6, max: 6, noNaN: true }),
-        fc.double({ min: 0, max: 1, noNaN: true }),
-        (exposure, bloom) => {
-          const changed = apply(apply(initialSession, { type: "exposure", value: exposure }), {
-            type: "bloom",
-            value: bloom,
+      fc.property(fc.array(controls, { minLength: 1, maxLength: 20 }), (edits) => {
+        let state = initialSession;
+        for (const edit of edits) {
+          const before = encodeView(state.view);
+          const next = apply(
+            apply(apply(state, { type: "exposure", value: edit.exposure }), {
+              type: "bloom",
+              value: edit.bloom,
+            }),
+            { type: "white-balance", value: edit.whiteBalance },
+          );
+          expect(encodeView(state.view)).toBe(before);
+          expect(next.view.scene).toBe(initialSession.view.scene);
+          expect(next.view.appearance).toBe(initialSession.view.appearance);
+          expect(next.motion).toBe(state.motion);
+          expect(next.view).toMatchObject({
+            exposureEV: edit.exposure,
+            bloom: edit.bloom,
+            whiteBalance: edit.whiteBalance,
           });
-          expect(changed.view.scene).toEqual(initialSession.view.scene);
-          expect(changed.view.appearance).toEqual(initialSession.view.appearance);
-          const restored = decodeView(encodeView(changed.view));
-          expect(restored.kind).toBe("view");
-          if (restored.kind === "view") {
-            expect(restored.value.scene).toEqual(changed.view.scene);
-            expect(restored.value.appearance).toEqual(changed.view.appearance);
-            // JSON normalizes -0; its exposure and bloom semantics are identical to +0.
-            expect(restored.value.exposureEV === exposure).toBe(true);
-            expect(restored.value.bloom === bloom).toBe(true);
-          }
-        },
-      ),
-      {
-        examples: [
-          [-0, 0],
-          [0, -0],
-        ],
-      },
+          state = next;
+        }
+      }),
+      { numRuns: 40 },
     );
   });
 
@@ -137,7 +139,7 @@ describe("Portable views", () => {
   });
 
   test("view links reject malformed, missing, unknown-version, and nonphysical inputs atomically", () => {
-    const valid = JSON.parse(decodeURIComponent(encodeView(snapshot).slice(6))) as unknown;
+    const valid: unknown = JSON.parse(decodeURIComponent(encodeView(snapshot).slice(6)));
     if (typeof valid !== "object" || valid === null) {
       throw new Error("Missing encoded view.");
     }
@@ -146,7 +148,6 @@ describe("Portable views", () => {
       [],
       {},
       { ...valid, version: 2 },
-      { ...valid, version: 4 },
       { ...valid, camera: undefined },
       { ...valid, navigation: undefined },
       { ...valid, appearance: undefined },
@@ -172,9 +173,15 @@ describe("Portable views", () => {
     }
     expect(decodeView("")).toEqual({ kind: "empty" });
     fc.assert(
-      fc.property(fc.string(), (text) => {
-        expect(() => decodeView(text)).not.toThrow();
-      }),
+      fc.property(
+        fc.oneof(
+          fc.string(),
+          fc.jsonValue().map((value) => `#view=${encodeURIComponent(JSON.stringify(value))}`),
+        ),
+        (text) => {
+          expect(() => decodeView(text)).not.toThrow();
+        },
+      ),
     );
   });
 
@@ -216,4 +223,51 @@ describe("Portable views", () => {
       }).ok,
     ).toBe(true);
   });
+});
+
+test("native resolution is the default and adaptive playback is an explicit choice", () => {
+  expect(initialSession.resolution).toBe(1);
+  for (const value of ["auto", 0.25, 0.5, 0.75, 1] as const) {
+    expect(apply(initialSession, { type: "resolution", value }).resolution).toBe(value);
+  }
+  for (const value of [0, -1, 1.01, NaN, Infinity]) {
+    expect(transition(initialSession, { type: "resolution", value }).ok).toBe(false);
+  }
+});
+
+test("display actions and persisted values agree at closed and half-open boundaries", () => {
+  const state = Object.freeze({
+    ...initialSession,
+    view: Object.freeze({ ...initialSession.view }),
+  });
+  const before = encodeView(state.view);
+  for (const [type, field, minimum, maximum] of [
+    ["exposure", "exposureEV", -6, 6],
+    ["white-balance", "whiteBalance", 2500, 12000],
+    ["bloom", "bloom", 0, 1],
+  ] as const) {
+    for (const value of [minimum, maximum]) {
+      const next = apply(state, { type, value });
+      expect(next.view[field]).toBe(value);
+      expect(next.view.scene).toBe(state.view.scene);
+      expect(next.view.appearance).toBe(state.view.appearance);
+      expect(decodeView(encodeView(next.view))).toEqual({ kind: "view", value: next.view });
+    }
+    for (const value of [minimum - 1, maximum + 1, NaN, Infinity, -Infinity]) {
+      expect(transition(state, { type, value }).ok).toBe(false);
+      expect(decodeView(encodeView({ ...state.view, [field]: value })).kind).toBe("invalid");
+    }
+  }
+  for (const value of [null, 0, Math.PI / 2]) {
+    const next = apply(state, { type: "analyzer", value });
+    expect(decodeView(encodeView(next.view))).toEqual({ kind: "view", value: next.view });
+  }
+  for (const value of [-1, Math.PI, Infinity, NaN]) {
+    expect(transition(state, { type: "analyzer", value }).ok).toBe(false);
+    // JSON encodes nonfinite numbers as null, which intentionally bypasses the analyzer.
+    if (Number.isFinite(value)) {
+      expect(decodeView(encodeView({ ...state.view, analyzer: value })).kind).toBe("invalid");
+    }
+  }
+  expect(encodeView(state.view)).toBe(before);
 });

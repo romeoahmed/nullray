@@ -1,9 +1,18 @@
 import { milne } from "../data/milne.ts";
 
 /**
- * Uniform μ samples of the gray Milne atmosphere: normalized I, polarized intensity, two pads.
- * Linear interpolation acts on Stokes intensities. The hemispheric flux is πBν(T), preserving
- * the effective temperature of the zero-torque disk. Returned storage belongs to the caller.
+ * Resample the conservative Milne atmosphere uniformly in emission-angle cosine μ.
+ *
+ * @remarks
+ * Rows contain normalized intensity, polarized intensity, and two zero padding
+ * lanes. Interpolate Stokes intensities rather than polarization percentage.
+ * The source-table normalization sets `2∫μ I(μ)dμ = 1`; resampling and f32
+ * storage introduce quadrature/rounding error in the uploaded approximation.
+ *
+ * @param size - Integer row count of at least two, including μ = 0 and μ = 1.
+ * @returns Caller-owned f32 storage for the thermal angular closure.
+ * @throws RangeError - If the sample count is invalid.
+ * @throws Error - If the bundled atmosphere table is incomplete.
  */
 export function createAtmosphereTable(size = 256): Float32Array<ArrayBuffer> {
   if (!Number.isSafeInteger(size) || size < 2) {

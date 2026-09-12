@@ -3,6 +3,13 @@
   "compilerOptions": {
     "types": ["vite/client", "@types/web"]
   },
-  "include": ["src", "tests/browser", "tests/gpu", "benchmarks/*.ts"],
-  "exclude": ["src/runtime/worker", "benchmarks/cpu.bench.ts"]
+  "include": [
+    "src",
+    "tests/browser",
+    "tests/gpu",
+    "tests/visual",
+    "tests/support",
+    "benchmarks/*.ts"
+  ],
+  "exclude": ["src/runtime/worker", "benchmarks/cpu*.bench.ts"]
 }

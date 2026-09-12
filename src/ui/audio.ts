@@ -1,6 +1,11 @@
 import { element } from "./elements.ts";
 
-/** Own only the local file URL; native media controls own playback, seeking, volume and activation. */
+/**
+ * Bind local audio selection and own its object URL and event subscriptions.
+ *
+ * @returns Cleanup that stops playback, clears the source, revokes its URL, and
+ * removes listeners. Native media controls handle seeking, volume, and activation.
+ */
 export function bindAudio(root: HTMLElement): () => void {
   const subscriptions = new AbortController();
   const { signal } = subscriptions;

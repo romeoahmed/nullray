@@ -18,7 +18,14 @@ import type { PlasmaProfile } from "./plasma.ts";
 /** Polynomial coordinate used for radial motion; neither choice changes the spacetime block. */
 export type RadialChart = "radius" | "inverse";
 
-/** Reduced data: radial coordinate, its Mino derivative, chart time (or log amplitude), proper time. */
+/**
+ * Reduced state in the active radial and null/bifurcation charts.
+ *
+ * @remarks
+ * `radial` packs `(r or 1/r, its future Mino derivative, w or log amplitude, τ)`.
+ * `direction` is the angular unit vector n and `angular` is the canonical J.
+ * The fourth radial lane accumulates proper time only for timelike motion.
+ */
 export interface OrbitState {
   readonly radial: FourVector;
   readonly direction: Vec3;
@@ -34,7 +41,14 @@ interface BifurcationPatch {
   readonly omega: number;
 }
 
-/** A neutral timelike/null path with a regular angular representation. */
+/**
+ * Separated vacuum/timelike path, or a massless ray in the stationary plasma profile.
+ *
+ * @remarks
+ * The angular representation avoids polar coordinate poles. Chart, block, and
+ * radial-coordinate identities are separate; optional plasma rays are not
+ * metric-null geodesics. The time-dependent heated field is GPU-only.
+ */
 export interface Geodesic {
   readonly space: Spacetime;
   readonly constants: MotionConstants;
@@ -46,7 +60,16 @@ export interface Geodesic {
   readonly bifurcation: BifurcationPatch | null;
 }
 
-/** Initialize physical motion from a Cartesian tangent; time is v or u in the selected null chart. */
+/**
+ * Initialize separated motion from a tangent in the event's Cartesian KS chart.
+ *
+ * @param time - Selected null-chart time w in M, not Cartesian time T.
+ * @param block - Starting source domain; defaults to the placement convention.
+ * @param plasma - Optional stationary separable profile for massless refracted rays.
+ * @returns A new path borrowing the supplied spacetime, block, and plasma records.
+ * The caller supplies matching geometry and physically normalized tangent data.
+ * @throws RangeError - If a plasma profile is paired with massive motion.
+ */
 export function createGeodesic(
   space: Spacetime,
   geometry: KerrGeometry,
@@ -249,7 +272,12 @@ function conditionBifurcation(path: Geodesic): Geodesic | undefined {
   };
 }
 
-/** Resolve a finite point without introducing an azimuth singularity into the equations of motion. */
+/**
+ * Recover signed radius and angles without evolving a polar-coordinate singularity.
+ *
+ * @returns A finite chart point, or `undefined` at reciprocal infinity or an
+ * unrecoverable bifurcation point. Axis longitude retains a coordinate choice.
+ */
 export function orbitPoint(input: Geodesic): KerrPoint | undefined {
   const path = regularOrbit(input);
   if (!path) {
@@ -268,7 +296,15 @@ export function orbitPoint(input: Geodesic): KerrPoint | undefined {
   };
 }
 
-/** Horizon-regular separated equations on the sphere; no division by sin(theta) or Δ. */
+/**
+ * Evaluate future Mino derivatives in the active regular-coordinate representation.
+ *
+ * @remarks
+ * Angular vectors avoid division by sin θ. The transport selects a regular
+ * rationalized horizon expression, with separate principal/bifurcation limits.
+ *
+ * @returns Derivatives, or `undefined` when the current representation cannot be evaluated.
+ */
 export function orbitDerivative(path: Geodesic, state: OrbitState): OrbitState | undefined {
   const { energy: e, angularMomentum: l, carter: c, massSquared: m } = path.constants;
   const { spin: a, charge: q } = path.space;
@@ -427,22 +463,10 @@ export function changeOrbitChart(path: Geodesic): Geodesic | undefined {
   }
   const sign = chartSign(path.chart);
   const angle = -2 * sign * primitives[0];
-  const cosine = Math.cos(angle);
-  const sine = Math.sin(angle);
-  const rotate = (v: Vec3): Vec3 => [
-    cosine * v[0] - sine * v[1],
-    sine * v[0] + cosine * v[1],
-    v[2],
-  ];
-  const [r, velocity, time, proper] = path.state.radial;
   return {
     ...path,
     chart: path.chart === "ingoing" ? "outgoing" : "ingoing",
-    state: {
-      radial: [r, velocity, time - 2 * sign * primitives[1], proper],
-      direction: rotate(path.state.direction),
-      angular: rotate(path.state.angular),
-    },
+    state: rotateOrbitState(path.state, angle, path.state.radial[2] - 2 * sign * primitives[1]),
   };
 }
 
@@ -519,7 +543,14 @@ const lowerOrder = [
   1 / 40,
 ] as const;
 
-/** One embedded step; undefined means that a stage left the current regular chart. */
+/**
+ * Take one Dormand–Prince 5(4) trial step without committing it to the atlas.
+ *
+ * @param step - Signed interval in the selected parameter; negative traces backward.
+ * @param parameter - Mino time, or proper time for an already validated massive path.
+ * @returns A trial state and scaled local error, or `undefined` for an
+ * unevaluable stage or nonfinite comparison. Error is not a global trajectory bound.
+ */
 export function orbitStep(
   path: Geodesic,
   step: number,
@@ -571,7 +602,19 @@ export function orbitStep(
   return { state, error };
 }
 
-/** Continue a finite signed Mino interval, or proper time for a massive path. */
+/**
+ * Advance a finite signed interval with adaptive steps and ordered radial events.
+ *
+ * @remarks
+ * `options.tolerance` bounds the embedded local estimate; `maxSteps` counts
+ * attempts, including rejected steps. Turn and endpoint searches reintegrate
+ * partial steps. The input is not mutated and unfinished work is not capture.
+ *
+ * @param duration - Signed Mino interval, or proper time in M for a massive path.
+ * @returns The terminal classification, retained path, and signed elapsed parameter.
+ * Only `complete` means the requested interval finished.
+ * @throws RangeError - If the interval, tolerance, attempt budget, or proper-time mode is invalid.
+ */
 export function advanceGeodesic(
   initial: Geodesic,
   duration: number,

@@ -7,8 +7,8 @@
     --raised: oklch(from var(--surface) calc(l + 0.05) c h);
     --accent: oklch(87% 0.078 210);
     --line: oklch(100% 0 none / 15%);
-    --glass: oklch(from var(--surface) l c h / 82%);
-    --radius: 12px;
+    --glass: oklch(from var(--surface) l c h / 76%);
+    --radius: 8px;
     --panel-space: 24px;
     --edge: max(26px, env(safe-area-inset-left), env(safe-area-inset-right));
     font:
@@ -16,7 +16,6 @@
       sans-serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-synthesis: none;
-    interpolate-size: allow-keywords;
     color: var(--ink);
     background: oklch(4% 0 none);
   }
@@ -41,7 +40,8 @@
   }
   button,
   select,
-  input[type="text"] {
+  input[type="text"],
+  input[type="number"] {
     color: inherit;
     border: 1px solid var(--line);
     border-radius: 7px;

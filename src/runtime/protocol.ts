@@ -1,11 +1,19 @@
 import type { SourceAppearance } from "../scene/appearance.ts";
 import type { SceneInput } from "../scene/scene.ts";
-import type { Motion } from "../scene/session.ts";
-import type { SavedView } from "../scene/view.ts";
+import type { Motion, Resolution } from "../scene/session.ts";
+import type { Presentation } from "../scene/presentation.ts";
 import type { Coverage } from "../gpu/imaging/coverage.ts";
 import type { RayPath } from "../physics/ray-path.ts";
 
-/** Messages stay within this application's dedicated worker; no GPU objects cross back. */
+/**
+ * Internal messages to the dedicated render worker.
+ *
+ * @remarks
+ * Updates carry complete presentation/runtime intent but may omit unchanged
+ * scene/appearance inputs. Width/height are native device-pixel dimensions;
+ * inspection points are normalized image coordinates. Only initialization
+ * transfers an OffscreenCanvas; no GPU handles cross the boundary.
+ */
 export type RenderRequest =
   | { readonly type: "initialize"; readonly canvas: OffscreenCanvas }
   | {
@@ -13,12 +21,9 @@ export type RenderRequest =
       readonly revision: number;
       readonly scene?: SceneInput;
       readonly appearance?: SourceAppearance;
-      readonly presentation: Pick<
-        SavedView,
-        "exposureEV" | "whiteBalance" | "bloom" | "diagnostic" | "analyzer"
-      >;
+      readonly presentation: Presentation;
       readonly motion: Motion;
-      readonly resolution: number;
+      readonly resolution: Resolution;
       readonly hdr: boolean;
       readonly visible: boolean;
       readonly width: number;
@@ -34,12 +39,21 @@ export type RenderRequest =
     }
   | { readonly type: "retry" | "dispose" };
 
-/** Completed GPU work tagged with the intent revision that produced it. */
+/**
+ * Completion feedback for one intent revision after submitted GPU work settles.
+ *
+ * @remarks
+ * Width/height describe the actual raster, not requested native dimensions.
+ * Time is the source epoch in M; samples count the retained sequence. Coverage
+ * is optional and reports missing work rather than physical accuracy.
+ */
 export interface CompletedFrame {
   readonly type: "frame";
   readonly revision: number;
   readonly time: number;
   readonly samples: number;
+  /** Target for this image sequence; stationary previews stop when they reach it. */
+  readonly targetSamples: number;
   readonly width: number;
   readonly height: number;
   readonly coverage?: Coverage;

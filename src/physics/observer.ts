@@ -2,7 +2,13 @@ import { combine, contract, inner, lower } from "./geometry.ts";
 import type { FourVector, KerrGeometry } from "./geometry.ts";
 import type { Vec3 } from "./vector.ts";
 
-/** Orthonormal Cartesian Kerr–Schild tangents, with a continuous future time orientation. */
+/**
+ * Local orthonormal tetrad expressed as Cartesian Kerr–Schild tangents.
+ *
+ * @remarks
+ * `velocity` is unit timelike. The three spatial axes label the local boost
+ * and camera components; after a boost they need not follow coordinate lines.
+ */
 export interface ObserverFrame {
   readonly velocity: FourVector;
   readonly radial: FourVector;
@@ -27,7 +33,12 @@ export function principalFrame(geometry: KerrGeometry): ObserverFrame {
   };
 }
 
-/** Boost a complete frame by a measured local velocity in units c; reject non-timelike input. */
+/**
+ * Lorentz-boost an orthonormal tetrad by measured local velocity.
+ *
+ * @param velocity - Components along the supplied spatial axes, in units of c.
+ * @returns A new frame, or `undefined` for nonfinite speed or speed at least c.
+ */
 export function boostFrame(frame: ObserverFrame, velocity: Vec3): ObserverFrame | undefined {
   const speed2 = velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2;
   if (!Number.isFinite(speed2) || speed2 >= 1) {
@@ -50,7 +61,13 @@ export function boostFrame(frame: ObserverFrame, velocity: Vec3): ObserverFrame 
   };
 }
 
-/** Construct an observer from d(x,y,z)/dT in the chosen Cartesian Kerr–Schild chart. */
+/**
+ * Construct a rest frame from KS coordinate velocity `d(X, Y, Z)/dT`.
+ *
+ * @returns A frame, or `undefined` when the trial tangent is nonfinite,
+ * non-timelike, or not future-directed relative to the regular reference frame.
+ * A Euclidean coordinate-speed bound is not the local light-cone condition.
+ */
 export function coordinateObserver(
   geometry: KerrGeometry,
   velocity: Vec3,
@@ -93,7 +110,15 @@ export function zamoObserver(geometry: KerrGeometry, spin: number): ObserverFram
   ]);
 }
 
-/** Rest frame of a transported timelike velocity; retain its time orientation across chart changes. */
+/**
+ * Reconstruct a rest frame from a timelike tangent at its current event.
+ *
+ * @remarks
+ * The reference time orientation follows the supplied tangent. Spatial axes
+ * come from a local boost, not parallel transport of the launch tetrad.
+ *
+ * @returns A frame, or `undefined` when a finite timelike boost cannot be formed.
+ */
 export function comovingFrame(
   geometry: KerrGeometry,
   velocity: FourVector,
@@ -118,7 +143,13 @@ export function comovingFrame(
   ]);
 }
 
-/** Unit-frequency arriving photon. Source direction points out of the camera toward the scene. */
+/**
+ * Launch the future-directed arriving vacuum photon with unit detector frequency.
+ *
+ * @param source - Unit direction toward the apparent source in the frame's spatial axes.
+ * @returns `u - sourceᵢ eᵢ`; trace it with negative affine/Mino steps.
+ * The caller supplies an orthonormal frame and normalized direction.
+ */
 export function observerPhoton(frame: ObserverFrame, source: Vec3): FourVector {
   return combine(
     combine(combine(frame.velocity, 1, frame.radial, -source[0]), 1, frame.polar, -source[1]),
@@ -128,7 +159,13 @@ export function observerPhoton(frame: ObserverFrame, source: Vec3): FourVector {
   );
 }
 
-/** Positive locally measured frequency for a future-directed photon and observer. */
+/**
+ * Evaluate the signed local energy contraction `-p · u`.
+ *
+ * @remarks
+ * It is positive for a physical future photon and future unit observer.
+ * This helper does not validate, take an absolute value, or renormalize its inputs.
+ */
 export function measuredFrequency(
   geometry: KerrGeometry,
   photon: FourVector,

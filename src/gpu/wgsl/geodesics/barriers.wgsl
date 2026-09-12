@@ -27,9 +27,9 @@ fn radial_multiply(a: vec2f, b: vec2f) -> vec2f {
   let maximum_a = max(abs(a.x), abs(a.y));
   let maximum_b = max(abs(b.x), abs(b.y));
   // Exponent bounds avoid overflowing even the guard itself. Reject uncertain large products.
-  let exponents = ((bitcast<u32>(maximum_a) >> 23u) & 255u) + ((bitcast<u32>(maximum_b) >> 23u) & 255u);
+  let exponents = extractBits(bitcast<u32>(maximum_a), 23u, 8u) + extractBits(bitcast<u32>(maximum_b), 23u, 8u);
   if (exponents > 379u) { return vec2f(1, -1); }
-  let products = vec4f(a.x * b.x, a.x * b.y, a.y * b.x, a.y * b.y);
+  let products = a.xxyy * b.xyxy;
   return radial_enclosure(vec2f(min(min(products.x, products.y), min(products.z, products.w)),
     max(max(products.x, products.y), max(products.z, products.w))));
 }
@@ -37,7 +37,6 @@ fn radial_multiply(a: vec2f, b: vec2f) -> vec2f {
 /** Enclose a stored scalar including implementations that flush subnormal inputs. */
 fn radial_value(value: f32) -> vec2f {
   if (!(abs(value) < 3.4e38)) { return vec2f(1, -1); }
-  if (value == 0) { return vec2f(-1.17549435e-38, 1.17549435e-38); }
   if (abs(value) < 1.17549435e-38) { return vec2f(-1.17549435e-38, 1.17549435e-38); }
   return vec2f(value);
 }
@@ -58,7 +57,11 @@ fn radial_midpoint(value: vec2f) -> f32 {
   return 0.5 * value.x + 0.5 * value.y;
 }
 
-/** Prove R(radius)<0 on the stored constants; uncertain signs keep normal ray continuation. */
+/**
+ * Certify a negative massless radial potential for the stored f32 constants.
+ * Requires mass² = 0; optional stationary plasma contributes f_r. False means
+ * inconclusive or nonnegative, so the caller retains ordinary continuation.
+ */
 fn radial_forbidden(path: KerrOrbit, radius: f32) -> bool {
   let a = radial_value(path.space.x);
   let q = radial_value(path.space.y);
@@ -111,14 +114,16 @@ fn source_free_radial_band(path: KerrOrbit, source_radius: f32) -> bool {
   if (!(cosine_interval.x <= cosine_interval.y)) { return false; }
   let cosine = radial_midpoint(cosine_interval);
   if (!(cosine >= -1 && cosine <= 1)) { return false; }
-  // The vacuum quartic's positive minimum is only a candidate: its independent interval sign
-  // proves the barrier even with approximate acos/sqrt or when plasma moves the minimum.
+  // A positive-radius stationary point of the vacuum quartic supplies only a candidate.
+  // The separate interval sign must prove the barrier, including when plasma shifts the minimum.
   let barrier = 2 * scale * cos(acos(cosine) / 3);
   return barrier > radius && barrier < source_radius && radial_forbidden(path, barrier);
 }
 
-/** A detector-normalized vacuum photon with vanishing Carter data can remain on a horizon.
- * These are the exactly representable roots in binary f32; nearby radii keep ordinary tracing.
+/**
+ * Recognize selected exactly represented vacuum horizon generators below all sources.
+ * All reduced Killing/Carter and radial/angular data must vanish. The reduced
+ * state omits the generator's affine scale; nearby rays keep ordinary tracing.
  */
 fn source_free_horizon_generator(path: KerrOrbit, source_radius: f32) -> bool {
   if (any(path.constants != vec4f(0)) || path.state.radial.y != 0 || any(path.state.angular != vec3f(0)) || path.plasma.x != 0) {

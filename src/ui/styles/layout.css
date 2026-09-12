@@ -67,7 +67,7 @@
     box-shadow:
       0 24px 80px oklch(0% 0 none / 40%),
       inset 0 1px oklch(100% 0 none / 6%);
-    backdrop-filter: blur(24px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.15);
     padding: var(--panel-space);
     inline-size: min(410px, calc(100dvw - 2 * var(--edge)));
     max-block-size: calc(100dvh - 180px);
@@ -81,10 +81,6 @@
     position: fixed;
     inset: auto;
     margin: 12px 0;
-    position-try-fallbacks:
-      flip-inline,
-      flip-block,
-      flip-block flip-inline;
     opacity: 0;
     translate: 0 -5px;
     transition:
@@ -105,10 +101,13 @@
   }
   .settings,
   .about {
-    position-area: bottom span-left;
+    inset-block-start: max(84px, calc(env(safe-area-inset-top) + 68px));
+    inset-inline-end: var(--edge);
   }
   .library {
-    position-area: top span-right;
+    inset-block-end: max(136px, calc(env(safe-area-inset-bottom) + 118px));
+    inset-inline-start: 50%;
+    margin-inline-start: calc(-0.5 * min(410px, 100dvw - 2 * var(--edge)));
   }
   .panel-heading {
     display: flex;
@@ -130,6 +129,7 @@
     padding: 18px var(--panel-space);
     border-block-end: 1px solid var(--line);
     background: var(--surface);
+    box-shadow: inset 2px 0 var(--accent);
   }
   .feedback-slot {
     grid-column: 1 / -1;
@@ -173,6 +173,50 @@
       opacity: 0.8;
     }
   }
+  .observation {
+    position: fixed;
+    inset-block-start: max(120px, calc(env(safe-area-inset-top) + 100px));
+    inset-inline-start: var(--edge);
+    padding: 14px 18px;
+    border-inline-start: 1px solid oklch(from var(--accent) l c h / 55%);
+    background: linear-gradient(90deg, oklch(8% 0.015 230 / 82%), transparent);
+    pointer-events: none;
+    & .eyebrow {
+      font: 9px var(--mono);
+      letter-spacing: 0.12em;
+      & span {
+        color: var(--accent);
+      }
+    }
+    & #observation-name {
+      margin-block: 7px 3px;
+      font-size: 17px;
+      letter-spacing: -0.025em;
+    }
+    & #observation-state {
+      font: 10px/1.6 var(--mono);
+      color: var(--accent);
+    }
+  }
+  .image-only {
+    & .wordmark,
+    & .header-actions > button:not(#focus-view),
+    & .observation,
+    & .bottom-ui,
+    & .telemetry {
+      visibility: hidden;
+      pointer-events: none;
+    }
+  }
+  #focus-view {
+    min-inline-size: 44px;
+    font-family: var(--mono);
+  }
+  .image-only .header-actions {
+    & > button:not(#focus-view) {
+      display: none;
+    }
+  }
   .bottom-ui {
     position: fixed;
     inset-inline: var(--edge);
@@ -190,7 +234,7 @@
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: linear-gradient(135deg, oklch(28% 0.025 230 / 35%), transparent 60%), var(--glass);
-    backdrop-filter: blur(24px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.15);
     pointer-events: auto;
     & button {
       border-color: transparent;
@@ -231,7 +275,7 @@
     inline-size: min(460px, 100%);
     padding: 16px 18px;
     background: linear-gradient(135deg, oklch(28% 0.025 230 / 35%), transparent 60%), var(--glass);
-    backdrop-filter: blur(24px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.15);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     pointer-events: auto;
@@ -267,11 +311,13 @@
     align-items: center;
     gap: 10px;
     color: var(--muted);
-    font-size: 11px;
+    font: 10px var(--mono);
+    letter-spacing: 0.035em;
     pointer-events: none;
     & p:not(:empty) {
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 8px 10px;
+      border-inline-start: 1px solid var(--accent);
+      border-radius: 2px;
       background: oklch(8% 0.01 230 / 88%);
       backdrop-filter: blur(10px);
       max-inline-size: min(560px, 100%);

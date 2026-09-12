@@ -3,7 +3,14 @@ import type { FourVector, KerrGeometry } from "./geometry.ts";
 import type { Spacetime } from "./spacetime.ts";
 import type { Vec3 } from "./vector.ts";
 
-/** Neutral geodesic invariants; massSquared is zero for light and one for unit four-velocity. */
+/**
+ * Unreduced neutral-geodesic constants in units `G = c = M = 1`.
+ *
+ * @remarks
+ * `energy = -p_t`, `angularMomentum = p_φ`, and `carter` is C, so
+ * `K = (L - aE)² + C`. Energy and C may be zero or negative.
+ * `massSquared` is zero for vacuum light and one for unit timelike velocity.
+ */
 export interface MotionConstants {
   readonly energy: number;
   readonly angularMomentum: number;
@@ -11,7 +18,13 @@ export interface MotionConstants {
   readonly massSquared: number;
 }
 
-/** Separated future Mino derivatives, without normalizing by Killing energy. */
+/**
+ * Separated launch data with future Mino derivatives, `dλ = Σ dγ`.
+ *
+ * @remarks
+ * `angular` is the pole-free canonical vector J, not conserved Euclidean
+ * angular momentum. `polarVelocity` is the oriented `p_θ` at the launch event.
+ */
 export interface MotionInitial {
   readonly constants: MotionConstants;
   readonly radialVelocity: number;
@@ -19,7 +32,13 @@ export interface MotionInitial {
   readonly angular: Vec3;
 }
 
-/** Extract Carter data from a Cartesian tangent, including the axis limit. */
+/**
+ * Extract unreduced Carter data from a tangent in the geometry's KS chart.
+ *
+ * @remarks
+ * Includes the regular axis limit. The caller supplies matching geometry/spacetime
+ * and a tangent normalized consistently with `massSquared`; no shell validation occurs here.
+ */
 export function motionFromTangent(
   space: Spacetime,
   geometry: KerrGeometry,

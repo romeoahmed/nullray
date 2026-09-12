@@ -1,14 +1,19 @@
+/** 32-byte stackless-tree record: bounds/escape index or leaf direction/flux/temperature. */
 struct StellarNode {
   lower: vec4f,
   upper: vec4f,
 }
 @group(0) @binding(18) var<storage, read> stars: array<StellarNode>;
 
-/** Integrated catalogue radiance in a locally linear source chart; alpha marks spectral support.
- * x and y are detector increments in the orthonormal east/north basis; energy is emitted/observed frequency.
+/**
+ * Sum catalogue light within a locally linear Gaussian source footprint.
+ * X/y are one-pixel direction increments in the source tangent basis; energy is
+ * the positive emitted/observed frequency ratio. Alpha reports spectral support.
+ * The finite 3.5-sigma cutoff omits Gaussian tails and cannot certify nonlinear image completeness.
  */
 fn stellar_radiance(n: vec3f, east: vec3f, north: vec3f, x: vec2f, y: vec2f, energy: f32) -> vec4f {
-  // A 0.65 pixel Gaussian detector PSF and a finite 0.2 arcsecond source prevent a singular flux kernel.
+  // Prescribed standard deviations: 0.65 detector pixels and 1e−6 source radians
+  // (about 0.206 arcsec). These regularize the kernel, not measured stellar sizes.
   let psf_variance = 0.4225;
   let source_variance = 1e-12;
   let cxx = psf_variance * (x.x * x.x + y.x * y.x) + source_variance;

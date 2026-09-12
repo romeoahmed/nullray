@@ -244,7 +244,6 @@ gpuTest("optically thin jet radiance scales with electron density", async ({ dev
 gpuTest("the production optical pass resolves finite disk and sky radiance", async ({ device }) => {
   using owned = new DisposableStack();
   const optics = owned.adopt(await createOptics(device), (value) => value.dispose());
-  device.pushErrorScope("validation");
   const encoder = device.createCommandEncoder();
   const image = optics.encode(encoder, initialScene, 48, 32, {
     appearance: initialAppearance,
@@ -398,10 +397,16 @@ gpuTest("the production optical pass resolves finite disk and sky radiance", asy
   expect(narrowband.some((value, index) => index % 4 < 3 && value > 0)).toBe(true);
   const plasmaQ = await readPixels(device, plasmaImage.q);
   expect(plasmaQ.every((value, index) => index % 4 === 3 || value === 0)).toBe(true);
-  expect(await device.popErrorScope()).toBeNull();
 });
 
-test("native f32 observers, Carter data and polarization agree across the extended geometry", async () => {
+const quantize = (v: FourVector): FourVector => [
+  Math.fround(v[0]),
+  Math.fround(v[1]),
+  Math.fround(v[2]),
+  Math.fround(v[3]),
+];
+
+test("uploaded observer frames preserve native f32 Carter data and polarization across the extended geometry", async () => {
   const cases = [
     [0.8, 0.3, 8, 0.9, 0.3, 1],
     [0.8, 0.3, 1, 0.9, 0.3, 1],
@@ -410,14 +415,55 @@ test("native f32 observers, Carter data and polarization agree across the extend
     [0.8, 0.3, -2, 0.9, 0.3, 1],
     [1.2, 0.6, 1, 0.9, 0.3, -1],
   ].map((entry) => entry.map(Math.fround));
+  const fixtures = cases.map(
+    ([spin = NaN, charge = NaN, radius = NaN, inclination = NaN, azimuth = NaN, sign = NaN]) => {
+      const space = { spin, charge };
+      const g = kerrGeometry(space, {
+        radius,
+        inclination,
+        azimuth,
+        chart: sign > 0 ? "ingoing" : "outgoing",
+      });
+      const boosted =
+        g && boostFrame(principalFrame(g), [Math.fround(0.2), Math.fround(-0.3), Math.fround(0.1)]);
+      if (!g || !boosted) {
+        throw new Error("Expected a regular timelike fixture.");
+      }
+      const frame = {
+        velocity: quantize(boosted.velocity),
+        radial: quantize(boosted.radial),
+        polar: quantize(boosted.polar),
+        azimuthal: quantize(boosted.azimuthal),
+      };
+      return {
+        space,
+        g,
+        frame,
+        data: [
+          spin,
+          charge,
+          0,
+          0,
+          radius,
+          inclination,
+          azimuth,
+          sign,
+          ...frame.velocity,
+          ...frame.radial,
+          ...frame.polar,
+          ...frame.azimuthal,
+        ],
+      };
+    },
+  );
   const source = `${geometrySource}
-    @group(0) @binding(0) var<storage, read> inputs: array<f32>;
+    struct Input { space: vec4f, point: vec4f, frame: mat4x4f }
+    @group(0) @binding(0) var<storage, read> inputs: array<Input>;
     @group(0) @binding(1) var<storage, read_write> outputs: array<vec4f>;
     @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {
-      let i = id.x * 6;
-      let g = kerr_geometry(vec2f(inputs[i], inputs[i + 1]),
-        vec3f(inputs[i + 2], inputs[i + 3], inputs[i + 4]), inputs[i + 5]);
-      let frame = kerr_boost(kerr_frame(g), vec3f(0.2, -0.3, 0.1));
+      let input = inputs[id.x];
+      let g = kerr_geometry(input.space.xy, input.point.xyz, input.point.w);
+      let frame = input.frame;
       let p = frame * vec4f(1, -0.6, -0.48, -0.64);
       let motion = kerr_motion(g, p, 0);
       let wp = walker_penrose(g, p, frame[2]);
@@ -427,25 +473,11 @@ test("native f32 observers, Carter data and polarization agree across the extend
     }`;
   const results = await computeReadback(
     source,
-    new Float32Array(cases.flat()),
+    new Float32Array(fixtures.flatMap(({ data }) => data)),
     cases.length * 12,
     cases.length,
   );
-  for (const [i, entry] of cases.entries()) {
-    const [spin = NaN, charge = NaN, radius = NaN, inclination = NaN, azimuth = NaN, sign = NaN] =
-      entry;
-    const space = { spin, charge };
-    const g = kerrGeometry(space, {
-      radius,
-      inclination,
-      azimuth,
-      chart: sign > 0 ? "ingoing" : "outgoing",
-    });
-    const frame =
-      g && boostFrame(principalFrame(g), [Math.fround(0.2), Math.fround(-0.3), Math.fround(0.1)]);
-    if (!g || !frame) {
-      throw new Error("Expected a regular timelike fixture.");
-    }
+  for (const [i, { space, g, frame }] of fixtures.entries()) {
     const p = observerPhoton(frame, [Math.fround(0.6), Math.fround(0.48), Math.fround(0.64)]);
     const motion = motionFromTangent(space, g, p, 0);
     const wp = walkerPenrose(space, g, p, frame.polar);

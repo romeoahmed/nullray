@@ -5,7 +5,16 @@ import { decodeBookmarks } from "../scene/bookmarks.ts";
 import type { Bookmark } from "../scene/bookmarks.ts";
 const storageKey = "nullray.views.v1";
 
-/** Own the browser-local view library; every stored snapshot passes the shared view validator. */
+/**
+ * Bind the browser-local view library under the caller's abort signal.
+ *
+ * @remarks
+ * Reads validate the entire collection. Storage failures are shown in the panel;
+ * corrupt contents are not silently replaced with an empty library.
+ *
+ * @param snapshot - Supplies an accepted view for serialization; this adapter trusts it.
+ * @param restore - Applies a fragment after the stored collection passes decoding.
+ */
 export function bindViews(
   root: HTMLElement,
   snapshot: () => SavedView,

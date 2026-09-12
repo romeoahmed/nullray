@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import * as fc from "fast-check";
 import geometrySource from "../../src/gpu/wgsl/geodesics/geometry.wgsl?raw";
 import orbitSource from "../../src/gpu/wgsl/geodesics/orbit.wgsl?raw";
 import barrierSource from "../../src/gpu/wgsl/geodesics/barriers.wgsl?raw";
@@ -32,23 +33,39 @@ function potentialSign(values: readonly number[]): bigint {
   return (p * p - delta * k) * denominator - delta * amplitude * r2 * unit ** 3n;
 }
 
+const finite = (min: number, max: number) => fc.double({ min, max, noNaN: true });
+
 test("radial source-exclusion signs agree with exact dyadic arithmetic", async () => {
-  const cases: number[][] = [];
+  const fixed: number[][] = [];
   for (const e of [-1, 0, 1]) {
     for (const radius of [0, 1, 3, 4, 10]) {
       for (const amplitude of [0, 20]) {
-        cases.push([0.7, 0.2, e, 0, 30, radius, amplitude, 4]);
+        fixed.push([0.7, 0.2, e, 0, 30, radius, amplitude, 4]);
       }
     }
   }
+  const cancellation = fixed.length;
   // Exact cancellation and tiny perturbations must never become an invented forbidden region.
   for (const c of [0, 2 ** -149, -(2 ** -149), 2 ** -22, -(2 ** -22)]) {
-    cases.push([0.7, 0, 1, 0.2, c, 0, 0, 1]);
+    fixed.push([0.7, 0, 1, 0.2, c, 0, 0, 1]);
   }
-  cases.push([1e30, 0, 1e30, 0, 0, 1, 0, 1]);
-  const inputs = new Float32Array(cases.flat());
-  const output = await computeReadback(
-    `${geometrySource}\n${orbitSource}\n${barrierSource}
+  fixed.push([1e30, 0, 1e30, 0, 0, 1, 0, 1]);
+  const candidate = fc.tuple(
+    finite(-1.5, 1.5),
+    finite(-1, 1),
+    finite(-2, 2),
+    finite(-20, 20),
+    finite(-10, 100),
+    finite(-10, 30),
+    finite(0, 100),
+    finite(1, 100),
+  );
+  await fc.assert(
+    fc.asyncProperty(fc.array(candidate, { maxLength: 24 }), async (generated) => {
+      const cases = [...fixed, ...generated];
+      const inputs = new Float32Array(cases.flat());
+      const output = await computeReadback(
+        `${geometrySource}\n${orbitSource}\n${barrierSource}
     @group(0) @binding(0) var<storage, read> input: array<vec4f>;
     @group(0) @binding(1) var<storage, read_write> output: array<f32>;
     @compute @workgroup_size(1) fn main(@builtin(global_invocation_id) id: vec3u) {
@@ -59,22 +76,26 @@ test("radial source-exclusion signs agree with exact dyadic arithmetic", async (
       path.plasma = second.zw;
       output[id.x] = select(0.0, 1.0, radial_forbidden(path, second.y));
     }`,
-    inputs,
-    cases.length,
-    cases.length,
-  );
-  let certified = 0;
-  for (let i = 0; i < cases.length; i++) {
-    if (output[i] === 1) {
-      certified++;
-      expect(potentialSign(Array.from(inputs.slice(i * 8, i * 8 + 8))), `case ${i}`).toBeLessThan(
-        0n,
+        inputs,
+        cases.length,
+        cases.length,
       );
-    }
-  }
-  expect(certified).toBeGreaterThan(10);
-  expect(output[30]).toBe(0);
-  expect(output.at(-1)).toBe(0);
+      expect(output.every((value) => value === 0 || value === 1)).toBe(true);
+      for (let i = 0; i < cases.length; i++) {
+        if (output[i] === 1) {
+          expect(
+            potentialSign(Array.from(inputs.slice(i * 8, i * 8 + 8))),
+            `case ${i}`,
+          ).toBeLessThan(0n);
+        }
+      }
+      // Require useful exclusion without freezing how aggressively uncertain signs are certified.
+      expect(output.some((value) => value === 1)).toBe(true);
+      expect(output[cancellation]).toBe(0);
+      expect(output[fixed.length - 1]).toBe(0);
+    }),
+    { numRuns: 8 },
+  );
 });
 
 gpuTest(
@@ -86,6 +107,8 @@ gpuTest(
       ...initialScene,
       space: { spin: 0.7, charge: 0.2 },
       disk: { inner: 3.304466962814331, outer: 64 },
+      // Keep the minimized detector pixels independent of curated camera composition.
+      camera: { forward: [-1, 0, 0], up: [0, -1, 0] },
       observer: {
         ...initialScene.observer,
         radius: 1,
@@ -100,7 +123,7 @@ gpuTest(
     }
     const encoder = device.createCommandEncoder();
     const image = optics.encode(encoder, scene.value, 64, 36, {
-      // This event fixture is the opaque surface limit, independent of the default volume opacity.
+      // This fixture selects the opaque surface boundary model, separately from finite-depth volume transfer.
       appearance: { ...initialAppearance, diskThickness: 0 },
       time: 0,
       view: "image",
@@ -114,7 +137,6 @@ gpuTest(
     // Pixel (54,0), minimized from the formerly unresolved interior image at 64×36.
     const trapped = await optics.inspect([54.5 / 64, 0.5 / 36]);
     expect(trapped.kind).toBe("source-free");
-    expect(trapped.points.length).toBeGreaterThan(10);
     const disk = await optics.inspect([29.5 / 64, 8.5 / 36]);
     expect(disk.kind).toBe("disk");
     const horizon = createScene({

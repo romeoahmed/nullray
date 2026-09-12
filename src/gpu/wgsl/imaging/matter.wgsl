@@ -1,4 +1,8 @@
-/** Compact spectral transport accumulated from the observer toward the source. */
+/**
+ * Observer-to-source accumulation in a common detector Stokes basis.
+ * I/Q/U are spectral RGB coefficients; transmission is scalar foreground attenuation.
+ * Frequency records a sampled emitting-frame energy for the diagnostic, not an averaged redshift.
+ */
 struct Transfer {
   intensity: vec3f,
   q: vec3f,
@@ -25,7 +29,7 @@ fn disk_envelope(r: f32) -> f32 {
   return sqrt(6.75 * x) * (1 - x);
 }
 
-/** Smooth transition from inner parabolic confinement to outer conical expansion. */
+/** Prescribed width in M: inner |z|^0.6 collimation approaches conical growth outside. */
 fn jet_width(height: f32) -> f32 {
   let cosine = optical_frame.jet.z;
   let relative = height / optical_frame.jet.y;
@@ -39,7 +43,10 @@ fn jet_expansion(height: f32) -> f32 {
   return 0.6 + 0.4 * transition / (1 + transition);
 }
 
-/** Conservative support includes the corrugated disk and the displaced jet sheath. */
+/**
+ * Finite prescribed support for the corrugated Gaussian disk and displaced jet.
+ * The disk cutoff truncates tails; this is not the full support of an infinite Gaussian.
+ */
 fn material_support(space: vec2f, r: f32, n: vec3f) -> vec2<bool> {
   let disk = optical_frame.material.x > 0 && r > optical_frame.space.z && r < optical_frame.space.w
     && abs(n.z) < (4.5 + 2.4 * optical_frame.appearance.z) * optical_frame.material.x * disk_envelope(r);
@@ -72,7 +79,11 @@ struct PolarizationScreen {
   equatorial: vec2f,
 }
 
-/** Four-vector Hodge product; its sign is immaterial for linear polarization. */
+/**
+ * Form a unit electric-screen tangent using the four-dimensional Hodge product.
+ * Emitter and photon are tangents; normal is a covector. Returns zero for a
+ * degenerate norm. Reversing the electric-vector sign leaves linear Stokes data unchanged.
+ */
 fn electric_vector(g: KerrGeometry, photon: vec4f, emitter: vec4f, normal: vec4f) -> vec4f {
   let u = kerr_lower(g, emitter);
   let p = kerr_lower(g, photon);
@@ -84,7 +95,18 @@ fn electric_vector(g: KerrGeometry, photon: vec4f, emitter: vec4f, normal: vec4f
   return f * inverseSqrt(norm);
 }
 
-fn linear_polarization(g: KerrGeometry, photon: vec4f, emitter: vec4f, normal: vec4f, screen: PolarizationScreen) -> vec2f {
+/**
+ * Return detector (Q,U) per unit polarized intensity from vacuum WP contractions.
+ * An equatorial fallback handles selected degeneracies; zero output elsewhere
+ * is a model limitation, not a proof that degenerate emission is unpolarized.
+ */
+fn linear_polarization(
+  g: KerrGeometry,
+  photon: vec4f,
+  emitter: vec4f,
+  normal: vec4f,
+  screen: PolarizationScreen
+) -> vec2f {
   let electric = electric_vector(g, photon, emitter, normal);
   let wp = walker_penrose(g, photon, electric);
   var direction = vec2f(dot(wp, screen.up), dot(wp, screen.right));
@@ -94,8 +116,19 @@ fn linear_polarization(g: KerrGeometry, photon: vec4f, emitter: vec4f, normal: v
   return vec2f(direction.x * direction.x - direction.y * direction.y, 2 * direction.x * direction.y) / norm;
 }
 
-/** Apply a homogeneous cell exactly in optical depth; dl is positive affine length in M. */
-fn transfer_cell(input: Transfer, path: KerrOrbit, photon: vec4f, dl: f32, block: vec3i, screen: PolarizationScreen) -> Transfer {
+/**
+ * Accumulate one positive detector-normalized affine cell length dl in M.
+ * Sources are sampled locally; constant-coefficient attenuation is analytic, with
+ * a small-depth series to avoid cancellation. Inhomogeneous-cell accuracy remains approximate.
+ */
+fn transfer_cell(
+  input: Transfer,
+  path: KerrOrbit,
+  photon: vec4f,
+  dl: f32,
+  block: vec3i,
+  screen: PolarizationScreen
+) -> Transfer {
   var result = input;
   if (dl <= 0) { return result; }
   var r = path.state.radial.x;
@@ -116,11 +149,9 @@ fn transfer_cell(input: Transfer, path: KerrOrbit, photon: vec4f, dl: f32, block
   if (disk && r > path.space.y * path.space.y) {
     let root = sqrt(r - path.space.y * path.space.y);
     let omega = root / (r * r + path.space.x * root);
-    let trial = vec4f(1, omega * cross(vec3f(0, 0, 1), g.position));
-    let norm = -dot(kerr_lower(g, trial), trial);
-    if (!(norm > 0)) { result.valid = false; return result; }
     let side = select(block.z, 1, block.x == 4);
-    let emitter = f32(side) * trial * inverseSqrt(norm);
+    let emitter = kerr_circular_velocity(g, omega, side);
+    if (emitter.x == 0) { result.valid = false; return result; }
     let frequency = -dot(kerr_lower(g, photon), emitter);
     if (!(frequency > 0)) { result.valid = false; return result; }
     let envelope = disk_envelope(r);
@@ -164,7 +195,7 @@ fn transfer_cell(input: Transfer, path: KerrOrbit, photon: vec4f, dl: f32, block
     absorption = alpha * frequency * sqrt(index_squared);
     // Large clouds carry opacity; finer sheared structure prescribes the local heating contrast.
     let temperature = optical_frame.appearance.y * disk_temperature(r)
-      * exp(1.1 * optical_frame.appearance.z * cloud.z) * pow(source_light(block), 0.25);
+      * exp(0.9 * optical_frame.appearance.z * cloud.z) * pow(source_light(block), 0.25);
     let spectrum = source_spectrum(temperature / frequency);
     if (spectrum.a == 0) { result.valid = false; return result; }
     var angular = vec2f(1, 0);
@@ -192,11 +223,9 @@ fn transfer_cell(input: Transfer, path: KerrOrbit, photon: vec4f, dl: f32, block
     let width = jet_width(height);
     let transverse = length(g.position.xy) / width;
     let omega = a * g.factor / (r * r + a * a * (1 + g.factor * (1 - n.z * n.z)));
-    let circular = vec4f(1, omega * cross(vec3f(0, 0, 1), g.position));
-    let norm = -dot(kerr_lower(g, circular), circular);
-    if (!(norm > 0)) { result.valid = false; return result; }
     let side = select(block.z, 1, block.x == 4);
-    let rest = f32(side) * circular * inverseSqrt(norm);
+    let rest = kerr_circular_velocity(g, omega, side);
+    if (rest.x == 0) { result.valid = false; return result; }
     let beta = optical_frame.jet.w * (0.65 + 0.35 * exp(-4 * transverse * transverse));
     let trial_direction = vec4f(0, jet_expansion(height) * g.position.xy / height, sign(g.position.z));
     let projected = trial_direction + rest * dot(kerr_lower(g, rest), trial_direction);
@@ -242,8 +271,20 @@ fn transfer_cell(input: Transfer, path: KerrOrbit, photon: vec4f, dl: f32, block
   return result;
 }
 
-/** Material support determines sampling, independently of the geodesic truncation error. */
-fn matter_limit(r: f32, direction: vec3f, radial_speed: f32, direction_rate: vec3f, epoch: f32, time_speed: f32, h: f32) -> f32 {
+/**
+ * Limit a backward Mino interval by prescribed material and pattern scales.
+ * Rates/epoch must refer to the current physical radius and canonical source time.
+ * This sampling estimate is separate from geodesic error control and is not a pixel-beam bound.
+ */
+fn matter_limit(
+  r: f32,
+  direction: vec3f,
+  radial_speed: f32,
+  direction_rate: vec3f,
+  epoch: f32,
+  time_speed: f32,
+  h: f32
+) -> f32 {
   if (r <= 0) { return h; }
   var outer = optical_frame.space.w;
   var inner = optical_frame.space.z;
@@ -282,7 +323,8 @@ fn matter_limit(r: f32, direction: vec3f, radial_speed: f32, direction_rate: vec
         let weighted_age = lifetime * mix(age, 1 - age, blend);
         let phase_speed = angular_speed + (3 * sqrt(inner / r) / r + weighted_age * omega_derivative) * radial_speed + omega * time_speed;
         let lattice_speed = 7 * radial_speed / r + (4 + 7 * log(r / inner)) * phase_speed;
-        // Two midpoint cells resolve the sheared base lattice before fine frequencies are filtered.
+        // Schedule two midpoint cells against the estimated sheared base-lattice rate.
+        // Fine-octave filtering supplements this spacing; it does not certify convergence.
         if (lattice_speed > 0) { step_length = min(step_length, 0.3 / lattice_speed); }
       }
     }
@@ -303,19 +345,19 @@ fn matter_limit(r: f32, direction: vec3f, radial_speed: f32, direction_rate: vec
   return -step_length;
 }
 
-/** Cubic dense output uses endpoint derivatives; it avoids reintegrating geometry at every material sample. */
-fn kerr_interpolate(start: KerrOrbitState, end: KerrOrbitState, start_rate: KerrOrbitState, end_rate: KerrOrbitState, h: f32, t: f32) -> KerrOrbitState {
-  let h00 = (1 + 2 * t) * (1 - t) * (1 - t);
-  let h10 = t * (1 - t) * (1 - t);
-  let h01 = t * t * (3 - 2 * t);
-  let h11 = t * t * (t - 1);
-  return KerrOrbitState(
-    h00 * start.radial + h01 * end.radial + h * (h10 * start_rate.radial + h11 * end_rate.radial),
-    normalize(h00 * start.direction + h01 * end.direction + h * (h10 * start_rate.direction + h11 * end_rate.direction)),
-    h00 * start.angular + h01 * end.angular + h * (h10 * start_rate.angular + h11 * end_rate.angular));
-}
-
-fn transfer_segment(input: Transfer, path: KerrOrbit, end: KerrOrbitState, h: f32, block: vec3i, screen: PolarizationScreen) -> Transfer {
+/**
+ * March a turn-clipped geometric segment with two ordered midpoint cells per interval.
+ * Preserve foreground light when leaving material. Stagnation or the 512-interval
+ * budget sets valid = false; low transmission permits the declared opacity cutoff.
+ */
+fn transfer_segment(
+  input: Transfer,
+  path: KerrOrbit,
+  end: KerrOrbitState,
+  h: f32,
+  block: vec3i,
+  screen: PolarizationScreen
+) -> Transfer {
   if ((optical_frame.material.x == 0 && optical_frame.jet_spectrum.w == 0) || h == 0) { return input; }
   var inner = optical_frame.space.z;
   var outer = optical_frame.space.w;
@@ -330,7 +372,8 @@ fn transfer_segment(input: Transfer, path: KerrOrbit, end: KerrOrbitState, h: f3
   var result = input;
   let start_rate = kerr_derivative(path, path.state).state;
   let end_rate = kerr_derivative(path, end).state;
-  // Derivatives of the cubic lie in the convex hull of these three Bernstein coefficients.
+  // Bernstein coefficients bound derivatives of the unnormalized cubic.
+  // Renormalizing direction afterward makes its use here a local sampling estimate.
   let radial_bound = max(max(abs(start_rate.radial.x), abs(end_rate.radial.x)),
     abs(3 * (end.radial.x - path.state.radial.x) / h - start_rate.radial.x - end_rate.radial.x));
   let direction_bound = max(max(abs(start_rate.direction), abs(end_rate.direction)),

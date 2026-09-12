@@ -1,4 +1,6 @@
-import { finite, record } from "./decode.ts";
+import { analyzerValue, displayValue, viewChoices } from "./presentation.ts";
+import type { Presentation } from "./presentation.ts";
+import { finite, oneOf, record } from "./decode.ts";
 import { decodeJet } from "./jet.ts";
 import { decodePlasma } from "./plasma.ts";
 import { createCamera } from "./camera.ts";
@@ -8,20 +10,14 @@ import { createScene, initialScene } from "./scene.ts";
 import type { Scene } from "./scene.ts";
 import { decodePhysicalObserver } from "./preparation.ts";
 
-/** Versioned visual snapshot. Opening a link freezes emission at the recorded epoch. */
-export interface SavedView {
+/** Accepted view inputs for schema-1 serialization; restoring them pauses the source epoch. */
+export interface SavedView extends Presentation {
   readonly scene: Scene;
   readonly appearance: SourceAppearance;
-  readonly exposureEV: number;
-  /** Photographic neutral blackbody in kelvin; independent of source temperature. */
-  readonly whiteBalance: number;
-  readonly bloom: number;
-  readonly navigation: "orbit" | "free";
-  readonly display: "auto" | "hdr" | "sdr";
+  readonly navigation: (typeof viewChoices.navigation)[number];
+  readonly display: (typeof viewChoices.display)[number];
   /** Observer coordinate epoch in geometric time units; nonnegative and finite in f32. */
   readonly time: number;
-  readonly analyzer: number | null;
-  readonly diagnostic: "image" | "frequency" | "order" | "domain" | "polarization" | "angle";
 }
 
 /** Shared starting view for the session and curated presets. */
@@ -29,8 +25,8 @@ export const initialView: SavedView = {
   scene: initialScene,
   appearance: initialAppearance,
   exposureEV: 6,
-  whiteBalance: 4500,
-  bloom: 0.3,
+  whiteBalance: 5500,
+  bloom: 0.16,
   navigation: "orbit",
   display: "auto",
   diagnostic: "image",
@@ -44,7 +40,14 @@ export type ViewResult =
   | { readonly kind: "invalid"; readonly error: string }
   | { readonly kind: "view"; readonly value: SavedView };
 
-/** Encode only source inputs; derived disk geometry is recomputed when a view is opened. */
+/**
+ * Serialize an accepted view as a schema-1 URL fragment.
+ *
+ * @remarks
+ * Includes physical inputs, camera, appearance, detector/display choices, and
+ * epoch. Omits derived preparation, resolution, playback, and sample history.
+ * This encoder trusts the accepted value; decoding performs the size/domain checks.
+ */
 export function encodeView(view: SavedView): string {
   return `#view=${encodeURIComponent(
     JSON.stringify({
@@ -68,7 +71,12 @@ export function encodeView(view: SavedView): string {
   )}`;
 }
 
-/** Treat URL content as unknown and validate the complete snapshot before applying any of it. */
+/**
+ * Decode a bounded URL fragment and validate the entire view before applying it.
+ *
+ * @returns `empty` for no fragment, `invalid` for malformed/unsupported data,
+ * or a prepared view. Parse and domain failures never yield a partial snapshot.
+ */
 export function decodeView(fragment: string): ViewResult {
   if (!fragment || fragment === "#") {
     return { kind: "empty" };
@@ -117,27 +125,16 @@ export function decodeView(fragment: string): ViewResult {
     !finite(inner) ||
     !finite(outer) ||
     !camera ||
-    (navigation !== "orbit" && navigation !== "free") ||
-    !finite(bloom) ||
-    bloom < 0 ||
-    bloom > 1 ||
-    (analyzer !== null && (!finite(analyzer) || analyzer < 0 || analyzer >= Math.PI)) ||
-    !finite(exposureEV) ||
-    !finite(whiteBalance) ||
-    whiteBalance < 2500 ||
-    whiteBalance > 12000 ||
+    !oneOf(navigation, viewChoices.navigation) ||
+    !displayValue("bloom", bloom) ||
+    !analyzerValue(analyzer) ||
+    !displayValue("exposure", exposureEV) ||
+    !displayValue("white-balance", whiteBalance) ||
     !finite(time) ||
-    exposureEV < -6 ||
-    exposureEV > 6 ||
     time < 0 ||
     !Number.isFinite(Math.fround(time)) ||
-    (display !== "auto" && display !== "hdr" && display !== "sdr") ||
-    (diagnostic !== "image" &&
-      diagnostic !== "frequency" &&
-      diagnostic !== "order" &&
-      diagnostic !== "domain" &&
-      diagnostic !== "polarization" &&
-      diagnostic !== "angle")
+    !oneOf(display, viewChoices.display) ||
+    !oneOf(diagnostic, viewChoices.diagnostic)
   ) {
     return invalid;
   }

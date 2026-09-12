@@ -1,10 +1,19 @@
-/** Neutral Mino flow in a signed radius or its reciprocal, with pole-free angular vectors. */
+/**
+ * Reduced state: (active radial coordinate, future Mino rate, null time/log amplitude, τ).
+ * Direction n and canonical vector J avoid polar-coordinate denominators.
+ * The fourth radial lane accumulates proper time only for massive motion.
+ */
 struct KerrOrbitState {
   radial: vec4f,
   direction: vec3f,
   angular: vec3f,
 }
 
+/**
+ * Separated flow with independent radial and spacetime chart choices.
+ * Constants pack (E,L,C,mass²); space packs (a,q); plasma packs (A_p,r₀²).
+ * Bifurcation packs (selected root, other root, κ_h, Ω_h); κ_h = 0 disables the patch.
+ */
 struct KerrOrbit {
   state: KerrOrbitState,
   constants: vec4f,
@@ -47,7 +56,7 @@ fn kerr_derivative(path: KerrOrbit, state: KerrOrbitState) -> KerrDerivative {
   var drag: f32;
   var null_time: f32;
   var proper = 0.0;
-  let invalid = KerrDerivative(KerrOrbitState(vec4f(0), vec3f(0), vec3f(0)), false);
+  let invalid = KerrDerivative(KerrOrbitState(), false);
   if (path.bifurcation.z != 0) {
     let chart_data = path.bifurcation;
     let profile_denominator = x * x + path.plasma.y;
@@ -109,13 +118,39 @@ fn kerr_offset(y: KerrOrbitState, d: KerrOrbitState, h: f32) -> KerrOrbitState {
   return KerrOrbitState(y.radial + h * d.radial, y.direction + h * d.direction, y.angular + h * d.angular);
 }
 
+/**
+ * Hermite interpolation over an accepted step using its endpoint derivatives.
+ * Requires fraction t in [0,1]; n is normalized after interpolation. Reuses the
+ * same geometric segment for events and material instead of solving a new ray.
+ */
+fn kerr_interpolate(
+  start: KerrOrbitState,
+  end: KerrOrbitState,
+  start_rate: KerrOrbitState,
+  end_rate: KerrOrbitState,
+  h: f32,
+  t: f32
+) -> KerrOrbitState {
+  let h00 = (1 + 2 * t) * (1 - t) * (1 - t);
+  let h10 = t * (1 - t) * (1 - t);
+  let h01 = t * t * (3 - 2 * t);
+  let h11 = t * t * (t - 1);
+  return KerrOrbitState(
+    h00 * start.radial + h01 * end.radial + h * (h10 * start_rate.radial + h11 * end_rate.radial),
+    normalize(h00 * start.direction + h01 * end.direction + h * (h10 * start_rate.direction + h11 * end_rate.direction)),
+    h00 * start.angular + h01 * end.angular + h * (h10 * start_rate.angular + h11 * end_rate.angular));
+}
+
 fn kerr_rotate(v: vec3f, angle: f32) -> vec3f {
   let c = cos(angle);
   let s = sin(angle);
   return vec3f(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
 }
 
-/** Longitude and null-time chart primitives; z is zero at a horizon pole. */
+/**
+ * Return (a I, r*, valid), whose radial derivatives are a/Δ and (r²+a²)/Δ.
+ * The final lane is zero at a horizon pole; transition only in a regular overlap.
+ */
 fn kerr_chart_primitives(space: vec2f, radius: f32) -> vec3f {
   let a = space.x;
   let d = 1 - a * a - space.y * space.y;
@@ -131,7 +166,10 @@ fn kerr_chart_primitives(space: vec2f, radius: f32) -> vec3f {
   return vec3f(a * integral, radius + log(abs(delta)) + (2 - space.y * space.y) * integral, 1);
 }
 
-/** Restore finite null coordinates away from a bifurcation sphere. */
+/**
+ * Recover ordinary null-chart state from a bifurcation patch away from its sphere.
+ * Requires nonzero radial velocity; exact bifurcation placement has no finite w here.
+ */
 fn kerr_regular(input: KerrOrbit) -> KerrOrbit {
   var path = input;
   let chart_data = path.bifurcation;
@@ -219,7 +257,10 @@ fn kerr_condition(input: KerrOrbit) -> KerrOrbit {
   return path;
 }
 
-/** Physical Cartesian tangent at a finite, nonsingular point. */
+/**
+ * Recover the future affine tangent in Cartesian KS components at a regular finite point.
+ * The caller must exclude reciprocal infinity, exact bifurcation points, and invalid derivatives.
+ */
 fn kerr_tangent(input: KerrOrbit) -> vec4f {
   let path = kerr_regular(input);
   var r = path.state.radial.x;
@@ -232,7 +273,11 @@ fn kerr_tangent(input: KerrOrbit) -> vec4f {
   return vec4f(derivative.radial.z - path.chart * v, spatial) / sigma;
 }
 
-/** Block lanes are kind, universe, side. Kinds: exterior, black hole, interior, white hole, naked, disconnected. */
+/**
+ * Update one valid adjoining block: lanes are (kind, universe, stationary side).
+ * Kinds 0–5 are exterior, black hole, interior, white hole, naked, disconnected.
+ * radial_sign is future-oriented even when the numerical step traces backward.
+ */
 fn kerr_cross_block(block: vec3i, outer: bool, radial_sign: f32, side: i32, extremal: bool) -> vec3i {
   if (extremal) {
     if (block.x == 0) { return vec3i(2, block.y - i32(radial_sign > 0), side); }
@@ -339,7 +384,8 @@ struct RadialProjection {
 /**
  * Project the radial endpoint onto its conserved first integral. Newton corrections follow the
  * scaled normal in (coordinate, velocity), so velocity carries the correction on radial legs
- * while coordinate carries it at a simple turn. Failure to correct a degenerate gradient is unresolved.
+ * while coordinate carries it at a simple turn. An uncorrectable gradient rejects the trial;
+ * exhausting subsequent work remains unresolved.
  */
 fn kerr_project_radial(path: KerrOrbit, input: KerrOrbitState) -> RadialProjection {
   if (path.bifurcation.z != 0) { return RadialProjection(input, true); }
@@ -379,11 +425,18 @@ fn kerr_step(path: KerrOrbit, h: f32) -> KerrStep {
   let k4 = kerr_derivative(path, state);
   if (!k4.valid) { return invalid; }
   let difference = kerr_offset(kerr_offset(kerr_offset(kerr_offset(
-    KerrOrbitState(vec4f(0), vec3f(0), vec3f(0)), k1.state, -5 * h / 72),
+    KerrOrbitState(), k1.state, -5 * h / 72),
     k2.state, h / 12), k3.state, h / 9), k4.state, -h / 8);
   let r = max(abs(difference.radial), abs(state.radial - unprojected.radial)) / (1 + abs(state.radial));
   let n = abs(difference.direction);
   let j = abs(difference.angular) / (1 + abs(state.angular));
   let error = max(max(max(r.x, r.y), max(r.z, r.w)), max(max(n.x, max(n.y, n.z)), max(j.x, max(j.y, j.z))));
   return KerrStep(state, error, true);
+}
+
+/** Multiplicative controller for a 3(2) trial; invalid trials never evaluate an error ratio. */
+fn kerr_step_scale(valid: bool, error: f32, tolerance: f32) -> f32 {
+  if (!valid) { return 0.25; }
+  if (error == 0) { return 2; }
+  return clamp(0.9 * pow(tolerance / error, 1.0 / 3.0), 0.1, 2.0);
 }

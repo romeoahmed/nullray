@@ -39,26 +39,22 @@ fn kerr_raise(g: KerrGeometry, covector: vec4f) -> vec4f {
   return vec4f(-covector.x, covector.yzw) - g.factor * dot(k, covector) * k;
 }
 
-/** Horizon-regular accelerated reference tetrad, columns (u, er, eθ, eφ). */
-fn kerr_frame(g: KerrGeometry) -> mat4x4f {
-  let f = g.factor;
-  return mat4x4f(
-    vec4f(1 + f / 2, -f * g.chart * g.direction / 2),
-    vec4f(g.chart * f / 2, (1 - f / 2) * g.direction),
-    vec4f(0, g.polar), vec4f(0, g.azimuthal),
-  );
+/**
+ * Circular KS emitter with coordinate angular velocity Ω and stationary side ±1.
+ * Returns zero if the circular worldline is not timelike.
+ */
+fn kerr_circular_velocity(g: KerrGeometry, omega: f32, side: i32) -> vec4f {
+  let trial = vec4f(1, omega * cross(vec3f(0, 0, 1), g.position));
+  let norm = -dot(kerr_lower(g, trial), trial);
+  if (!(norm > 0)) { return vec4f(0); }
+  return (f32(side) * inverseSqrt(norm)) * trial;
 }
 
-/** Lorentz boost of a tetrad by a local velocity with |β|² < 1. */
-fn kerr_boost(frame: mat4x4f, beta: vec3f) -> mat4x4f {
-  let gamma = inverseSqrt(1 - dot(beta, beta));
-  let spatial = frame * vec4f(0, beta);
-  let shift = gamma * frame[0] + gamma * gamma / (gamma + 1) * spatial;
-  return mat4x4f(gamma * (frame[0] + spatial),
-    frame[1] + beta.x * shift, frame[2] + beta.y * shift, frame[3] + beta.z * shift);
-}
-
-/** Principal-tensor contractions (h(f,p), *h(f,p)); no energy normalization or horizon pole. */
+/**
+ * Return (h(f,p), *h(f,p)) with signature −+++ and orientation ε(T,X,Y,Z)=+1.
+ * For a vacuum null p and parallel-transported screen f these contractions are conserved;
+ * plasma transfer must not use them as vacuum polarization invariants.
+ */
 fn walker_penrose(g: KerrGeometry, p: vec4f, f: vec4f) -> vec2f {
   let x = g.position;
   let h = vec4f(dot(x, p.yzw), -x.x * p.x + g.spin * p.z,
@@ -68,7 +64,10 @@ fn walker_penrose(g: KerrGeometry, p: vec4f, f: vec4f) -> vec2f {
   return vec2f(dot(h, f), dot(dual, f));
 }
 
-/** E, Lz, C and future radial/polar Mino derivatives for a neutral tangent. */
+/**
+ * Unreduced (E, L, C, mass²), future radial Mino rate, and canonical angular vector J.
+ * J is pole-free auxiliary data, not conserved Euclidean angular momentum.
+ */
 struct KerrMotion {
   constants: vec4f,
   radial: f32,

@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import * as fc from "fast-check";
 import {
   fromCartesian,
   combine,
@@ -295,7 +296,7 @@ test("zero-energy free fall crosses the bifurcation sphere instead of stalling a
       angular: [0, 1, 0] as const,
     },
   };
-  // E=L=0 gives r=1+d*sin(lambda), theta=pi/2+lambda and fixed BL time/longitude.
+  // E=L=0 gives r=1+d*sin(γ), θ=π/2+γ with this fixture's Mino parameter γ; BL t/φ stay fixed.
   const periodic = advanceGeodesic(cycle, 2 * Math.PI, { tolerance: 1e-12 });
   expect(periodic.kind).toBe("complete");
   expect(periodic.path.block).toEqual({ kind: "white-hole", universe: 1 });
@@ -425,12 +426,45 @@ test("custom coordinate velocities use the light cone, and static observers stop
   if (!observer) {
     throw new Error("Expected a timelike coordinate velocity.");
   }
-  expect(observer.velocity.slice(1).map((x) => x / observer.velocity[0])).toEqual(
-    expect.arrayContaining([
-      expect.closeTo(-0.15, 12),
-      expect.closeTo(0.1, 12),
-      expect.closeTo(0.03, 12),
-    ]),
-  );
+  expect(observer.velocity.slice(1).map((x) => x / observer.velocity[0])).toEqual([
+    expect.closeTo(-0.15, 12),
+    expect.closeTo(0.1, 12),
+    expect.closeTo(0.03, 12),
+  ]);
   expect(coordinateObserver(outer, [2, 0, 0])).toBeUndefined();
+});
+
+// These regular exterior/negative-radius charts complement the explicit horizon/axis families above.
+test("generated observer boosts preserve the light cone, measured energy and metric inverse", () => {
+  const component = fc.double({ min: -0.4, max: 0.4, noNaN: true });
+  fc.assert(
+    fc.property(
+      fc.double({ min: -1.2, max: 1.2, noNaN: true }),
+      fc.double({ min: -0.8, max: 0.8, noNaN: true }),
+      fc.oneof(
+        fc.double({ min: 3, max: 30, noNaN: true }),
+        fc.double({ min: -8, max: -2, noNaN: true }),
+      ),
+      fc.double({ min: 0, max: Math.PI, noNaN: true }),
+      fc.tuple(component, component, component),
+      fc.double({ min: -Math.PI, max: Math.PI, noNaN: true }),
+      (spin, charge, radius, inclination, velocity, angle) => {
+        const g = kerrGeometry(
+          { spin, charge },
+          { radius, inclination, azimuth: angle, chart: "ingoing" },
+        );
+        const frame = g && boostFrame(principalFrame(g), velocity);
+        if (!g || !frame) {
+          throw new Error("Generated regular timelike observer rejected.");
+        }
+        const p = observerPhoton(frame, [Math.cos(angle), Math.sin(angle), 0]);
+        expect(inner(g, frame.velocity, frame.velocity)).toBeCloseTo(-1, 10);
+        expect(inner(g, p, p)).toBeCloseTo(0, 10);
+        expect(measuredFrequency(g, p, frame.velocity)).toBeCloseTo(1, 10);
+        for (const [index, value] of raise(g, lower(g, p)).entries()) {
+          expect(value).toBeCloseTo(p[index] ?? NaN, 10);
+        }
+      },
+    ),
+  );
 });

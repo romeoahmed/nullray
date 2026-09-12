@@ -1,3 +1,5 @@
+import { oneOf } from "../scene/decode.ts";
+import { viewChoices } from "../scene/presentation.ts";
 import { initialJet } from "../scene/jet.ts";
 import { initialPlasma } from "../scene/plasma.ts";
 import type { Action, Session } from "../scene/session.ts";
@@ -8,8 +10,10 @@ const degrees = (radians: number) => (radians * 180) / Math.PI;
 const radians = (angle: number) => (angle * Math.PI) / 180;
 
 /**
- * Bind native controls to domain actions; the DOM never becomes the source of scene state.
- * @returns A synchronizer to update controls after either accepting or rejecting an action.
+ * Bind native controls to domain actions under the caller's abort signal.
+ *
+ * @returns A synchronizer that restores controls from accepted state after either
+ * success or rejection. The DOM never becomes the authoritative scene value.
  */
 export function bindControls(
   root: HTMLElement,
@@ -52,8 +56,8 @@ export function bindControls(
     input.addEventListener(
       "change",
       () => {
-        const value = choices.find((choice) => choice === input.value);
-        if (value !== undefined) {
+        const value = input.value;
+        if (oneOf(value, choices)) {
           dispatch(action(value));
         }
       },
@@ -82,7 +86,7 @@ export function bindControls(
   }
   select(
     "navigation",
-    ["orbit", "free"],
+    viewChoices.navigation,
     ({ view }) => view.navigation,
     (value) => ({ type: "navigation", value }),
   );
@@ -363,13 +367,13 @@ export function bindControls(
   );
   select(
     "display-mode",
-    ["auto", "hdr", "sdr"],
+    viewChoices.display,
     ({ view }) => view.display,
     (value) => ({ type: "display", value }),
   );
   select(
     "diagnostic",
-    ["image", "frequency", "order", "domain", "polarization", "angle"],
+    viewChoices.diagnostic,
     ({ view }) => view.diagnostic,
     (value) => ({ type: "diagnostic", value }),
   );
@@ -391,9 +395,9 @@ export function bindControls(
   });
   select(
     "exploration-resolution",
-    ["1", "0.75", "0.5"],
+    ["1", "0.75", "0.5", "0.25", "auto"],
     ({ resolution }) => String(resolution),
-    (value) => ({ type: "resolution", value: Number(value) }),
+    (value) => ({ type: "resolution", value: value === "auto" ? "auto" : Number(value) }),
   );
   return () => {
     for (const update of sync) {

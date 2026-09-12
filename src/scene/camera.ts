@@ -1,3 +1,4 @@
+import { record, vector3 } from "./decode.ts";
 import { cross, dot, normalize } from "../physics/vector.ts";
 import type { Vec3 } from "../physics/vector.ts";
 
@@ -14,21 +15,14 @@ export const initialCamera: Camera = {
   right: [0, 0, 1],
 };
 
-const vector = (value: unknown): value is Vec3 =>
-  Array.isArray(value) &&
-  value.length === 3 &&
-  value.every((x: unknown) => typeof x === "number" && Number.isFinite(x));
-
-/** Validate external axes and remove accumulated roundoff from their orthonormal frame. */
+/**
+ * Validate forward/up hints and construct a fresh orthonormal camera basis.
+ *
+ * @returns Normalized axes, or `undefined` for malformed, nonfinite, zero, or
+ * collinear hints. An externally supplied right axis is ignored and recomputed.
+ */
 export function createCamera(value: unknown): Camera | undefined {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("forward" in value) ||
-    !("up" in value) ||
-    !vector(value.forward) ||
-    !vector(value.up)
-  ) {
+  if (!record(value) || !vector3(value.forward) || !vector3(value.up)) {
     return undefined;
   }
   const forwardLength = Math.hypot(...value.forward);
@@ -52,11 +46,12 @@ export function createCamera(value: unknown): Camera | undefined {
 }
 
 /**
- * Turn around the current up and right axes without introducing a world-up pole singularity.
- * @param camera - Orthonormal local frame.
- * @param horizontal - Yaw toward camera right, in radians.
- * @param vertical - Pitch toward negative camera up, in radians.
- * @returns New axes; commit them through scene validation before tracing photons.
+ * Yaw then pitch in the current local camera frame, avoiding a fixed world-up pole.
+ *
+ * @param camera - Orthonormal axes in the observer tetrad.
+ * @param horizontal - Finite yaw toward camera right, in radians.
+ * @param vertical - Finite pitch toward negative camera up, in radians.
+ * @returns New axes to commit through scene validation before tracing photons.
  */
 export function turnCamera(camera: Camera, horizontal: number, vertical: number): Camera {
   const yawCosine = Math.cos(horizontal);

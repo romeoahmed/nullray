@@ -1,13 +1,26 @@
 import type { Spacetime } from "./spacetime.ts";
 import type { Vec3 } from "./vector.ts";
 
-/** Cartesian Kerr–Schild components, with time first and lengths in M. */
+/**
+ * Four components ordered as Cartesian Kerr–Schild `(T, X, Y, Z)`.
+ *
+ * @remarks
+ * The operation determines whether these are tangent or covector components;
+ * the tuple type does not encode index position. Coordinate lengths use `M = 1`.
+ */
 export type FourVector = readonly [number, number, number, number];
 
 /** Ingoing and outgoing charts cover different horizon components of the extension. */
 export type KerrChart = "ingoing" | "outgoing";
 
-/** Signed oblate position; azimuth is the selected chart's rotating longitude. */
+/**
+ * Oblate coordinates at one event in the selected regular chart.
+ *
+ * @remarks
+ * `radius` is signed and measured in M. `inclination` lies in [0, π];
+ * `azimuth` is the null chart's rotating longitude, not BL longitude.
+ * Both angles are in radians.
+ */
 export interface KerrPoint {
   readonly radius: number;
   readonly inclination: number;
@@ -22,7 +35,12 @@ export type Horizons =
   | { readonly kind: "extremal"; readonly radius: number }
   | { readonly kind: "pair"; readonly outer: number; readonly inner: number };
 
-/** Classify finite Kerr–Newman parameters without replacing superextremality by a clamp. */
+/**
+ * Classify the roots of Δ without clamping a horizonless geometry.
+ *
+ * @returns Regular horizon radii in M, distinguishing the singular Schwarzschild zero root.
+ * @throws RangeError - If the squared spin/charge magnitude is nonfinite.
+ */
 export function horizons({ spin: a, charge: q }: Spacetime): Horizons {
   const squared = a * a + q * q;
   if (!Number.isFinite(squared)) {
@@ -41,7 +59,12 @@ export function horizons({ spin: a, charge: q }: Spacetime): Horizons {
   return { kind: "pair", outer, inner: squared / outer };
 }
 
-/** Stationary-limit radii at a latitude; undefined when the Killing vector has no real zero. */
+/**
+ * Find the algebraic stationary-limit roots at a polar angle in radians.
+ *
+ * @returns Inner/outer radii in M, or `undefined` for nonfinite data or no real roots.
+ * The caller must exclude singular points; these roots do not classify event horizons.
+ */
 export function stationaryLimits(
   { spin: a, charge: q }: Spacetime,
   inclination: number,
@@ -54,7 +77,14 @@ export function stationaryLimits(
   return [squared / outer, outer];
 }
 
-/** g = η + factor k⊗k in a Cartesian chart; no horizon or polar-axis denominator. */
+/**
+ * Kerr–Schild metric data for `g = η + factor k ⊗ k`, with signature −+++.
+ *
+ * @remarks
+ * `principal` stores the null covector k; `polar` and `azimuthal` are spatial
+ * tangents. `position` is Cartesian and measured in M. `sigma` and `delta`
+ * are the oblate metric functions in M². The input point is borrowed.
+ */
 export interface KerrGeometry {
   readonly point: KerrPoint;
   readonly position: Vec3;
@@ -66,7 +96,12 @@ export interface KerrGeometry {
   readonly delta: number;
 }
 
-/** Construct regular geometry, including either axis and regular points with r = 0. */
+/**
+ * Construct metric data at a finite event, including regular axes and signed radius.
+ *
+ * @returns Geometry borrowing `point`, or `undefined` for invalid coordinates,
+ * Σ = 0, or nonrepresentable intermediate metric data.
+ */
 export function kerrGeometry(space: Spacetime, point: KerrPoint): KerrGeometry | undefined {
   const { spin: a, charge: q } = space;
   const { radius: r, inclination: theta, azimuth: phi } = point;
@@ -126,7 +161,7 @@ export function lower(geometry: KerrGeometry, tangent: FourVector): FourVector {
   ];
 }
 
-/** Metric-raise a Cartesian covector using the exact Kerr–Schild inverse. */
+/** Raise a covector with the algebraic Kerr–Schild inverse in the same chart. */
 export function raise(geometry: KerrGeometry, covector: FourVector): FourVector {
   const k = geometry.principal;
   const weight =
@@ -155,7 +190,13 @@ export function combine(left: FourVector, a: number, right: FourVector, b: numbe
   ];
 }
 
-/** Push a (T,r,theta,psi) tangent into the chart's Cartesian components. */
+/**
+ * Push an oblate `(T, r, θ, ψ)` tangent into Cartesian Kerr–Schild components.
+ *
+ * @remarks
+ * The time component is KS time T, not null time w. `space` must match
+ * `geometry`; both representations use the same path parameter.
+ */
 export function toCartesian(
   space: Spacetime,
   geometry: KerrGeometry,
@@ -179,7 +220,12 @@ export function toCartesian(
   ];
 }
 
-/** Pull a Cartesian tangent into (T,r,theta,psi); longitude is undefined on either axis. */
+/**
+ * Pull a Cartesian tangent into oblate `(T, r, θ, ψ)` components.
+ *
+ * @returns A fresh tuple, or `undefined` on either axis where longitude is undefined.
+ * `space` must match `geometry`; this helper does not validate arbitrary tangents.
+ */
 export function fromCartesian(
   space: Spacetime,
   geometry: KerrGeometry,

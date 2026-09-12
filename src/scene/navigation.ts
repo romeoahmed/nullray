@@ -26,11 +26,18 @@ export function fromComponents(value: Vec3, axes: readonly [Vec3, Vec3, Vec3]): 
 }
 
 /**
- * Move in camera right/up/forward directions while preserving orientation in the placement chart.
- * @param scene - Validated observer placement and camera frame.
- * @param motion - Relative right/up/forward weights; only the direction determines displacement.
- * @param distance - Signed displacement in the spherical placement chart, in gravitational radii.
- * @returns Scene inputs to validate with createScene; this chart is not a physical worldline.
+ * Translate placement along camera axes while preserving its navigation-chart orientation.
+ *
+ * @remarks
+ * The spherical placement chart is not a physical worldline. Radius retains
+ * its sign and is capped at 200 M; a zero or nonrepresentable result leaves
+ * placement unchanged. Commit the returned inputs through scene validation.
+ *
+ * @param scene - Validated observer placement and camera.
+ * @param motion - Finite right/up/forward weights; magnitude does not scale displacement.
+ * @param distance - Signed placement distance in M.
+ * @returns Updated inputs, or the original scene for a no-op.
+ * @throws RangeError - If distance is nonfinite or a nonzero motion cannot be normalized.
  */
 export function translateCamera(scene: Scene, motion: Vec3, distance: number): SceneInput {
   if (!Number.isFinite(distance)) {

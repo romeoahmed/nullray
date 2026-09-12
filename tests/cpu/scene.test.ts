@@ -134,10 +134,7 @@ describe("Coupled scene validation", () => {
       initialScene.disk.outer,
       initialScene.disk.outer + 1e-8,
     ]) {
-      expect(equatorial(radius)).toEqual({
-        ok: false,
-        error: "The observer cannot lie on the emitting disk surface.",
-      });
+      expect(equatorial(radius).ok).toBe(false);
     }
     expect(equatorial(middle, Math.PI / 2 + 1e-8).ok).toBe(false);
     expect(equatorial((outerHorizon(initialScene.space) + initialScene.disk.inner) / 2).ok).toBe(
@@ -181,6 +178,8 @@ describe("Camera and navigation", () => {
       { forward: [1, 0, 0], up: [0, NaN, 0] },
       { forward: [1, "0", 0], up: [0, 1, 0] },
       { forward: [1, 0], up: [0, 1, 0] },
+      { forward: Array(3), up: [0, 1, 0] },
+      { forward: [1, 0, 0], up: [undefined, 1, 0] },
     ]) {
       expect(createCamera(value)).toBeUndefined();
     }

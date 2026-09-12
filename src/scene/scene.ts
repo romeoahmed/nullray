@@ -13,7 +13,14 @@ import type { KerrChart } from "../physics/geometry.ts";
 import { decodePhysicalObserver, prepareScene } from "./preparation.ts";
 import type { PhysicalObserver, PreparedScene } from "./preparation.ts";
 
-/** Observer placement or free-fall launch point; navigation does not supply physical velocity. */
+/**
+ * Placement or free-fall launch coordinates plus vertical camera field of view.
+ *
+ * @remarks
+ * Radius is signed in M; inclination, null-chart azimuth, and field of view are
+ * radians. `motion` alone supplies physical velocity. Omitted chart/motion
+ * select ingoing coordinates and a circular ZAMO.
+ */
 export interface ObserverInput {
   readonly radius: number;
   readonly inclination: number;
@@ -47,7 +54,13 @@ export interface SceneInput {
 
 const validated = Symbol("Scene");
 
-/** Coherent geometry, observer and source preparation; construct through createScene. */
+/**
+ * Validated physical inputs and their coupled preparation.
+ *
+ * @remarks
+ * Construct through {@link createScene}; the brand is not runtime validation.
+ * Prepared buffers may be shared with an earlier scene and must remain unmodified.
+ */
 export interface Scene extends SceneInput {
   readonly camera: Camera;
   readonly observer: Observer;
@@ -60,7 +73,7 @@ export interface Scene extends SceneInput {
 
 export type SceneResult = Result<Scene>;
 
-/** Round a nonnegative source radius toward the stable side of a marginal orbit. */
+/** Round a nonnegative radius outward to f32 so an inner edge does not round below its input. */
 function outwardFloat(value: number): number {
   const rounded = Math.fround(value);
   if (rounded >= value) {
@@ -72,7 +85,17 @@ function outwardFloat(value: number): number {
   return bytes.getFloat32(0);
 }
 
-/** Validate and prepare one atomic physical snapshot, including naked and interior geometries. */
+/**
+ * Validate coupled physical inputs and prepare an atomic scene replacement.
+ *
+ * @remarks
+ * Supports naked/interior placement within the implemented optical domain.
+ * Acceptance does not certify complete ray coverage for every detector pixel.
+ *
+ * @param input - Structurally typed inputs; unknown persisted data must be decoded first.
+ * @param previous - Optional accepted scene for reusing unchanged observer/profile work.
+ * @returns A complete scene or a domain error; neither input nor previous buffers are mutated.
+ */
 export function createScene(input: SceneInput, previous?: Scene): SceneResult {
   const space = { spin: Math.fround(input.space.spin), charge: Math.fround(input.space.charge) };
   const motion = decodePhysicalObserver(input.observer.motion ?? { kind: "zamo" });
@@ -173,8 +196,9 @@ export function createScene(input: SceneInput, previous?: Scene): SceneResult {
 
 const initial = createScene({
   space: { spin: 0, charge: 0 },
-  observer: { radius: 65, inclination: 1.535, azimuth: 1.45, fieldOfView: 0.28 },
+  observer: { radius: 65, inclination: 1.51, azimuth: 1.45, fieldOfView: 0.34 },
   disk: { inner: 6, outer: 14 },
+  camera: { forward: [-1, 0, 0], up: [0, -Math.cos(0.16), Math.sin(0.16)] },
 });
 if (!initial.ok) {
   throw new Error(initial.error);

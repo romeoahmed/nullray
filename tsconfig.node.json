@@ -9,7 +9,7 @@
     "*.config.ts",
     "tests/cpu/**/*.ts",
     "tests/reference/**/*.ts",
-    "benchmarks/cpu.bench.ts"
+    "benchmarks/cpu*.bench.ts"
   ],
   "exclude": []
 }

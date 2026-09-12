@@ -1,9 +1,14 @@
 import type { KerrGeometry } from "./geometry.ts";
 
-/** Nonmagnetized test plasma; density in cm⁻³, scale radius in M, detector frequency in GHz. */
+/**
+ * Cold, nonmagnetized test-plasma inputs for a single observing frequency.
+ */
 export interface Plasma {
+  /** Density scale n₀ in cm⁻³; the equatorial density at r₀ is n₀/2. */
   readonly density: number;
+  /** Radial scale r₀ in M. */
   readonly radius: number;
+  /** Detector frequency in GHz, not angular frequency. */
   readonly frequencyGHz: number;
   /** Peak fractional temperature increase above 100,000 K; zero selects the stationary radial profile. */
   readonly heating: number;
@@ -19,7 +24,13 @@ export interface PlasmaProfile {
 export const plasmaFrequencySquared =
   (1e6 * 1.602176634e-19 ** 2) / (4 * Math.PI ** 2 * 8.8541878188e-12 * 9.1093837139e-31);
 
-/** Prepare the two f32 radial coefficients used by both host and GPU propagation. */
+/**
+ * Quantize the separable radial coefficients for shared host/GPU propagation.
+ *
+ * @remarks
+ * Requires validated plasma inputs. The amplitude is detector-frequency
+ * normalized; quantization alone does not check propagation at the observer.
+ */
 export function plasmaProfile(plasma: Plasma): PlasmaProfile {
   const scaleSquared = Math.fround(plasma.radius ** 2);
   return {
@@ -44,7 +55,14 @@ export interface HeatingProfile {
   readonly frequency: number;
 }
 
-/** The prescribed heating pattern rotates at one quarter of the Kepler frequency scale. */
+/**
+ * Prepare the compact heated annulus, or return `null` when heating is zero.
+ *
+ * @remarks
+ * Requires validated inputs. The sixfold phase rate is `1.5/r₀^(3/2)`;
+ * its angular pattern speed is one sixth of that rate. Scene construction
+ * checks the annulus location and its conservative timelike bound.
+ */
 export function heatingProfile(plasma: Plasma): HeatingProfile | null {
   if (plasma.heating === 0) {
     return null;

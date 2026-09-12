@@ -62,63 +62,21 @@
   #audio-status {
     overflow-wrap: anywhere;
   }
-  select {
-    appearance: base-select;
+  select,
+  input[type="number"] {
     max-inline-size: 175px;
     min-inline-size: 0;
     min-block-size: 44px;
     padding: 10px 12px;
     font-size: 12px;
+    background: var(--surface);
+  }
+  select {
     cursor: pointer;
-    &::picker(select) {
-      appearance: base-select;
-      color: var(--ink);
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 5px;
-      margin-block: 5px;
-      max-block-size: min(360px, 50dvh);
-      box-shadow: 0 12px 36px oklch(0% 0 none / 35%);
-    }
-    &::picker-icon {
-      color: var(--muted);
-      margin-inline-start: 12px;
-      transition: rotate 140ms;
-    }
-    &:open::picker-icon {
-      rotate: 180deg;
-    }
-    & option {
-      min-block-size: 44px;
-      padding: 10px;
-      border-radius: 6px;
-      white-space: normal;
-      &:checked {
-        color: var(--accent);
-      }
-      &:hover,
-      &:focus-visible {
-        background: var(--raised);
-      }
-      &::checkmark {
-        color: var(--accent);
-      }
-    }
   }
   details {
     border-block-start: 1px solid var(--line);
     margin-block-start: 10px;
-    &::details-content {
-      block-size: 0;
-      overflow: clip;
-      transition:
-        block-size 180ms,
-        content-visibility 180ms allow-discrete;
-    }
-    &[open]::details-content {
-      block-size: auto;
-    }
   }
   summary {
     display: flex;

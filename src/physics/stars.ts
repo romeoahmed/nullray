@@ -72,22 +72,25 @@ function writeSubtree(
 }
 
 /**
- * Preorder bounding-volume tree for point sources on the unit sphere.
- * Each 32-byte internal node stores lower/escape and upper bounds. A negative
- * escape index tags a leaf: the same lanes store direction, coefficient, and temperature.
- * Escape indices allow stackless GPU traversal without a per-pixel candidate cap.
+ * Build a preorder source tree for stackless GPU footprint queries.
  *
- * @param stars - At most 200,000 finite sources; directions need not be unit length.
- * @returns Fresh f32 storage owned by the caller, including a dark leaf for an empty sky.
- * @throws RangeError if a direction, temperature, or spectral coefficient cannot be represented safely.
+ * @remarks
+ * Each 32-byte node packs lower/escape and upper bounds. A negative escape
+ * index marks a leaf, whose lanes instead hold direction, spectral coefficient,
+ * and temperature. Morton keys order sources without quantizing their stored
+ * directions. Query completeness applies to the local footprint model only.
+ *
+ * @param stars - At most 200,000 sources; finite nonzero directions are normalized.
+ * @returns Caller-owned f32 storage, including a dark leaf for an empty catalogue.
+ * @throws RangeError - If source count, direction, temperature, or coefficient fails validation.
  */
 export function createStarTree(stars: readonly Star[]): Float32Array<ArrayBuffer> {
   if (stars.length > 200_000) {
     throw new RangeError("The point-source catalogue supports at most 200,000 stars.");
   }
   const reference = blackbodyXYZ(6500)[1];
-  // Catalogue B−V values repeat. Reuse exact spectral integrals locally, with no
-  // temperature quantization, interpolated approximation, or persistent cache.
+  // Repeated catalogue temperatures share the same local spectral quadrature.
+  // Cache by the supplied temperature without additional quantization or persistent state.
   const luminance = new Map<number, number>([[6500, reference]]);
 
   const sources: readonly SpectralPoint[] = stars.map((star) => {

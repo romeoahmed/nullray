@@ -62,7 +62,7 @@ test("stellar tree queries agree with direct flux sums through repeated position
     const cxx = 0.4225 * (xx * xx + yx * yx) + 1e-12;
     const cyy = 0.4225 * (xy * xy + yy * yy) + 1e-12;
     const cxy = 0.4225 * (xx * xy + yx * yy);
-    // Independent binary64 matrix inverse; f64 resolves even the almost singular footprint.
+    // Compare the stable f32 form with a direct binary64 inverse on this near-singular fixture.
     const determinant = cxx * cyy - cxy * cxy;
     let flux = 0;
     for (const star of catalogue) {
@@ -150,7 +150,7 @@ test.for([1, 64])(
           for (let channel = 0; channel < 3; channel++) {
             const actual = pixels[pixel * 4 + channel] ?? NaN;
             const expected = level.data[(face * level.size ** 2 + pixel) * 4 + channel] ?? NaN;
-            // Hardware interpolation and f16 storage perturb the independent f64 procedural source.
+            // f32 source arithmetic and f16 storage perturb the binary64 procedural reference.
             const difference = Math.abs(actual - expected);
             const ratio = difference / (0.01 * Math.abs(expected) + 2e-5);
             squaredError += difference ** 2 * area;
@@ -173,7 +173,7 @@ test.for([1, 64])(
       });
       initialFlux ??= flux;
       for (const [channel, value] of flux.entries()) {
-        // Two half-float roundings bound comparison of independently stored mip integrals.
+        // Allow the compared mip integrals' separate f16 storage roundings in this tolerance.
         expect(Math.abs(value / (initialFlux[channel] ?? NaN) - 1)).toBeLessThan(0.001);
       }
     }

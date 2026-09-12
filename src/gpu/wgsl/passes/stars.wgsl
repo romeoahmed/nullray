@@ -12,7 +12,8 @@ fn arrival_neighbor(pixel: vec2i, center: vec4f, domain: vec4i, order: f32) -> v
   if (endpoint.w <= 0 || any(textureLoad(domains, pixel, 0) != domain)
     || textureLoad(transmissions, pixel, 0).y != order) { return vec4f(0); }
   let difference = endpoint.xyz - center.xyz;
-  // A 1/8-radian chord bounds the neglected spherical sagitta below 0.8%.
+  // Reject unit-sphere chord lengths above 1/8; this is a local chart cutoff,
+  // not an angular-error certificate near a critical image.
   if (dot(difference, difference) > 0.015625) { return vec4f(0); }
   return vec4f(difference, 1);
 }
@@ -32,7 +33,7 @@ fn arrival_difference(pixel: vec2i, offset: vec2i, center: vec4f, domain: vec4i,
   return left;
 }
 
-/** Flux-normalized stellar filtering over a locally linear lensed detector footprint. */
+/** Composite diffuse and catalogue vacuum light using branch-compatible local direction gradients. */
 @compute @workgroup_size(8, 8)
 fn composite_stars(@builtin(global_invocation_id) id: vec3u) {
   let size = textureDimensions(composite_image);
@@ -73,6 +74,8 @@ fn composite_stars(@builtin(global_invocation_id) id: vec3u) {
   let intensity = base.rgb + optical_frame.appearance.w * transfer.x * total;
   let peak = max(max(abs(intensity.r), abs(intensity.g)), abs(intensity.b));
   var storage = intensity;
+  // This lossy I-only f16 safeguard does not scale the already stored Q/U.
+  // Saturation is not reported as missing coverage.
   if (peak > 65504) { storage *= 65504 / peak; }
   textureStore(composite_image, pixel, vec4f(storage, base.a));
 }

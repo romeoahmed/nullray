@@ -4,8 +4,18 @@ struct KerrSurface {
   valid: bool,
 }
 
-/** Locate a boundary on the accepted dense segment; never reintegrate a clipped radial turn. */
-fn kerr_surface(path: KerrOrbit, end: KerrOrbitState, h: f32, equator: bool, boundary_coordinate: f32) -> KerrSurface {
+/**
+ * Bisect an already bracketed equator or active radial-coordinate boundary.
+ * The fraction refers to the accepted backward segment; Hermite samples avoid
+ * reintegrating each trial. Invalid endpoint derivatives return valid = false.
+ */
+fn kerr_surface(
+  path: KerrOrbit,
+  end: KerrOrbitState,
+  h: f32,
+  equator: bool,
+  boundary_coordinate: f32
+) -> KerrSurface {
   let start_rate = kerr_derivative(path, path.state);
   let end_rate = kerr_derivative(path, end);
   if (!start_rate.valid || !end_rate.valid) { return KerrSurface(path.state, 0, false); }
@@ -26,7 +36,11 @@ fn kerr_surface(path: KerrOrbit, end: KerrOrbitState, h: f32, equator: bool, bou
   return KerrSurface(endpoint, right, true);
 }
 
-/** kind: 0 unresolved, 1 asymptotic source, 2 disk surface, 3 singularity, 4 source-free characteristic. */
+/**
+ * Geometric outcome plus ordered foreground transfer.
+ * Kinds: 0 unresolved, 1 asymptotic source, 2 opaque disk or volume-opacity termination,
+ * 3 singularity, 4 proven source-free characteristic. Spectral validity is separate.
+ */
 struct RayResult {
   path: KerrOrbit,
   block: vec3i,
@@ -42,8 +56,20 @@ struct HeatSurface {
   valid: bool,
 }
 
-/** Locate the first bracketed material or disk surface within an accepted Hamiltonian step. */
-fn heat_surface(space: vec2f, chart: f32, state: HeatState, end: HeatState, h: f32, equator: bool, coordinate: f32) -> HeatSurface {
+/**
+ * Bisect a bracketed equator or radial boundary using canonical dense output.
+ * The caller compares candidate fractions to choose the first event; this helper
+ * does not discover unbracketed or multiple crossings inside the step.
+ */
+fn heat_surface(
+  space: vec2f,
+  chart: f32,
+  state: HeatState,
+  end: HeatState,
+  h: f32,
+  equator: bool,
+  coordinate: f32
+) -> HeatSurface {
   var left = 0.0;
   var right = 1.0;
   let start_rate = heat_derivative(space, optical_frame.plasma.xy, optical_frame.heating, chart, state);
@@ -64,7 +90,10 @@ fn heat_surface(space: vec2f, chart: f32, state: HeatState, end: HeatState, h: f
   return HeatSurface(endpoint, right, true);
 }
 
-/** kind: 0 unresolved work, 1 return to the separable exterior, 2 emitting disk. */
+/**
+ * Heated-segment outcome: 0 unresolved, 1 return to separated flow,
+ * 2 opaque disk or volume-opacity termination. Work counts attempted canonical steps.
+ */
 struct HeatSegment {
   path: KerrOrbit,
   kind: u32,
@@ -74,7 +103,14 @@ struct HeatSegment {
 }
 
 /** Coupled canonical flow only inside the compact heated annulus; its boundary remains transparent. */
-fn trace_heat_segment(initial: KerrOrbit, budget: u32, recording: bool, block: vec3i, incoming: Transfer, screen: PolarizationScreen) -> HeatSegment {
+fn trace_heat_segment(
+  initial: KerrOrbit,
+  budget: u32,
+  recording: bool,
+  block: vec3i,
+  incoming: Transfer,
+  screen: PolarizationScreen
+) -> HeatSegment {
   var transport = incoming;
   var radius = initial.state.radial.x;
   if (initial.inverse) { radius = 1 / radius; }
@@ -142,14 +178,17 @@ fn trace_heat_segment(initial: KerrOrbit, budget: u32, recording: bool, block: v
         if (kind != 0u) { return HeatSegment(path, kind, attempt + 1, crossings, transport); }
       }
     }
-    if (!trial.valid) { h *= 0.25; }
-    else if (trial.error == 0) { h *= 2; }
-    else { h *= clamp(0.9 * pow(optical_frame.work.x / trial.error, 1.0 / 3.0), 0.1, 2.0); }
+    h *= kerr_step_scale(trial.valid, trial.error, optical_frame.work.x);
     if (abs(h) < 1e-38) { break; }
   }
   return HeatSegment(initial, 0, budget, crossings, transport);
 }
 
+/**
+ * Trace future momentum backward, preserving ordered sources and source-domain identity.
+ * Attempt exhaustion is unresolved unless source exclusion was established independently.
+ * Recording retains accepted states; it does not force exact horizon intersections.
+ */
 fn trace_ray(initial: KerrOrbit, recording: bool, screen: PolarizationScreen) -> RayResult {
   var path = initial;
   var block = optical_frame.block.xyz;
@@ -284,9 +323,7 @@ fn trace_ray(initial: KerrOrbit, recording: bool, screen: PolarizationScreen) ->
       if (bifurcation_turn) { path = kerr_bifurcation_flip(path); }
       if (recording) { record_ray(path, block); }
     }
-    if (!trial.valid) { h *= 0.25; }
-    else if (trial.error == 0) { h *= 2; }
-    else { h *= clamp(0.9 * pow(optical_frame.work.x / trial.error, 1.0 / 3.0), 0.1, 2.0); }
+    h *= kerr_step_scale(trial.valid, trial.error, optical_frame.work.x);
     if (abs(h) < 1e-38) { break; }
   }
   return RayResult(path, block, select(0u, 4u, source_free), 0, crossings, transport);

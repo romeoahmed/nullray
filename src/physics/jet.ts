@@ -2,13 +2,15 @@
 export interface Jet {
   readonly inner: number;
   readonly outer: number;
-  /** Width at outer radius is outer * tan(openingAngle); the inner flow collimates parabolically. */
+  /** Outer half-width angle in radians; the inner width scales approximately as |z|^0.6. */
   readonly openingAngle: number;
+  /** Core speed relative to the local circular ZAMO, in units of c. */
   readonly speed: number;
-  /** Launch density scale in cm⁻³, and rms tangled magnetic field in gauss. */
+  /** Launch electron-density scale in cm⁻³. */
   readonly density: number;
+  /** RMS isotropically tangled magnetic-field scale in gauss. */
   readonly field: number;
-  /** Converts geometrical path length to physical emissivity length. */
+  /** Black-hole mass in solar masses, used to convert M to emissivity path length. */
   readonly massSolar: number;
   /** Low-energy cutoff of the power-law electron distribution, gamma >= gammaMin. */
   readonly gammaMin: number;

@@ -1,4 +1,4 @@
-import { record } from "./decode.ts";
+import { finite, record, vector3 } from "./decode.ts";
 import type { Result } from "./decode.ts";
 import {
   advanceGeodesic,
@@ -26,7 +26,14 @@ import type { Disk, Observer, Scene } from "./scene.ts";
 import { createDiskProfile } from "../physics/disk.ts";
 import type { DiskProfile } from "../physics/disk.ts";
 
-/** Physical observer choice; free fall starts with a measured local velocity and uses proper time. */
+/**
+ * Observer-motion inputs, independent of navigation and source playback.
+ *
+ * @remarks
+ * Custom velocity means KS coordinate `d(X,Y,Z)/dT`. Free-fall velocity is
+ * measured in the launch reference tetrad in units of c; its nonnegative
+ * proper-time interval is in M. The two velocity conventions are not interchangeable.
+ */
 export type PhysicalObserver =
   | { readonly kind: "regular" | "static" | "zamo" }
   | { readonly kind: "custom"; readonly velocity: Vec3 }
@@ -41,14 +48,25 @@ interface PreparedObserver {
   readonly timeOffset: number;
 }
 
-/** Derived scene data; source inputs and ownership remain outside the GPU layer. */
+/**
+ * Prepared observer endpoint and disk profile, with no GPU resources.
+ *
+ * @remarks
+ * Unchanged data may be shared with a previous scene. Treat its typed arrays
+ * as borrowed, read-only storage even though their elements are mutable in TypeScript.
+ */
 export interface PreparedScene extends PreparedObserver {
   readonly disk: DiskProfile;
 }
 
 const fail = (error: string) => ({ ok: false, error }) as const;
 
-/** Decode unknown view inputs without trusting a cast or an object brand. */
+/**
+ * Decode and quantize observer-motion fields before metric validation.
+ *
+ * @returns A recognized input record, or `undefined` for invalid fields.
+ * Timelikeness and free-fall reachability are checked during scene preparation.
+ */
 export function decodePhysicalObserver(input: unknown): PhysicalObserver | undefined {
   if (!record(input)) {
     return undefined;
@@ -57,28 +75,18 @@ export function decodePhysicalObserver(input: unknown): PhysicalObserver | undef
   if (kind === "regular" || kind === "static" || kind === "zamo") {
     return { kind };
   }
-  if (
-    (kind !== "custom" && kind !== "freefall") ||
-    !Array.isArray(velocity) ||
-    velocity.length !== 3
-  ) {
+  if ((kind !== "custom" && kind !== "freefall") || !vector3(velocity)) {
     return undefined;
   }
-  const values: readonly unknown[] = velocity;
-  const [x, y, z] = values;
-  if (
-    typeof x !== "number" ||
-    typeof y !== "number" ||
-    typeof z !== "number" ||
-    ![x, y, z].every((value) => Number.isFinite(Math.fround(value)))
-  ) {
+  const [x, y, z] = velocity;
+  if (!velocity.every((value) => Number.isFinite(Math.fround(value)))) {
     return undefined;
   }
   const vector: Vec3 = [Math.fround(x), Math.fround(y), Math.fround(z)];
   if (kind === "custom") {
     return { kind, velocity: vector };
   }
-  if (typeof properTime !== "number" || !Number.isFinite(properTime) || properTime < 0) {
+  if (!finite(properTime) || properTime < 0) {
     return undefined;
   }
   return { kind, velocity: vector, properTime };
@@ -149,9 +157,9 @@ function prepareObserver(space: Spacetime, placement: Observer): Result<Prepared
   }
   if (
     !frame ||
-    ![frame.velocity, frame.radial, frame.polar, frame.azimuthal]
-      .flat()
-      .every((value) => Number.isFinite(Math.fround(value)))
+    ![frame.velocity, frame.radial, frame.polar, frame.azimuthal].every((axis) =>
+      axis.every((value) => Number.isFinite(Math.fround(value))),
+    )
   ) {
     return fail(
       observer.kind === "static" || observer.kind === "zamo"
@@ -197,7 +205,16 @@ function sameObserver(left: Observer, right: Observer): boolean {
   );
 }
 
-/** Atomically prepare observer and sources, reusing unchanged physical inputs from a prior scene. */
+/**
+ * Prepare a coupled observer and disk, reusing unchanged data from a prior scene.
+ *
+ * @remarks
+ * Requires structurally valid, quantized scene inputs. Reuse preserves an
+ * unchanged free-fall endpoint independently of camera edits. Returned arrays
+ * may alias the previous scene and must not be mutated by consumers.
+ *
+ * @returns A complete prepared value, or an error for unsupported observer/source data.
+ */
 export function prepareScene(
   space: Spacetime,
   placement: Observer,

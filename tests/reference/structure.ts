@@ -21,7 +21,7 @@ export function createNoiseVolume(): NoiseVolume {
   return { size, data };
 }
 
-/** C2 interpolation of a borrowed periodic lattice at finite lattice coordinates. */
+/** Evaluate the ideal quintic lattice interpolant in binary64; the borrowed byte grid is unchanged. */
 export function sampleNoise(volume: NoiseVolume, x: number, y: number, z: number): number {
   const { size, data } = volume;
   const ix = Math.floor(x),

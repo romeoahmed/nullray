@@ -1,5 +1,6 @@
 import { describe, expect } from "vitest";
-import presentation from "../../src/gpu/wgsl/passes/present.wgsl?raw";
+import displaySource from "../../src/gpu/wgsl/passes/present.wgsl?raw";
+import fullscreen from "../../src/gpu/wgsl/imaging/fullscreen.wgsl?raw";
 import stars from "../../src/gpu/wgsl/passes/stars.wgsl?raw";
 import stellar from "../../src/gpu/wgsl/sources/stars.wgsl?raw";
 import frameSource from "../../src/gpu/wgsl/imaging/frame.wgsl?raw";
@@ -8,6 +9,8 @@ import { compileShader } from "../../src/gpu/device.ts";
 import { createBloom } from "../../src/gpu/imaging/bloom.ts";
 import { referenceBloom } from "../reference/bloom.ts";
 import { test, readPixels, computeReadback } from "./compute.ts";
+
+const presentation = `${fullscreen}\n${displaySource}`;
 
 test("stellar footprints preserve smooth lensing and exclude neighboring image branches", async () => {
   const cases = [
@@ -220,7 +223,7 @@ describe("Display conversion", () => {
       // Signed working RGB is transformed before clipping in the destination gamut.
       expect(linear[12]).toBeGreaterThan(0);
       expect(linear[13]).toBeGreaterThan(linear[12] ?? 0);
-      // A photograph contains only resolved radiance; coverage does not inject diagnostic light.
+      // The PNG curve retains missing samples as zero light, without adding coverage-diagnostic color.
       for (const [pixel, rgb] of [
         [4, [0, 0, 0]],
         [5, [1, 2, 3]],
@@ -250,7 +253,6 @@ describe("Scattered highlights", () => {
   }) => {
     using owned = new DisposableStack();
 
-    device.pushErrorScope("validation");
     const bloom = owned.adopt(await createBloom(device), (value) => value.dispose());
     async function filter(width: number, height: number, pixels: Float16Array) {
       using frame = new DisposableStack();
@@ -323,10 +325,9 @@ describe("Scattered highlights", () => {
       // oxlint-disable-next-line no-await-in-loop
       const actual = await filter(width, height, pixels);
       for (const [index, value] of actual.data.entries()) {
-        // Binary16 targets and hardware texture interpolation introduce bounded roundoff.
+        // This tolerance covers the fixture's f16 targets and hardware interpolation differences.
         expect(Math.abs(value - (expected.data[index] ?? NaN))).toBeLessThan(0.025);
       }
     }
-    expect(await device.popErrorScope()).toBeNull();
   });
 });
