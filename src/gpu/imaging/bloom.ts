@@ -1,6 +1,6 @@
+import { compileShader } from "../device.ts";
 import fullscreen from "../wgsl/imaging/fullscreen.wgsl?raw";
 import source from "../wgsl/passes/bloom.wgsl?raw";
-import { compileShader } from "../device.ts";
 
 /**
  * Create a glare pyramid with normalized kernels and equal weight per spatial octave.
@@ -110,11 +110,7 @@ export async function createBloom(device: GPUDevice) {
      * @returns Borrowed output, overwritten by subsequent encodes and destroyed on
      * resize/disposal. Keep inputs alive until submitted work completes.
      */
-    encode(
-      encoder: GPUCommandEncoder,
-      radiance: GPUTexture,
-      timestamps?: { readonly querySet: GPUQuerySet; readonly begin: number; readonly end: number },
-    ): GPUTexture {
+    encode(encoder: GPUCommandEncoder, radiance: GPUTexture): GPUTexture {
       if (lifetime.disposed) {
         throw new Error("Bloom resources have been disposed.");
       }
@@ -142,17 +138,10 @@ export async function createBloom(device: GPUDevice) {
         input = radiance;
         output = result;
       }
-      for (const [index, prepared] of passes.entries()) {
+      for (const prepared of passes) {
         const descriptor: GPURenderPassDescriptor = {
           colorAttachments: [{ view: prepared.output, loadOp: "clear", storeOp: "store" }],
         };
-        if (timestamps && (index === 0 || index === passes.length - 1)) {
-          descriptor.timestampWrites = {
-            querySet: timestamps.querySet,
-            ...(index === 0 ? { beginningOfPassWriteIndex: timestamps.begin } : {}),
-            ...(index === passes.length - 1 ? { endOfPassWriteIndex: timestamps.end } : {}),
-          };
-        }
         const pass = encoder.beginRenderPass(descriptor);
         pass.setPipeline(prepared.pipeline);
         pass.setBindGroup(0, prepared.bindings);

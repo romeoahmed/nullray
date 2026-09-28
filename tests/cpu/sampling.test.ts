@@ -1,5 +1,6 @@
-import { expect, test } from "vitest";
 import * as fc from "fast-check";
+import { expect, test } from "vitest";
+
 import { sampleCounts, sampleOffset } from "../../src/gpu/imaging/sampling.ts";
 
 test("settled pixel quadrature spreads unique samples and integrates affine radiance without bias", () => {

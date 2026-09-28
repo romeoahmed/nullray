@@ -10,10 +10,10 @@ import { combine, horizons, kerrGeometry } from "./geometry.ts";
 import type { FourVector, KerrChart, KerrGeometry, KerrPoint } from "./geometry.ts";
 import { motionFromTangent } from "./motion.ts";
 import type { MotionConstants } from "./motion.ts";
+import type { PlasmaProfile } from "./plasma.ts";
 import type { Spacetime } from "./spacetime.ts";
 import { cross, linear } from "./vector.ts";
 import type { Vec3 } from "./vector.ts";
-import type { PlasmaProfile } from "./plasma.ts";
 
 /** Polynomial coordinate used for radial motion; neither choice changes the spacetime block. */
 export type RadialChart = "radius" | "inverse";

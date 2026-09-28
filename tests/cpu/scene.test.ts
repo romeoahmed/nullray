@@ -1,13 +1,15 @@
-import { describe, expect, test } from "vitest";
 import * as fc from "fast-check";
-import { createScene, initialScene } from "../../src/scene/scene.ts";
+import { describe, expect, test } from "vitest";
+
 import { outerHorizon } from "../../src/physics/spacetime.ts";
+import { dot, cross } from "../../src/physics/vector.ts";
+import { initialAppearance } from "../../src/scene/appearance.ts";
 import { createCamera, initialCamera, turnCamera } from "../../src/scene/camera.ts";
 import { fromComponents, navigationAxes, translateCamera } from "../../src/scene/navigation.ts";
-import { dot, cross } from "../../src/physics/vector.ts";
-import { decodeView, encodeView } from "../../src/scene/view.ts";
-import { initialAppearance } from "../../src/scene/appearance.ts";
 import { initialPlasma } from "../../src/scene/plasma.ts";
+import type { PhysicalObserver } from "../../src/scene/preparation.ts";
+import { createScene, initialScene } from "../../src/scene/scene.ts";
+import { decodeView, encodeView } from "../../src/scene/view.ts";
 
 const equatorial = (radius: number, inclination = Math.PI / 2) =>
   createScene({
@@ -40,8 +42,8 @@ describe("Coupled scene validation", () => {
     if (!edits.ok) {
       throw new Error(edits.error);
     }
-    expect(edits.value.prepared.geometry).toEqual(scene.prepared.geometry);
-    expect(edits.value.prepared.frame).toEqual(scene.prepared.frame);
+    expect(edits.value.prepared.geometry).toBe(scene.prepared.geometry);
+    expect(edits.value.prepared.frame).toBe(scene.prepared.frame);
     expect(edits.value.prepared.timeOffset).toBe(scene.prepared.timeOffset);
     expect(edits.value.disk.outer).toBe(scene.disk.outer * 2);
     const later = createScene(
@@ -61,6 +63,37 @@ describe("Coupled scene validation", () => {
       scene.prepared.geometry.point.radius,
     );
     expect(later.value.prepared.timeOffset).toBeGreaterThan(scene.prepared.timeOffset);
+  });
+
+  test("observer model changes recompute endpoints while camera edits reuse each model", () => {
+    const motions: readonly PhysicalObserver[] = [
+      { kind: "regular" },
+      { kind: "static" },
+      { kind: "custom", velocity: [0.01, 0, 0] },
+      { kind: "freefall", velocity: [0.01, 0, 0], properTime: 4 },
+      { kind: "zamo" },
+    ];
+    let previous = initialScene;
+    for (const motion of motions) {
+      const input = { ...previous, observer: { ...previous.observer, motion } };
+      const changed = createScene(input, previous);
+      const fresh = createScene(input);
+      if (!changed.ok || !fresh.ok) {
+        throw new Error("Expected a valid observer endpoint.");
+      }
+      expect(changed.value.prepared).toEqual(fresh.value.prepared);
+      expect(changed.value.prepared.geometry).not.toBe(previous.prepared.geometry);
+      const camera = createScene(
+        { ...changed.value, camera: turnCamera(changed.value.camera, 0.1, 0.2) },
+        changed.value,
+      );
+      if (!camera.ok) {
+        throw new Error(camera.error);
+      }
+      expect(camera.value.prepared.geometry).toBe(changed.value.prepared.geometry);
+      expect(camera.value.prepared.frame).toBe(changed.value.prepared.frame);
+      previous = changed.value;
+    }
   });
   test("scene construction retains a valid coupled spacetime after GPU quantization", () => {
     fc.assert(

@@ -1,6 +1,6 @@
 import { horizons, stationaryLimits } from "../physics/geometry.ts";
-import type { Scene } from "../scene/scene.ts";
 import type { RayPath } from "../physics/ray-path.ts";
+import type { Scene } from "../scene/scene.ts";
 
 const namespace = "http://www.w3.org/2000/svg";
 const y = (theta: number) => 28 + (theta / Math.PI) * 156;
@@ -76,11 +76,12 @@ export function drawTopology(target: SVGSVGElement, scene: Scene, ray?: RayPath)
   }
   const observerX = x(Math.max(-extent, Math.min(extent, radius)));
   if (ray) {
-    let d = "";
-    for (const point of ray.points) {
-      const horizontal = x(Math.max(-extent, Math.min(extent, point.radius)));
-      d += `${d ? "L" : "M"}${horizontal},${y(point.inclination)}`;
-    }
+    const d = ray.points
+      .map((point, index) => {
+        const horizontal = x(Math.max(-extent, Math.min(extent, point.radius)));
+        return `${index === 0 ? "M" : "L"}${horizontal},${y(point.inclination)}`;
+      })
+      .join("");
     add("path", { d, class: "map-ray" });
   }
   add("circle", {

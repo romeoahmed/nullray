@@ -1,14 +1,15 @@
 import { expect, test } from "vitest";
 import { server } from "vitest/browser";
+
+import { createOptics } from "../../src/gpu/optics/engine.ts";
 import geometrySource from "../../src/gpu/wgsl/geodesics/geometry.wgsl?raw";
-import orbitSource from "../../src/gpu/wgsl/geodesics/orbit.wgsl?raw";
 import mediumSource from "../../src/gpu/wgsl/geodesics/medium.wgsl?raw";
+import orbitSource from "../../src/gpu/wgsl/geodesics/orbit.wgsl?raw";
 import { kerrGeometry } from "../../src/physics/geometry.ts";
 import { heatingProfile, plasmaProfile } from "../../src/physics/plasma.ts";
-import { initialPlasma } from "../../src/scene/plasma.ts";
 import { initialAppearance } from "../../src/scene/appearance.ts";
+import { initialPlasma } from "../../src/scene/plasma.ts";
 import { createScene, initialScene } from "../../src/scene/scene.ts";
-import { createOptics } from "../../src/gpu/optics/engine.ts";
 import { computeReadback, readPixels, test as gpuTest } from "./compute.ts";
 
 test("heated-plasma GPU gradients match the physical scalar field", async () => {

@@ -1,7 +1,7 @@
-import { initialJet } from "./jet.ts";
-import { initialPlasma } from "./plasma.ts";
 import { createAppearance } from "./appearance.ts";
 import type { SourceAppearance } from "./appearance.ts";
+import { initialJet } from "./jet.ts";
+import { initialPlasma } from "./plasma.ts";
 import { createScene, initialScene } from "./scene.ts";
 import type { SceneInput } from "./scene.ts";
 import type { SavedView } from "./view.ts";

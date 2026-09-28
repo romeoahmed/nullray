@@ -28,7 +28,7 @@
     gap: 12px;
     padding: 12px 16px;
     border-radius: 8px;
-    background: oklch(8% 0.01 230 / 72%);
+    background: oklch(8% 0.01 230deg / 72%);
     backdrop-filter: blur(12px);
     & h1 {
       font-size: 14px;
@@ -54,14 +54,15 @@
     pointer-events: auto;
     & button {
       background:
-        linear-gradient(135deg, oklch(28% 0.025 230 / 35%), transparent 60%), var(--glass);
+        linear-gradient(135deg, oklch(28% 0.025 230deg / 35%), transparent 60%), var(--glass);
       backdrop-filter: blur(18px);
     }
   }
   .panel,
   dialog {
     color: var(--ink);
-    background: linear-gradient(135deg, oklch(28% 0.025 230 / 35%), transparent 60%), var(--glass);
+    background:
+      linear-gradient(135deg, oklch(28% 0.025 230deg / 35%), transparent 60%), var(--glass);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow:
@@ -179,7 +180,7 @@
     inset-inline-start: var(--edge);
     padding: 14px 18px;
     border-inline-start: 1px solid oklch(from var(--accent) l c h / 55%);
-    background: linear-gradient(90deg, oklch(8% 0.015 230 / 82%), transparent);
+    background: linear-gradient(90deg, oklch(8% 0.015 230deg / 82%), transparent);
     pointer-events: none;
     & .eyebrow {
       font: 9px var(--mono);
@@ -233,7 +234,8 @@
     padding: 8px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: linear-gradient(135deg, oklch(28% 0.025 230 / 35%), transparent 60%), var(--glass);
+    background:
+      linear-gradient(135deg, oklch(28% 0.025 230deg / 35%), transparent 60%), var(--glass);
     backdrop-filter: blur(16px) saturate(1.15);
     pointer-events: auto;
     & button {
@@ -252,7 +254,7 @@
     padding: 5px 12px;
     border-radius: 6px;
     color: var(--muted);
-    background: oklch(8% 0.01 230 / 82%);
+    background: oklch(8% 0.01 230deg / 82%);
     font-size: 11px;
     text-align: center;
     text-wrap: balance;
@@ -264,9 +266,9 @@
     &:not(:empty) {
       max-inline-size: min(520px, 100%);
       padding: 10px 16px;
-      border: 1px solid oklch(75% 0.09 45 / 45%);
+      border: 1px solid oklch(75% 0.09 45deg / 45%);
       border-radius: 8px;
-      color: oklch(89% 0.075 55);
+      color: oklch(89% 0.075 55deg);
       background: var(--surface);
       pointer-events: auto;
     }
@@ -274,7 +276,8 @@
   .photo-card {
     inline-size: min(460px, 100%);
     padding: 16px 18px;
-    background: linear-gradient(135deg, oklch(28% 0.025 230 / 35%), transparent 60%), var(--glass);
+    background:
+      linear-gradient(135deg, oklch(28% 0.025 230deg / 35%), transparent 60%), var(--glass);
     backdrop-filter: blur(16px) saturate(1.15);
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -318,7 +321,7 @@
       padding: 8px 10px;
       border-inline-start: 1px solid var(--accent);
       border-radius: 2px;
-      background: oklch(8% 0.01 230 / 88%);
+      background: oklch(8% 0.01 230deg / 88%);
       backdrop-filter: blur(10px);
       max-inline-size: min(560px, 100%);
       overflow-wrap: anywhere;

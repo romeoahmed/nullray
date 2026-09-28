@@ -1,7 +1,7 @@
 import { cie1931 } from "../data/cie1931.ts";
+import type { MotionConstants } from "./motion.ts";
 import { circularOrbit } from "./spacetime.ts";
 import type { Spacetime } from "./spacetime.ts";
-import type { MotionConstants } from "./motion.ts";
 import type { Vec3 } from "./vector.ts";
 
 /**

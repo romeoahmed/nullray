@@ -1,14 +1,16 @@
-import { test } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { cpus, release } from "node:os";
-import { createScene, initialScene } from "../src/scene/scene.ts";
-import type { Scene, SceneInput } from "../src/scene/scene.ts";
+
+import { test } from "vitest";
+
 import { createDiskProfile } from "../src/physics/disk.ts";
+import { createBlackbodyTable } from "../src/physics/radiation.ts";
 import { createStars, decodeFaintStars } from "../src/physics/sky.ts";
 import { createStarTree } from "../src/physics/stars.ts";
-import { createBlackbodyTable } from "../src/physics/radiation.ts";
 import { turnCamera } from "../src/scene/camera.ts";
+import { createScene, initialScene } from "../src/scene/scene.ts";
+import type { Scene, SceneInput } from "../src/scene/scene.ts";
 
 /** Keep persisted benchmark inputs independent of derived caches and typed-array layout. */
 function sceneInputs(scene: Scene): SceneInput {

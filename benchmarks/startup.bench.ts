@@ -1,7 +1,8 @@
-import { requiredFeatures, requiredLimits } from "../src/gpu/device.ts";
-import { test } from "../tests/support/gpu.ts";
 import { server } from "vitest/browser";
+
+import { requiredFeatures, requiredLimits } from "../src/gpu/device.ts";
 import { createOptics } from "../src/gpu/optics/engine.ts";
+import { test } from "../tests/support/gpu.ts";
 import { gpuContext } from "./context.ts";
 
 test("optical initialization on an existing device", async ({ device, bench, annotate }) => {

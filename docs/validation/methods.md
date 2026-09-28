@@ -10,6 +10,7 @@ Checks establish bounded contracts. [Coverage](coverage.md) maps them to product
 | Optical or numerical equations | Independent reference or analytic limit, invariants, explicit tested domain                    |
 | WGSL or GPU ABI                | Actual browser GPU compilation and execution on the shared quantized inputs                    |
 | Worker, canvas, interaction    | Browser behavior, revisions, retry/disposal and focus/lifetime checks                          |
+| CSS or style tooling           | Stylelint and formatting; production build; browser layouts and visual inspection              |
 | Image formation or display     | Quantitative output/missing-weight checks and visual inspection                                |
 | Documentation only             | Formatting, relative links and anchors, formula consistency, commands and honest status labels |
 

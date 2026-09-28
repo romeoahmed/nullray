@@ -1,10 +1,12 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
+
 import markup from "../../index.html?raw";
-import { mountApp } from "../../src/ui/app.ts";
 import { initialSession } from "../../src/scene/session.ts";
 import { decodeView } from "../../src/scene/view.ts";
+import { mountApp } from "../../src/ui/app.ts";
 import { element } from "../../src/ui/elements.ts";
+
 import "../../src/ui/style.css";
 
 function createRoot() {
@@ -220,9 +222,12 @@ test("remount preserves the paused scene and resized surfaces resume rendering",
     root.remove();
   });
   await expect.element(page.getByText(/^Kerr–Newman ·/)).toBeVisible();
+  element(root, "#pick-ray", HTMLButtonElement).click();
+  expect(element(root, "canvas", HTMLCanvasElement).style.cursor).toBe("crosshair");
   const saved = dispose();
   dispose = mountApp(root, saved);
   const canvas = element(root, "canvas", HTMLCanvasElement);
+  expect(canvas.style.cursor).toBe("");
   await expect
     .poll(() => canvas.width)
     .toBe(

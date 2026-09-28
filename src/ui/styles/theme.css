@@ -1,11 +1,11 @@
 @layer tokens {
   :root {
     color-scheme: dark;
-    --ink: oklch(96% 0.009 225);
-    --muted: oklch(76% 0.025 230);
-    --surface: oklch(17% 0.021 250);
+    --ink: oklch(96% 0.009 225deg);
+    --muted: oklch(76% 0.025 230deg);
+    --surface: oklch(17% 0.021 250deg);
     --raised: oklch(from var(--surface) calc(l + 0.05) c h);
-    --accent: oklch(87% 0.078 210);
+    --accent: oklch(87% 0.078 210deg);
     --line: oklch(100% 0 none / 15%);
     --glass: oklch(from var(--surface) l c h / 76%);
     --radius: 8px;
@@ -14,7 +14,7 @@
     font:
       14px/1.5 system-ui,
       sans-serif;
-    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --mono: ui-monospace, sfmono-regular, menlo, monospace;
     font-synthesis: none;
     color: var(--ink);
     background: oklch(4% 0 none);
@@ -61,7 +61,7 @@
       }
     }
     &:active:not(:disabled) {
-      background: oklch(38% 0.03 220);
+      background: oklch(38% 0.03 220deg);
     }
     &:disabled {
       opacity: 0.45;
@@ -73,12 +73,12 @@
     }
     &.primary {
       background: var(--accent);
-      color: oklch(19% 0.03 230);
+      color: oklch(19% 0.03 230deg);
       border-color: transparent;
       font-weight: 650;
       @media (hover: hover) {
         &:hover:not(:disabled) {
-          background: oklch(94% 0.045 210);
+          background: oklch(94% 0.045 210deg);
         }
       }
     }

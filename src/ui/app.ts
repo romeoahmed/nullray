@@ -1,17 +1,17 @@
-import { drawTopology } from "./topology.ts";
-import { bindReadouts } from "./readouts.ts";
+import { createRenderClient } from "../runtime/client.ts";
+import type { CompletedFrame, RenderEvent } from "../runtime/protocol.ts";
 import { presets } from "../scene/presets.ts";
-import { decodeView, encodeView } from "../scene/view.ts";
-import type { SavedView } from "../scene/view.ts";
 import { initialSession, transition } from "../scene/session.ts";
 import type { Action, Session } from "../scene/session.ts";
-import type { CompletedFrame, RenderEvent } from "../runtime/protocol.ts";
-import { createRenderClient } from "../runtime/client.ts";
-import { bindControls } from "./controls.ts";
-import { bindNavigation } from "./navigation.ts";
-import { bindViews } from "./bookmarks.ts";
-import { element } from "./elements.ts";
+import { decodeView, encodeView } from "../scene/view.ts";
+import type { SavedView } from "../scene/view.ts";
 import { bindAudio } from "./audio.ts";
+import { bindViews } from "./bookmarks.ts";
+import { bindControls } from "./controls.ts";
+import { element } from "./elements.ts";
+import { bindNavigation } from "./navigation.ts";
+import { bindReadouts } from "./readouts.ts";
+import { drawTopology } from "./topology.ts";
 
 /**
  * Mount UI subscriptions and a worker-backed canvas with one cleanup owner.
@@ -93,6 +93,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   const inspectRay = button("inspect-ray");
   const pickRay = button("pick-ray");
   let pickingRay = false;
+  owned.defer(() => canvas.style.removeProperty("cursor"));
   const rayStatus = text("ray-status");
   const shareDialog = element(root, "#view-dialog", HTMLDialogElement);
   const shareInput = element(root, "#view-link", HTMLInputElement);
@@ -179,13 +180,13 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
     switch (event.type) {
       case "ray-path": {
         drawTopology(topologyMap, session.view.scene, event.path);
-        const domains: string[] = [];
-        for (const point of event.path.points) {
-          const domain = `${point.block} ${point.universe}${point.side === 0 ? "" : `/${point.side}`}`;
-          if (domains.at(-1) !== domain) {
-            domains.push(domain);
-          }
-        }
+        // Collapse adjacent repeats only: a later return to a domain remains part of the route.
+        const domains = event.path.points
+          .map(
+            (point) =>
+              `${point.block} ${point.universe}${point.side === 0 ? "" : `/${point.side}`}`,
+          )
+          .filter((domain, index, route) => domain !== route[index - 1]);
         rayStatus.textContent = `${event.path.kind} · ${event.path.equatorialCrossings} equatorial crossings in the recorded path. ${domains.join(" → ")}. Green: accepted ray steps; radii outside the map are clipped. Horizon intersections are bracketed between samples.`;
         break;
       }
@@ -440,7 +441,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
           return undefined;
         },
         () => {
-          if (!signal.aborted) {
+          if (!signal.aborted && shareInput.value === link) {
             copyStatus.textContent = "Select the link and copy it manually.";
           }
           return undefined;

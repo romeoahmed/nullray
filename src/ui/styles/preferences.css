@@ -102,8 +102,7 @@
   @media (height < 500px) and (width >= 600px) {
     .panel {
       max-block-size: calc(100dvh - 100px);
-      inset-block-start: 76px;
-      inset-block-end: auto;
+      inset-block: 76px auto;
     }
     .observation,
     .navigation-hint {
@@ -157,7 +156,7 @@
   }
   @media (prefers-contrast: more) {
     :root {
-      --muted: oklch(91% 0.008 220);
+      --muted: oklch(91% 0.008 220deg);
       --line: oklch(100% 0 none / 50%);
       --glass: var(--surface);
     }

@@ -1,14 +1,14 @@
-import { opticalSource, starsSource } from "./shaders.ts";
-import { createJetTable } from "../../physics/synchrotron.ts";
 import { createAtmosphereTable } from "../../physics/atmosphere.ts";
-import { compileShader } from "../device.ts";
 import { createBlackbodyTable } from "../../physics/radiation.ts";
+import type { RayPath, RayPoint } from "../../physics/ray-path.ts";
+import { createJetTable } from "../../physics/synchrotron.ts";
+import type { SourceAppearance } from "../../scene/appearance.ts";
+import type { Scene } from "../../scene/scene.ts";
+import { compileShader } from "../device.ts";
 import { createCelestialData, createSkyTexture } from "../sources/sky.ts";
 import { createStructureField } from "../sources/structure.ts";
-import type { Scene } from "../../scene/scene.ts";
-import type { SourceAppearance } from "../../scene/appearance.ts";
-import type { RayPath, RayPoint } from "../../physics/ray-path.ts";
 import { writeOpticalFrame } from "./frame.ts";
+import { opticalSource, starsSource } from "./shaders.ts";
 
 /**
  * Borrowed optical targets owned by one {@link Optics} instance.

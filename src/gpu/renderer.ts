@@ -1,24 +1,23 @@
-import fullscreen from "./wgsl/imaging/fullscreen.wgsl?raw";
-import { createBloom } from "./imaging/bloom.ts";
-import { createPhotoExporter } from "./imaging/photograph.ts";
-import presentation from "./wgsl/passes/present.wgsl?raw";
-import { compileShader, requestDevice } from "./device.ts";
+import { blackbodyWhiteBalance } from "../physics/radiation.ts";
+import type { RayPath } from "../physics/ray-path.ts";
+import type { Vec3 } from "../physics/vector.ts";
 import { initialAppearance } from "../scene/appearance.ts";
 import type { SourceAppearance } from "../scene/appearance.ts";
-import type { Scene } from "../scene/scene.ts";
-import { createOptics } from "./optics/engine.ts";
-import type { OpticalImage } from "./optics/engine.ts";
 import type { Presentation } from "../scene/presentation.ts";
 import { displayValue } from "../scene/presentation.ts";
-import { createPolarimeter } from "./imaging/polarimeter.ts";
-import { createAccumulation } from "./imaging/accumulation.ts";
+import type { Scene } from "../scene/scene.ts";
+import { compileShader, requestDevice, watchDevice } from "./device.ts";
+import { createAccumulationFactory } from "./imaging/accumulation.ts";
+import { createBloom } from "./imaging/bloom.ts";
 import type { Coverage } from "./imaging/coverage.ts";
-import type { RayPath } from "../physics/ray-path.ts";
-import { blackbodyWhiteBalance } from "../physics/radiation.ts";
-import type { Vec3 } from "../physics/vector.ts";
-
+import { createPhotoExporter } from "./imaging/photograph.ts";
+import { createPolarimeter } from "./imaging/polarimeter.ts";
 import { sampleCounts, sampleOffset } from "./imaging/sampling.ts";
 import type { SamplingMode } from "./imaging/sampling.ts";
+import { createOptics } from "./optics/engine.ts";
+import type { OpticalImage } from "./optics/engine.ts";
+import fullscreen from "./wgsl/imaging/fullscreen.wgsl?raw";
+import presentation from "./wgsl/passes/present.wgsl?raw";
 
 const opticalView = (value: Presentation["diagnostic"]) =>
   value === "polarization" || value === "angle" ? "image" : value;
@@ -33,7 +32,8 @@ const opticalView = (value: Presentation["diagnostic"]) =>
 export interface Renderer {
   /** Inspect the last optical frame while the worker holds its submission lock. */
   inspect(point?: readonly [number, number]): Promise<RayPath>;
-  readonly lost: Promise<GPUDeviceLostInfo>;
+  /** First uncaptured GPU error or device loss; resolves with an error, never rejects. */
+  readonly failure: Promise<Error>;
   /**
    * Record nonnegative integer device-pixel dimensions; zero suspends rendering.
    *
@@ -98,6 +98,8 @@ export async function createRenderer(
   const device = await requestDevice();
   using owned = new DisposableStack();
   owned.defer(() => device.destroy());
+  const health = owned.use(watchDevice(device));
+  signal?.throwIfAborted();
   const context = canvas.getContext("webgpu");
   if (!context) {
     throw new Error("Unable to create a WebGPU canvas.");
@@ -117,9 +119,10 @@ export async function createRenderer(
   const bloomFilter = owned.adopt(await createBloom(device), (value) => value.dispose());
   const exportPhoto = await createPhotoExporter(device, displayModule);
   const optics = owned.adopt(await createOptics(device), (value) => value.dispose());
-  const accumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
-  const qAccumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
-  const uAccumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
+  const createHistory = await createAccumulationFactory(device);
+  const accumulation = owned.adopt(createHistory(), (value) => value.dispose());
+  const qAccumulation = owned.adopt(createHistory(), (value) => value.dispose());
+  const uAccumulation = owned.adopt(createHistory(), (value) => value.dispose());
   const polarimeter = owned.adopt(await createPolarimeter(device), (value) => value.dispose());
   const displayUniform = owned.adopt(
     device.createBuffer({
@@ -165,7 +168,7 @@ export async function createRenderer(
     inspect(point) {
       return optics.inspect(point);
     },
-    lost: device.lost,
+    failure: health.failure,
     finished() {
       return device.queue.onSubmittedWorkDone();
     },

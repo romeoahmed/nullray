@@ -1,4 +1,5 @@
 import { horizons, stationaryLimits } from "../physics/geometry.ts";
+import type { Horizons } from "../physics/geometry.ts";
 import type { SavedView } from "../scene/view.ts";
 import { element } from "./elements.ts";
 import { drawTopology } from "./topology.ts";
@@ -15,6 +16,42 @@ const diagnosticDescriptions = {
   image:
     "Inspect views mark unresolved samples in pink. Photographs report missing samples separately.",
 } satisfies Record<SavedView["diagnostic"], string>;
+
+function observationName({ scene }: SavedView): string {
+  switch (scene.prepared.block.kind) {
+    case "black-hole":
+    case "interior":
+      return "Black-hole interior";
+    case "white-hole":
+      return "White-hole region";
+    case "naked":
+      return "Horizonless geometry";
+    case "exterior":
+    case "disconnected":
+      return scene.plasma
+        ? "Refractive field"
+        : scene.jet
+          ? "Disk & polar outflow"
+          : "Thermal disk";
+    default:
+      throw new Error("Unknown spacetime block.", { cause: scene.prepared.block satisfies never });
+  }
+}
+
+function describeHorizons(structure: Horizons): string {
+  switch (structure.kind) {
+    case "pair":
+      return `Horizons r− ${structure.inner.toFixed(3)}, r+ ${structure.outer.toFixed(3)}`;
+    case "extremal":
+      return "Extremal horizon r = 1";
+    case "single":
+      return "Horizon r = 2";
+    case "none":
+      return "Naked singularity · no horizons";
+    default:
+      throw new Error("Unknown horizon structure.", { cause: structure satisfies never });
+  }
+}
 
 /**
  * Bind view descriptions independently of per-frame progress telemetry.
@@ -44,18 +81,7 @@ export function bindReadouts(root: HTMLElement): (view: SavedView, hdr: boolean)
         ? "Drag to look · WASD to move · Q/E down/up · R to reset"
         : "Drag to orbit · Scroll or pinch to approach · Arrow keys to turn";
     const { space, prepared } = view.scene;
-    text("observation-name").textContent =
-      prepared.block.kind === "black-hole" || prepared.block.kind === "interior"
-        ? "Black-hole interior"
-        : prepared.block.kind === "white-hole"
-          ? "White-hole region"
-          : prepared.block.kind === "naked"
-            ? "Horizonless geometry"
-            : view.scene.plasma
-              ? "Refractive field"
-              : view.scene.jet
-                ? "Disk & polar outflow"
-                : "Thermal disk";
+    text("observation-name").textContent = observationName(view);
     if (mappedScene !== view.scene) {
       drawTopology(topologyMap, view.scene);
       rayStatus.textContent = "Trace the center or pick an image ray to inspect its source domain.";
@@ -63,14 +89,7 @@ export function bindReadouts(root: HTMLElement): (view: SavedView, hdr: boolean)
     }
     const structure = horizons(space);
     const limits = stationaryLimits(space, prepared.geometry.point.inclination);
-    const horizonText =
-      structure.kind === "pair"
-        ? `Horizons r− ${structure.inner.toFixed(3)}, r+ ${structure.outer.toFixed(3)}`
-        : structure.kind === "extremal"
-          ? "Extremal horizon r = 1"
-          : structure.kind === "single"
-            ? "Horizon r = 2"
-            : "Naked singularity · no horizons";
+    const horizonText = describeHorizons(structure);
     const block = prepared.block;
     const blockText =
       block.kind === "naked"

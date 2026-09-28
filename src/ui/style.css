@@ -1,6 +1,6 @@
 @layer tokens, base, layout, controls, accessibility;
 
-@import "./styles/theme.css";
-@import "./styles/layout.css";
-@import "./styles/controls.css";
-@import "./styles/preferences.css";
+@import url("./styles/theme.css");
+@import url("./styles/layout.css");
+@import url("./styles/controls.css");
+@import url("./styles/preferences.css");

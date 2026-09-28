@@ -1,5 +1,6 @@
-import { expect, test } from "vitest";
 import * as fc from "fast-check";
+import { expect, test } from "vitest";
+
 import { resolutionScale, nextPixelBudget } from "../../src/runtime/worker/resolution.ts";
 
 test("explicit resolution stays exact and only Auto playback uses the pixel budget", () => {

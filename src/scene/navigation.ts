@@ -1,7 +1,7 @@
-import { components } from "./camera.ts";
-import type { Observer, Scene, SceneInput } from "./scene.ts";
 import { normalize } from "../physics/vector.ts";
 import type { Vec3 } from "../physics/vector.ts";
+import { components } from "./camera.ts";
+import type { Observer, Scene, SceneInput } from "./scene.ts";
 
 /** Spherical placement chart used for navigation, not a spatial embedding of the metric. */
 export function navigationAxes(observer: Observer): readonly [Vec3, Vec3, Vec3] {

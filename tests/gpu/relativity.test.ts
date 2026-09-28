@@ -1,23 +1,24 @@
 import { expect, test } from "vitest";
+
+import { createPolarimeter } from "../../src/gpu/imaging/polarimeter.ts";
+import { createOptics } from "../../src/gpu/optics/engine.ts";
 import geometrySource from "../../src/gpu/wgsl/geodesics/geometry.wgsl?raw";
 import orbitSource from "../../src/gpu/wgsl/geodesics/orbit.wgsl?raw";
 import { combine, kerrGeometry } from "../../src/physics/geometry.ts";
 import type { FourVector } from "../../src/physics/geometry.ts";
-import { plasmaCutoff } from "../../src/physics/plasma.ts";
-import { referenceGeodesic } from "../reference/hamiltonian.ts";
-import { boostFrame, observerPhoton, principalFrame } from "../../src/physics/observer.ts";
 import { motionFromTangent } from "../../src/physics/motion.ts";
-import { walkerPenrose } from "../reference/polarization.ts";
-import { computeReadback } from "./compute.ts";
-import { test as gpuTest, readPixels } from "./compute.ts";
-import { createPolarimeter } from "../../src/gpu/imaging/polarimeter.ts";
-import { createOptics } from "../../src/gpu/optics/engine.ts";
-import { createScene, initialScene } from "../../src/scene/scene.ts";
+import { boostFrame, observerPhoton, principalFrame } from "../../src/physics/observer.ts";
+import { plasmaCutoff } from "../../src/physics/plasma.ts";
 import { initialAppearance } from "../../src/scene/appearance.ts";
 import { initialJet } from "../../src/scene/jet.ts";
 import { initialPlasma } from "../../src/scene/plasma.ts";
-import emptyTail from "../regressions/material-empty-tail.json";
+import { createScene, initialScene } from "../../src/scene/scene.ts";
+import { referenceGeodesic } from "../reference/hamiltonian.ts";
+import { walkerPenrose } from "../reference/polarization.ts";
 import horizonReflection from "../regressions/inner-horizon-reflection.json";
+import emptyTail from "../regressions/material-empty-tail.json";
+import { computeReadback } from "./compute.ts";
+import { test as gpuTest, readPixels } from "./compute.ts";
 
 gpuTest(
   "near-inner-horizon rays retain their causal source domain and a dark shadow",

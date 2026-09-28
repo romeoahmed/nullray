@@ -1,5 +1,5 @@
-import source from "../wgsl/passes/coverage.wgsl?raw";
 import { compileShader } from "../device.ts";
+import source from "../wgsl/passes/coverage.wgsl?raw";
 
 /** Image-wide missing weights; affected pixels and missing samples measure different quantities. */
 export interface Coverage {

@@ -1,9 +1,10 @@
-import { element } from "./elements.ts";
-import { encodeView } from "../scene/view.ts";
-import type { SavedView } from "../scene/view.ts";
 import { decodeBookmarks } from "../scene/bookmarks.ts";
 import type { Bookmark } from "../scene/bookmarks.ts";
+import { encodeView } from "../scene/view.ts";
+import type { SavedView } from "../scene/view.ts";
+import { element } from "./elements.ts";
 const storageKey = "nullray.views.v1";
+const read = () => decodeBookmarks(localStorage.getItem(storageKey));
 
 /**
  * Bind the browser-local view library under the caller's abort signal.
@@ -29,10 +30,12 @@ export function bindViews(
   const undo = element(root, "#undo-view", HTMLButtonElement);
   const status = element(root, "#saved-status", HTMLElement);
   let removed: Bookmark | undefined;
-  const read = () => decodeBookmarks(localStorage.getItem(storageKey));
+  undo.hidden = true;
+  status.textContent = "";
   function render(entries: readonly Bookmark[], selected?: string) {
     list.replaceChildren(...entries.map((entry) => new Option(entry.name, entry.name)));
-    if (selected !== undefined) {
+    // A deleted selection falls back to the native first option.
+    if (selected !== undefined && entries.some((entry) => entry.name === selected)) {
       list.value = selected;
     }
     list.disabled = load.disabled = remove.disabled = entries.length === 0;

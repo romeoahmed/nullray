@@ -1,9 +1,9 @@
 import { oneOf } from "../scene/decode.ts";
-import { viewChoices } from "../scene/presentation.ts";
 import { initialJet } from "../scene/jet.ts";
 import { initialPlasma } from "../scene/plasma.ts";
-import type { Action, Session } from "../scene/session.ts";
 import type { PhysicalObserver } from "../scene/preparation.ts";
+import { viewChoices } from "../scene/presentation.ts";
+import type { Action, Session } from "../scene/session.ts";
 import { element } from "./elements.ts";
 
 const degrees = (radians: number) => (radians * 180) / Math.PI;
@@ -13,7 +13,8 @@ const radians = (angle: number) => (angle * Math.PI) / 180;
  * Bind native controls to domain actions under the caller's abort signal.
  *
  * @returns A synchronizer that restores controls from accepted state after either
- * success or rejection. The DOM never becomes the authoritative scene value.
+ * success or rejection, using one session snapshot for every control. Action
+ * transforms receive the current session explicitly; the DOM never owns scene state.
  */
 export function bindControls(
   root: HTMLElement,
@@ -21,7 +22,7 @@ export function bindControls(
   dispatch: (action: Action) => void,
   signal: AbortSignal,
 ): () => void {
-  const sync: (() => void)[] = [];
+  const sync: ((state: Session) => void)[] = [];
   const range = (
     id: string,
     read: (state: Session) => number,
@@ -35,9 +36,8 @@ export function bindControls(
     });
     const minimum = Number(input.min),
       maximum = Number(input.max);
-    sync.push(() => {
-      const state = current(),
-        value = read(state);
+    sync.push((state) => {
+      const value = read(state);
       input.min = String(Math.min(minimum, value));
       input.max = String(Math.max(maximum, value));
       input.value = String(value);
@@ -50,7 +50,7 @@ export function bindControls(
     id: string,
     choices: readonly T[],
     read: (state: Session) => T,
-    action: (value: T) => Action,
+    action: (state: Session, value: T) => Action,
   ) => {
     const input = element(root, `#${id}`, HTMLSelectElement);
     input.addEventListener(
@@ -58,13 +58,13 @@ export function bindControls(
       () => {
         const value = input.value;
         if (oneOf(value, choices)) {
-          dispatch(action(value));
+          dispatch(action(current(), value));
         }
       },
       { signal },
     );
-    sync.push(() => {
-      input.value = read(current());
+    sync.push((state) => {
+      input.value = read(state);
     });
   };
   for (const key of ["spin", "charge"] as const) {
@@ -88,14 +88,13 @@ export function bindControls(
     "navigation",
     viewChoices.navigation,
     ({ view }) => view.navigation,
-    (value) => ({ type: "navigation", value }),
+    (_, value) => ({ type: "navigation", value }),
   );
   select(
     "observer-model",
     ["zamo", "static", "regular", "freefall", "custom"],
     ({ view }) => view.scene.observer.motion.kind,
-    (kind) => {
-      const { scene } = current().view;
+    ({ view: { scene } }, kind) => {
       const u = scene.prepared.frame.velocity;
       const motion: PhysicalObserver =
         kind === "freefall"
@@ -110,8 +109,7 @@ export function bindControls(
     "observer-chart",
     ["ingoing", "outgoing"],
     ({ view }) => view.scene.observer.chart,
-    (chart) => {
-      const { scene } = current().view;
+    ({ view: { scene } }, chart) => {
       return { type: "scene", value: { ...scene, observer: { ...scene.observer, chart } } };
     },
   );
@@ -144,8 +142,8 @@ export function bindControls(
       },
       { signal },
     );
-    sync.push(() => {
-      const motion = current().view.scene.observer.motion;
+    sync.push(({ view }) => {
+      const motion = view.scene.observer.motion;
       input.value = String(
         motion.kind === "custom" || motion.kind === "freefall" ? motion.velocity[axis] : 0,
       );
@@ -157,8 +155,8 @@ export function bindControls(
           : (["Velocity X", "Velocity Y", "Velocity Z"] as const)[axis];
     });
   }
-  sync.push(() => {
-    const motion = current().view.scene.observer.motion;
+  sync.push(({ view }) => {
+    const motion = view.scene.observer.motion;
     velocityGroup.hidden = motion.kind !== "custom" && motion.kind !== "freefall";
     clockGroup.hidden = motion.kind !== "freefall";
     velocityHint.textContent =
@@ -262,27 +260,27 @@ export function bindControls(
     "jet-mode",
     ["off", "on"],
     ({ view }) => (view.scene.jet ? "on" : "off"),
-    (value) => ({
+    ({ view }, value) => ({
       type: "scene",
-      value: { ...current().view.scene, jet: value === "on" ? initialJet : null },
+      value: { ...view.scene, jet: value === "on" ? initialJet : null },
     }),
   );
   const jetControls = element(root, "#jet-controls", HTMLDivElement);
-  sync.push(() => {
-    jetControls.hidden = current().view.scene.jet === null;
+  sync.push(({ view }) => {
+    jetControls.hidden = view.scene.jet === null;
   });
   select(
     "plasma-mode",
     ["off", "on"],
     ({ view }) => (view.scene.plasma ? "on" : "off"),
-    (value) => ({
+    ({ view }, value) => ({
       type: "scene",
-      value: { ...current().view.scene, plasma: value === "on" ? initialPlasma : null },
+      value: { ...view.scene, plasma: value === "on" ? initialPlasma : null },
     }),
   );
   const plasmaControls = element(root, "#plasma-controls", HTMLDivElement);
-  sync.push(() => {
-    plasmaControls.hidden = current().view.scene.plasma === null;
+  sync.push(({ view }) => {
+    plasmaControls.hidden = view.scene.plasma === null;
   });
   for (const key of ["density", "frequencyGHz", "radius"] as const) {
     range(
@@ -369,19 +367,19 @@ export function bindControls(
     "display-mode",
     viewChoices.display,
     ({ view }) => view.display,
-    (value) => ({ type: "display", value }),
+    (_, value) => ({ type: "display", value }),
   );
   select(
     "diagnostic",
     viewChoices.diagnostic,
     ({ view }) => view.diagnostic,
-    (value) => ({ type: "diagnostic", value }),
+    (_, value) => ({ type: "diagnostic", value }),
   );
   select(
     "analyzer-mode",
     ["off", "linear"],
     ({ view }) => (view.analyzer === null ? "off" : "linear"),
-    (value) => ({ type: "analyzer", value: value === "off" ? null : 0 }),
+    (_, value) => ({ type: "analyzer", value: value === "off" ? null : 0 }),
   );
   range(
     "analyzer-angle",
@@ -390,18 +388,19 @@ export function bindControls(
     (value) => `${value.toFixed(0)}°`,
   );
   const angleControl = element(root, "#analyzer-angle-control", HTMLDivElement);
-  sync.push(() => {
-    angleControl.hidden = current().view.analyzer === null;
+  sync.push(({ view }) => {
+    angleControl.hidden = view.analyzer === null;
   });
   select(
     "exploration-resolution",
     ["1", "0.75", "0.5", "0.25", "auto"],
     ({ resolution }) => String(resolution),
-    (value) => ({ type: "resolution", value: value === "auto" ? "auto" : Number(value) }),
+    (_, value) => ({ type: "resolution", value: value === "auto" ? "auto" : Number(value) }),
   );
   return () => {
+    const state = current();
     for (const update of sync) {
-      update();
+      update(state);
     }
   };
 }

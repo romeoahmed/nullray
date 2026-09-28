@@ -118,28 +118,28 @@
       fill: none;
     }
     & .negative-sheet {
-      fill: oklch(55% 0.1 300 / 0.12);
+      fill: oklch(55% 0.1 300deg / 12%);
     }
     & .map-grid {
       stroke: var(--line);
     }
     & .horizon-surface {
-      stroke: oklch(80% 0.12 190);
+      stroke: oklch(80% 0.12 190deg);
       stroke-width: 1.5;
     }
     & .stationary-surface {
-      stroke: oklch(80% 0.12 80);
+      stroke: oklch(80% 0.12 80deg);
       stroke-width: 1.5;
       stroke-dasharray: 4 3;
     }
     & .singular-surface {
-      stroke: oklch(70% 0.2 25);
-      fill: oklch(70% 0.2 25);
+      stroke: oklch(70% 0.2 25deg);
+      fill: oklch(70% 0.2 25deg);
       stroke-width: 2;
     }
     & .map-ray {
       fill: none;
-      stroke: oklch(80% 0.17 145);
+      stroke: oklch(80% 0.17 145deg);
       stroke-width: 1.5;
     }
     & .map-observer {

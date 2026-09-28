@@ -1,12 +1,13 @@
 import { describe, expect } from "vitest";
-import displaySource from "../../src/gpu/wgsl/passes/present.wgsl?raw";
-import fullscreen from "../../src/gpu/wgsl/imaging/fullscreen.wgsl?raw";
-import stars from "../../src/gpu/wgsl/passes/stars.wgsl?raw";
-import stellar from "../../src/gpu/wgsl/sources/stars.wgsl?raw";
-import frameSource from "../../src/gpu/wgsl/imaging/frame.wgsl?raw";
-import radiation from "../../src/gpu/wgsl/imaging/radiation.wgsl?raw";
+
 import { compileShader } from "../../src/gpu/device.ts";
 import { createBloom } from "../../src/gpu/imaging/bloom.ts";
+import frameSource from "../../src/gpu/wgsl/imaging/frame.wgsl?raw";
+import fullscreen from "../../src/gpu/wgsl/imaging/fullscreen.wgsl?raw";
+import radiation from "../../src/gpu/wgsl/imaging/radiation.wgsl?raw";
+import displaySource from "../../src/gpu/wgsl/passes/present.wgsl?raw";
+import stars from "../../src/gpu/wgsl/passes/stars.wgsl?raw";
+import stellar from "../../src/gpu/wgsl/sources/stars.wgsl?raw";
 import { referenceBloom } from "../reference/bloom.ts";
 import { test, readPixels, computeReadback } from "./compute.ts";
 

@@ -1,10 +1,11 @@
-import { cubeTexelSolidAngle } from "../reference/sky.ts";
-import { describe, expect, test } from "vitest";
-import * as fc from "fast-check";
-import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
+import * as fc from "fast-check";
+import { describe, expect, test } from "vitest";
+
+import { brightStars } from "../../src/data/bright-stars.ts";
 import { createDiskProfile, diskColumnNormalization } from "../../src/physics/disk.ts";
-import { isco } from "../../src/physics/spacetime.ts";
 import {
   blackbodyWhiteBalance,
   blackbodyXYZ,
@@ -13,10 +14,11 @@ import {
   planck,
   xyzToLinearRGB,
 } from "../../src/physics/radiation.ts";
-import { brightStars } from "../../src/data/bright-stars.ts";
+import { createStars, decodeFaintStars } from "../../src/physics/sky.ts";
+import { isco } from "../../src/physics/spacetime.ts";
 import { createJetTable } from "../../src/physics/synchrotron.ts";
 import { initialJet } from "../../src/scene/jet.ts";
-import { createStars, decodeFaintStars } from "../../src/physics/sky.ts";
+import { cubeTexelSolidAngle } from "../reference/sky.ts";
 
 test("finite-cutoff synchrotron recovers the analytic isotropic power-law tail", () => {
   const jet = { ...initialJet, gammaMin: 1 };

@@ -1,8 +1,9 @@
 import { expect, test } from "vitest";
 import { server } from "vitest/browser";
-import { createRenderer } from "../src/gpu/renderer.ts";
+
 import { sampleCounts } from "../src/gpu/imaging/sampling.ts";
 import type { SamplingMode } from "../src/gpu/imaging/sampling.ts";
+import { createRenderer } from "../src/gpu/renderer.ts";
 import { presets } from "../src/scene/presets.ts";
 import { checkDevice } from "../tests/support/gpu.ts";
 import { gpuContext } from "./context.ts";

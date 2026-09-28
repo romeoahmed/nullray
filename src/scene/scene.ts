@@ -1,15 +1,15 @@
+import { horizons } from "../physics/geometry.ts";
+import type { KerrChart } from "../physics/geometry.ts";
+import type { Jet } from "../physics/jet.ts";
+import { heatingProfile, plasmaCutoff, plasmaProfile } from "../physics/plasma.ts";
+import type { Plasma } from "../physics/plasma.ts";
+import { isco } from "../physics/spacetime.ts";
+import type { Spacetime } from "../physics/spacetime.ts";
+import { createCamera, initialCamera } from "./camera.ts";
+import type { Camera } from "./camera.ts";
 import type { Result } from "./decode.ts";
 import { decodeJet } from "./jet.ts";
 import { decodePlasma } from "./plasma.ts";
-import { heatingProfile, plasmaCutoff, plasmaProfile } from "../physics/plasma.ts";
-import type { Plasma } from "../physics/plasma.ts";
-import type { Jet } from "../physics/jet.ts";
-import { horizons } from "../physics/geometry.ts";
-import { createCamera, initialCamera } from "./camera.ts";
-import type { Camera } from "./camera.ts";
-import { isco } from "../physics/spacetime.ts";
-import type { Spacetime } from "../physics/spacetime.ts";
-import type { KerrChart } from "../physics/geometry.ts";
 import { decodePhysicalObserver, prepareScene } from "./preparation.ts";
 import type { PhysicalObserver, PreparedScene } from "./preparation.ts";
 

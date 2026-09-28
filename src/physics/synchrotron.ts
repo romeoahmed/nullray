@@ -1,6 +1,6 @@
 import { cie1931 } from "../data/cie1931.ts";
-import { blackbodyXYZ, xyzToLinearRGB } from "./radiation.ts";
 import type { Jet } from "./jet.ts";
+import { blackbodyXYZ, xyzToLinearRGB } from "./radiation.ts";
 
 /**
  * Build a local lookup of the normalized cumulative single-electron kernel.

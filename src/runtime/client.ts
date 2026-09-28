@@ -1,3 +1,4 @@
+import { presentationOf } from "../scene/presentation.ts";
 import type { Session } from "../scene/session.ts";
 import type { RenderEvent, RenderRequest } from "./protocol.ts";
 
@@ -74,13 +75,7 @@ export function createRenderClient(
       ...(previous?.view.appearance !== session.view.appearance
         ? { appearance: session.view.appearance }
         : {}),
-      presentation: {
-        exposureEV: session.view.exposureEV,
-        whiteBalance: session.view.whiteBalance,
-        bloom: session.view.bloom,
-        diagnostic: session.view.diagnostic,
-        analyzer: session.view.analyzer,
-      },
+      presentation: presentationOf(session.view),
       motion: session.motion,
       resolution: session.resolution,
       hdr,

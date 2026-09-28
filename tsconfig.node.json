@@ -2,11 +2,14 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "NodeNext",
+    "allowJs": true,
+    "checkJs": true,
     "types": ["node"],
     "lib": ["ESNext"]
   },
   "include": [
     "*.config.ts",
+    "*.config.mjs",
     "tests/cpu/**/*.ts",
     "tests/reference/**/*.ts",
     "benchmarks/cpu*.bench.ts"

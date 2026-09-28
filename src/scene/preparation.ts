@@ -1,5 +1,7 @@
-import { finite, record, vector3 } from "./decode.ts";
-import type { Result } from "./decode.ts";
+import { initialBlock } from "../physics/atlas.ts";
+import type { SpacetimeBlock } from "../physics/atlas.ts";
+import { createDiskProfile } from "../physics/disk.ts";
+import type { DiskProfile } from "../physics/disk.ts";
 import {
   advanceGeodesic,
   createGeodesic,
@@ -18,13 +20,11 @@ import {
   zamoObserver,
 } from "../physics/observer.ts";
 import type { ObserverFrame } from "../physics/observer.ts";
-import { initialBlock } from "../physics/atlas.ts";
-import type { SpacetimeBlock } from "../physics/atlas.ts";
 import type { Spacetime } from "../physics/spacetime.ts";
 import type { Vec3 } from "../physics/vector.ts";
+import { finite, record, vector3 } from "./decode.ts";
+import type { Result } from "./decode.ts";
 import type { Disk, Observer, Scene } from "./scene.ts";
-import { createDiskProfile } from "../physics/disk.ts";
-import type { DiskProfile } from "../physics/disk.ts";
 
 /**
  * Observer-motion inputs, independent of navigation and source playback.
@@ -92,36 +92,28 @@ export function decodePhysicalObserver(input: unknown): PhysicalObserver | undef
   return { kind, velocity: vector, properTime };
 }
 
-/** Prepare one physical worldline; navigation and field of view cannot supply observer velocity. */
-function prepareObserver(space: Spacetime, placement: Observer): Result<PreparedObserver> {
-  let geometry = kerrGeometry(space, placement);
-  if (
-    !geometry ||
-    !(Math.fround(geometry.sigma) > 0) ||
-    !Number.isFinite(Math.fround(geometry.sigma)) ||
-    !Number.isFinite(Math.fround(geometry.factor))
-  ) {
-    return fail(
-      "The observer lies on a curvature singularity or outside the representable geometry.",
-    );
-  }
-  let block = initialBlock(space, placement.radius, placement.chart);
-  let frame: ObserverFrame | undefined;
-  let timeOffset = 0;
+/** Select a local frame or advance a free-fall worldline without mutating its launch data. */
+function observerEndpoint(space: Spacetime, geometry: KerrGeometry, placement: Observer) {
   const observer = placement.motion;
+  const local = (frame: ObserverFrame | undefined) =>
+    ({
+      ok: true,
+      value: {
+        geometry,
+        frame,
+        block: initialBlock(space, placement.radius, placement.chart),
+        timeOffset: 0,
+      },
+    }) as const;
   switch (observer.kind) {
     case "regular":
-      frame = principalFrame(geometry);
-      break;
+      return local(principalFrame(geometry));
     case "static":
-      frame = staticObserver(geometry);
-      break;
+      return local(staticObserver(geometry));
     case "zamo":
-      frame = zamoObserver(geometry, space.spin);
-      break;
+      return local(zamoObserver(geometry, space.spin));
     case "custom":
-      frame = coordinateObserver(geometry, observer.velocity);
-      break;
+      return local(coordinateObserver(geometry, observer.velocity));
     case "freefall": {
       const initial = boostFrame(principalFrame(geometry), observer.velocity);
       if (!initial) {
@@ -146,15 +138,39 @@ function prepareObserver(space: Spacetime, placement: Observer): Result<Prepared
       if (!end || !tangent || !regular) {
         return fail("The worldline has no regular finite endpoint.");
       }
-      geometry = end;
-      frame = comovingFrame(geometry, tangent);
-      block = result.path.block;
-      timeOffset = regular.state.radial[2];
-      break;
+      return {
+        ok: true,
+        value: {
+          geometry: end,
+          frame: comovingFrame(end, tangent),
+          block: result.path.block,
+          timeOffset: regular.state.radial[2],
+        },
+      } as const;
     }
     default:
       return fail("Unknown observer model.");
   }
+}
+
+/** Prepare and validate one complete endpoint; camera controls cannot supply observer velocity. */
+function prepareObserver(space: Spacetime, placement: Observer): Result<PreparedObserver> {
+  const launch = kerrGeometry(space, placement);
+  if (
+    !launch ||
+    !(Math.fround(launch.sigma) > 0) ||
+    !Number.isFinite(Math.fround(launch.sigma)) ||
+    !Number.isFinite(Math.fround(launch.factor))
+  ) {
+    return fail(
+      "The observer lies on a curvature singularity or outside the representable geometry.",
+    );
+  }
+  const endpoint = observerEndpoint(space, launch, placement);
+  if (!endpoint.ok) {
+    return endpoint;
+  }
+  const { geometry, frame, block, timeOffset } = endpoint.value;
   if (
     !frame ||
     ![frame.velocity, frame.radial, frame.polar, frame.azimuthal].every((axis) =>
@@ -162,7 +178,7 @@ function prepareObserver(space: Spacetime, placement: Observer): Result<Prepared
     )
   ) {
     return fail(
-      observer.kind === "static" || observer.kind === "zamo"
+      placement.motion.kind === "static" || placement.motion.kind === "zamo"
         ? "This stationary observer requires a timelike circular worldline."
         : "This coordinate velocity is outside the observer's light cone.",
     );
@@ -190,19 +206,22 @@ function sameObserver(left: Observer, right: Observer): boolean {
   }
   const a = left.motion,
     b = right.motion;
-  if (a.kind !== b.kind) {
-    return false;
+  switch (a.kind) {
+    case "regular":
+    case "static":
+    case "zamo":
+      return a.kind === b.kind;
+    case "custom":
+      return b.kind === "custom" && a.velocity.every((value, axis) => value === b.velocity[axis]);
+    case "freefall":
+      return (
+        b.kind === "freefall" &&
+        a.properTime === b.properTime &&
+        a.velocity.every((value, axis) => value === b.velocity[axis])
+      );
+    default:
+      throw new Error("Unknown observer model.", { cause: a satisfies never });
   }
-  if (a.kind !== "custom" && a.kind !== "freefall") {
-    return true;
-  }
-  if (b.kind !== "custom" && b.kind !== "freefall") {
-    return false;
-  }
-  return (
-    a.velocity.every((value, axis) => value === b.velocity[axis]) &&
-    (a.kind !== "freefall" || (b.kind === "freefall" && a.properTime === b.properTime))
-  );
 }
 
 /**

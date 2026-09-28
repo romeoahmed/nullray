@@ -1,12 +1,13 @@
-import { expect, test } from "vitest";
 import * as fc from "fast-check";
+import { expect, test } from "vitest";
+
+import { createOptics } from "../../src/gpu/optics/engine.ts";
+import barrierSource from "../../src/gpu/wgsl/geodesics/barriers.wgsl?raw";
 import geometrySource from "../../src/gpu/wgsl/geodesics/geometry.wgsl?raw";
 import orbitSource from "../../src/gpu/wgsl/geodesics/orbit.wgsl?raw";
-import barrierSource from "../../src/gpu/wgsl/geodesics/barriers.wgsl?raw";
-import { computeReadback, readPixels, test as gpuTest } from "./compute.ts";
-import { createOptics } from "../../src/gpu/optics/engine.ts";
-import { createScene, initialScene } from "../../src/scene/scene.ts";
 import { initialAppearance } from "../../src/scene/appearance.ts";
+import { createScene, initialScene } from "../../src/scene/scene.ts";
+import { computeReadback, readPixels, test as gpuTest } from "./compute.ts";
 
 /** Exact integer in units of 2^-149 for a finite binary32 input. */
 function dyadic(value: number): bigint {

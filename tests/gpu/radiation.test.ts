@@ -1,17 +1,18 @@
 import { describe, expect, test } from "vitest";
+
+import { createStructureField } from "../../src/gpu/sources/structure.ts";
 import geometry from "../../src/gpu/wgsl/geodesics/geometry.wgsl?raw";
 import radiation from "../../src/gpu/wgsl/imaging/radiation.wgsl?raw";
-import fieldSource from "../../src/gpu/wgsl/sources/field.wgsl?raw";
 import structure from "../../src/gpu/wgsl/imaging/structure.wgsl?raw";
+import fieldSource from "../../src/gpu/wgsl/sources/field.wgsl?raw";
 import {
   blackbodyXYZ,
   createBlackbodyTable,
   diskFrequencyRatio,
   xyzToLinearRGB,
 } from "../../src/physics/radiation.ts";
-import { computeReadback } from "./compute.ts";
 import { circularOrbit, isco } from "../../src/physics/spacetime.ts";
-import { createStructureField } from "../../src/gpu/sources/structure.ts";
+import { computeReadback } from "./compute.ts";
 
 describe("Spectral transport", () => {
   // Probe the circular-emitter normalization used by the image and volume paths.

@@ -1,15 +1,16 @@
 import { expect } from "vitest";
 import { server } from "vitest/browser";
-import { createStructureField } from "../../src/gpu/sources/structure.ts";
+
 import { createSkyTexture } from "../../src/gpu/sources/sky.ts";
-import { createNoiseVolume } from "../reference/structure.ts";
-import { createSkyMap, cubeTexelSolidAngle } from "../reference/sky.ts";
-import { readPixels, test, computeReadback } from "./compute.ts";
-import { createStarTree } from "../../src/physics/stars.ts";
-import type { Star } from "../../src/physics/sky.ts";
-import { blackbodyXYZ, createBlackbodyTable, xyzToLinearRGB } from "../../src/physics/radiation.ts";
+import { createStructureField } from "../../src/gpu/sources/structure.ts";
 import radiation from "../../src/gpu/wgsl/imaging/radiation.wgsl?raw";
 import stellar from "../../src/gpu/wgsl/sources/stars.wgsl?raw";
+import { blackbodyXYZ, createBlackbodyTable, xyzToLinearRGB } from "../../src/physics/radiation.ts";
+import type { Star } from "../../src/physics/sky.ts";
+import { createStarTree } from "../../src/physics/stars.ts";
+import { createSkyMap, cubeTexelSolidAngle } from "../reference/sky.ts";
+import { createNoiseVolume } from "../reference/structure.ts";
+import { readPixels, test, computeReadback } from "./compute.ts";
 
 test("stellar tree queries agree with direct flux sums through repeated positions and nearly rank-one footprints", async () => {
   const catalogue: Star[] = Array.from({ length: 97 }, (_, index) => {

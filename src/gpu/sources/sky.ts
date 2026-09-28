@@ -1,10 +1,10 @@
+import faintStarsURL from "../../data/faint-stars.bin?url";
 import { createStars, decodeFaintStars } from "../../physics/sky.ts";
 import { createStarTree } from "../../physics/stars.ts";
 import { compileShader } from "../device.ts";
-import type { StructureField } from "./structure.ts";
 import fieldSource from "../wgsl/sources/field.wgsl?raw";
 import skySource from "../wgsl/sources/sky.wgsl?raw";
-import faintStarsURL from "../../data/faint-stars.bin?url";
+import type { StructureField } from "./structure.ts";
 
 /**
  * Load the bundled faint catalogue and combine it with the bright-source tree.

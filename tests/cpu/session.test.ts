@@ -1,10 +1,11 @@
-import { describe, expect, test } from "vitest";
 import * as fc from "fast-check";
+import { describe, expect, test } from "vitest";
+
+import { createAppearance, initialAppearance } from "../../src/scene/appearance.ts";
+import { initialScene } from "../../src/scene/scene.ts";
 import { initialSession, transition } from "../../src/scene/session.ts";
 import type { Action, Session } from "../../src/scene/session.ts";
 import { encodeView, decodeView } from "../../src/scene/view.ts";
-import { createAppearance, initialAppearance } from "../../src/scene/appearance.ts";
-import { initialScene } from "../../src/scene/scene.ts";
 
 test("appearance boundaries survive quantization and repeated view round trips", () => {
   const result = createAppearance({

@@ -46,6 +46,41 @@ export async function requestDevice(): Promise<GPUDevice> {
 }
 
 /**
+ * Observe the first uncaptured GPU error or device loss on a borrowed device.
+ *
+ * @returns A disposable subscription and a promise that resolves with the failure.
+ * Dispose before destroying the device so intentional teardown is not reported.
+ * Captured error scopes remain the caller's responsibility; the promise never rejects.
+ */
+export function watchDevice(device: GPUDevice) {
+  const subscription = new AbortController();
+  const { signal } = subscription;
+  const { promise, resolve } = Promise.withResolvers<Error>();
+  device.addEventListener(
+    "uncapturederror",
+    (event) => {
+      event.preventDefault();
+      resolve(new Error(`GPU execution failed: ${event.error.message}`));
+    },
+    { signal },
+  );
+  void device.lost.then((info) => {
+    if (!signal.aborted) {
+      resolve(
+        new Error(`The graphics device was lost. Retry to restore this view. ${info.message}`),
+      );
+    }
+    return undefined;
+  });
+  return {
+    failure: promise,
+    [Symbol.dispose]() {
+      subscription.abort();
+    },
+  };
+}
+
+/**
  * Compile WGSL on a borrowed device and preserve source-located error messages.
  *
  * @returns A shader module when compilation reports no errors; pipeline validation

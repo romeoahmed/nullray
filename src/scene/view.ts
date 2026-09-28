@@ -1,14 +1,14 @@
-import { analyzerValue, displayValue, viewChoices } from "./presentation.ts";
-import type { Presentation } from "./presentation.ts";
+import { createAppearance, initialAppearance } from "./appearance.ts";
+import type { SourceAppearance } from "./appearance.ts";
+import { createCamera } from "./camera.ts";
 import { finite, oneOf, record } from "./decode.ts";
 import { decodeJet } from "./jet.ts";
 import { decodePlasma } from "./plasma.ts";
-import { createCamera } from "./camera.ts";
-import { createAppearance, initialAppearance } from "./appearance.ts";
-import type { SourceAppearance } from "./appearance.ts";
+import { decodePhysicalObserver } from "./preparation.ts";
+import { analyzerValue, displayValue, viewChoices } from "./presentation.ts";
+import type { Presentation } from "./presentation.ts";
 import { createScene, initialScene } from "./scene.ts";
 import type { Scene } from "./scene.ts";
-import { decodePhysicalObserver } from "./preparation.ts";
 
 /** Accepted view inputs for schema-1 serialization; restoring them pauses the source epoch. */
 export interface SavedView extends Presentation {

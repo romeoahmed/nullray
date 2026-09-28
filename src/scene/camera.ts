@@ -1,6 +1,6 @@
-import { record, vector3 } from "./decode.ts";
 import { cross, dot, normalize } from "../physics/vector.ts";
 import type { Vec3 } from "../physics/vector.ts";
+import { record, vector3 } from "./decode.ts";
 
 /** Camera axes in the observer's orthonormal (r, theta, phi) frame. */
 export interface Camera {

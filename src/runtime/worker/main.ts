@@ -1,13 +1,13 @@
+import { sampleCounts } from "../../gpu/imaging/sampling.ts";
 import { createRenderer } from "../../gpu/renderer.ts";
 import type { Renderer } from "../../gpu/renderer.ts";
-import type { RenderEvent, RenderRequest } from "../protocol.ts";
-import type { Scene } from "../../scene/scene.ts";
 import type { SourceAppearance } from "../../scene/appearance.ts";
-import { createScene } from "../../scene/scene.ts";
 import { createAppearance } from "../../scene/appearance.ts";
+import { presentationOf } from "../../scene/presentation.ts";
+import type { Scene } from "../../scene/scene.ts";
+import { createScene } from "../../scene/scene.ts";
 import { initialSession } from "../../scene/session.ts";
-
-import { sampleCounts } from "../../gpu/imaging/sampling.ts";
+import type { RenderEvent, RenderRequest } from "../protocol.ts";
 import { initialPixelBudget, resolutionScale, nextPixelBudget } from "./resolution.ts";
 
 /** Diagnostics retain categorical samples; ordinary paused images settle automatically. */
@@ -35,13 +35,7 @@ let intent: RenderIntent = {
   type: "update",
   scene: initialSession.view.scene,
   appearance: initialSession.view.appearance,
-  presentation: {
-    exposureEV: initialSession.view.exposureEV,
-    whiteBalance: initialSession.view.whiteBalance,
-    bloom: initialSession.view.bloom,
-    diagnostic: initialSession.view.diagnostic,
-    analyzer: initialSession.view.analyzer,
-  },
+  presentation: presentationOf(initialSession.view),
   motion: "paused",
   resolution: initialSession.resolution,
   hdr: false,
@@ -264,9 +258,9 @@ async function initialize() {
     liveMilliseconds = 0;
     completedRevision = -1;
     previousTick = undefined;
-    void value.lost.then(() => {
+    void value.failure.then((error) => {
       if (renderer === value) {
-        fail(new Error("The graphics device was lost. Retry to restore this view."));
+        fail(error);
       }
       return undefined;
     });

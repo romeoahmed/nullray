@@ -1,9 +1,9 @@
-import type { SourceAppearance } from "../scene/appearance.ts";
-import type { SceneInput } from "../scene/scene.ts";
-import type { Motion, Resolution } from "../scene/session.ts";
-import type { Presentation } from "../scene/presentation.ts";
 import type { Coverage } from "../gpu/imaging/coverage.ts";
 import type { RayPath } from "../physics/ray-path.ts";
+import type { SourceAppearance } from "../scene/appearance.ts";
+import type { Presentation } from "../scene/presentation.ts";
+import type { SceneInput } from "../scene/scene.ts";
+import type { Motion, Resolution } from "../scene/session.ts";
 
 /**
  * Internal messages to the dedicated render worker.

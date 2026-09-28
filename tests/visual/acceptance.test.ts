@@ -1,10 +1,12 @@
 import { expect, test } from "vitest";
 import { page, server } from "vitest/browser";
+
 import markup from "../../index.html?raw";
-import { mountApp } from "../../src/ui/app.ts";
-import { initialSession } from "../../src/scene/session.ts";
-import { element } from "../../src/ui/elements.ts";
 import { presets } from "../../src/scene/presets.ts";
+import { initialSession } from "../../src/scene/session.ts";
+import { mountApp } from "../../src/ui/app.ts";
+import { element } from "../../src/ui/elements.ts";
+
 import "../../src/ui/style.css";
 
 test.for(presets.filter((preset) => ["Classic disk", "Blue accretion flow"].includes(preset.name)))(

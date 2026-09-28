@@ -10,6 +10,7 @@ Use Node.js 26+ and pnpm with the existing lockfile. [package.json](package.json
 pnpm install --frozen-lockfile
 pnpm dev
 pnpm check
+pnpm check:css
 pnpm build
 pnpm test
 pnpm test:gpu

@@ -1,16 +1,17 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
-import markup from "../../index.html?raw";
-import { bindViews } from "../../src/ui/bookmarks.ts";
-import { decodeView } from "../../src/scene/view.ts";
-import { initialAppearance } from "../../src/scene/appearance.ts";
-import { initialScene } from "../../src/scene/scene.ts";
-import { bindAudio } from "../../src/ui/audio.ts";
-import { bindControls } from "../../src/ui/controls.ts";
-import { initialSession } from "../../src/scene/session.ts";
-import type { Action } from "../../src/scene/session.ts";
 
-test("one navigation choice dispatches once and disposed controls stop dispatching", async ({
+import markup from "../../index.html?raw";
+import { initialAppearance } from "../../src/scene/appearance.ts";
+import { createScene, initialScene } from "../../src/scene/scene.ts";
+import { initialSession } from "../../src/scene/session.ts";
+import type { Action, Session } from "../../src/scene/session.ts";
+import { decodeView } from "../../src/scene/view.ts";
+import { bindAudio } from "../../src/ui/audio.ts";
+import { bindViews } from "../../src/ui/bookmarks.ts";
+import { bindControls } from "../../src/ui/controls.ts";
+
+test("controls synchronize one snapshot, dispatch current intent once, and detach on disposal", async ({
   onTestFinished,
 }) => {
   const template = new DOMParser().parseFromString(markup, "text/html");
@@ -25,20 +26,48 @@ test("one navigation choice dispatches once and disposed controls stop dispatchi
     root.remove();
   });
   const actions: Action[] = [];
-  bindControls(
+  let state: Session = initialSession;
+  let reads = 0;
+  const sync = bindControls(
     root,
-    () => initialSession,
+    () => {
+      reads++;
+      return state;
+    },
     (action) => actions.push(action),
     subscription.signal,
-  )();
+  );
+  sync();
+  expect(reads).toBe(1);
+  state = { ...state, view: { ...state.view, exposureEV: 2, navigation: "free" } };
+  sync();
+  expect(reads).toBe(2);
+  expect(root.querySelector<HTMLInputElement>("#exposure")?.valueAsNumber).toBe(2);
+  expect(root.querySelector<HTMLSelectElement>("#navigation")?.value).toBe("free");
   root.querySelector<HTMLElement>("#controls")?.showPopover();
   await page.getByText("Observer Position · motion · camera", { exact: true }).click();
   const navigation = page.getByRole("combobox", { name: "Navigation", exact: true });
-  await navigation.selectOptions("free");
-  expect(actions).toEqual([{ type: "navigation", value: "free" }]);
-  subscription.abort();
   await navigation.selectOptions("orbit");
-  expect(actions).toHaveLength(1);
+  expect(actions).toEqual([{ type: "navigation", value: "orbit" }]);
+  const scene = createScene({
+    ...initialScene,
+    observer: { ...initialScene.observer, radius: 70 },
+  });
+  if (!scene.ok) {
+    throw new Error(scene.error);
+  }
+  state = { ...state, view: { ...state.view, scene: scene.value } };
+  await page
+    .getByRole("combobox", { name: "Placement chart", exact: true })
+    .selectOptions("outgoing");
+  expect(actions.at(-1)).toEqual({
+    type: "scene",
+    value: { ...state.view.scene, observer: { ...state.view.scene.observer, chart: "outgoing" } },
+  });
+  expect(reads).toBe(4);
+  subscription.abort();
+  await navigation.selectOptions("free");
+  expect(actions).toHaveLength(2);
 });
 
 const storageKey = "nullray.views.v1";
@@ -195,6 +224,25 @@ test("saved views persist across mounts, reject duplicates, restore snapshots, a
     .toBeDisabled();
   await page.getByRole("button", { name: "Undo deletion", exact: true }).click();
   expect(localStorage.getItem(storageKey)).toBe(persisted);
+  await name.fill("Temporary view");
+  await save.click();
+  const list = root.querySelector<HTMLSelectElement>("#saved-views");
+  expect(list?.value).toBe("Temporary view");
+  // Another tab deletes the selected entry; native selection must retain a usable view.
+  if (persisted === null) {
+    throw new Error("Missing saved library.");
+  }
+  localStorage.setItem(storageKey, persisted);
+  window.dispatchEvent(new StorageEvent("storage", { key: storageKey, storageArea: localStorage }));
+  expect(list?.value).toBe("Wide view");
+  await page.getByRole("button", { name: "Delete saved view", exact: true }).click();
+  await expect
+    .element(page.getByRole("button", { name: "Undo deletion", exact: true }))
+    .toBeVisible();
+  subscription.abort();
+  subscription = new AbortController();
+  bind();
+  expect(root.querySelector<HTMLButtonElement>("#undo-view")?.hidden).toBe(true);
   localStorage.setItem(storageKey, "malformed");
   await name.fill("Another view");
   await save.click();

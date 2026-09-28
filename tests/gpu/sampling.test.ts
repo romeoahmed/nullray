@@ -1,16 +1,79 @@
-import { test, readPixels } from "./compute.ts";
-import { describe, expect } from "vitest";
 import * as fc from "fast-check";
-import { createAccumulation } from "../../src/gpu/imaging/accumulation.ts";
+import { describe, expect } from "vitest";
+
+import { createAccumulationFactory } from "../../src/gpu/imaging/accumulation.ts";
 import { createCoverageReader } from "../../src/gpu/imaging/coverage.ts";
+import { test, readPixels } from "./compute.ts";
 
 describe("Photographic history", () => {
+  test("shared pipelines keep signed Stokes histories, resets, and disposal independent", async ({
+    device,
+  }) => {
+    using owned = new DisposableStack();
+    const createHistory = await createAccumulationFactory(device);
+    const histories = Array.from({ length: 3 }, () =>
+      owned.adopt(createHistory(), (value) => value.dispose()),
+    );
+    const inputs = [16, -4, 2].map((value) => {
+      const texture = owned.adopt(
+        device.createTexture({
+          size: [1, 1],
+          format: "rgba16float",
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        }),
+        (resource) => resource.destroy(),
+      );
+      device.queue.writeTexture(
+        { texture },
+        new Float16Array([value, value, value, 0.5]),
+        { bytesPerRow: 8 },
+        [1, 1],
+      );
+      return texture;
+    });
+    const encoder = device.createCommandEncoder();
+    const outputs = histories.map((history, index) => {
+      const input = inputs[index];
+      if (!input) {
+        throw new Error("Missing Stokes input.");
+      }
+      return history.encode(encoder, input, 0);
+    });
+    device.queue.submit([encoder.finish()]);
+    const pixels = await Promise.all(outputs.map((output) => readPixels(device, output)));
+    expect(pixels.map((pixel) => Array.from(pixel))).toEqual([
+      [16, 16, 16, 0.5],
+      [-4, -4, -4, 0.5],
+      [2, 2, 2, 0.5],
+    ]);
+    const [intensity, q, u] = histories;
+    const input = inputs[0];
+    if (!intensity || !q || !u || !input) {
+      throw new Error("Missing Stokes histories.");
+    }
+    q.dispose();
+    device.queue.writeTexture(
+      { texture: input },
+      new Float16Array([8, 8, 8, 1]),
+      { bytesPerRow: 8 },
+      [1, 1],
+    );
+    const reset = device.createCommandEncoder();
+    const output = intensity.encode(reset, input, 0);
+    device.queue.submit([reset.finish()]);
+    expect(Array.from(await readPixels(device, output))).toEqual([8, 8, 8, 1]);
+    expect((await intensity.coverage()).unresolvedSamples).toBe(0);
+    expect((await u.coverage()).unresolvedSamples).toBe(0.5);
+    expect(() => q.coverage()).toThrow("No photographic history");
+  });
+
   test("photographic history averages HDR radiance, preserves unresolved coverage, and resets", async ({
     device,
   }) => {
     using owned = new DisposableStack();
 
-    const accumulation = owned.adopt(await createAccumulation(device), (value) => value.dispose());
+    const createHistory = await createAccumulationFactory(device);
+    const accumulation = owned.adopt(createHistory(), (value) => value.dispose());
     const texture = (format: GPUTextureFormat) =>
       owned.adopt(
         device.createTexture({
@@ -106,7 +169,8 @@ test("generated HDR histories match direct sums without renormalizing missing sa
   device,
 }) => {
   using owned = new DisposableStack();
-  const history = owned.adopt(await createAccumulation(device), (value) => value.dispose());
+  const createHistory = await createAccumulationFactory(device);
+  const history = owned.adopt(createHistory(), (value) => value.dispose());
   const input = owned.adopt(
     device.createTexture({
       size: [1, 1],

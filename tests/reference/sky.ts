@@ -62,6 +62,12 @@ export function cubeDirection(face: number, u: number, v: number): Vec3 {
 const solidAnglePrimitive = (u: number, v: number) =>
   Math.atan2(u * v, Math.sqrt(1 + u * u + v * v));
 
+// Cube faces share the same projected texel areas; evaluate each grid once.
+const areas = (width: number) =>
+  Float64Array.from({ length: width * width }, (_, index) =>
+    cubeTexelSolidAngle(width, index % width, Math.floor(index / width)),
+  );
+
 /** Closed-form cube-texel solid angle from projected corners, evaluated in binary64. */
 export function cubeTexelSolidAngle(size: number, x: number, y: number): number {
   const left = (2 * x) / size - 1;
@@ -135,11 +141,6 @@ export function createSkyMap(size = 256): readonly SkyLevel[] {
     }
   }
   const levels: SkyLevel[] = [];
-  // Cube faces share the same projected texel areas; evaluate each grid once.
-  const areas = (width: number) =>
-    Float64Array.from({ length: width * width }, (_, index) =>
-      cubeTexelSolidAngle(width, index % width, Math.floor(index / width)),
-    );
   let texelAreas = areas(size);
   let width = size;
   while (true) {

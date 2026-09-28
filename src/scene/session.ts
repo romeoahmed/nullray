@@ -1,8 +1,8 @@
-import { mapResult } from "./decode.ts";
-import { analyzerValue, displayControls, displayValue } from "./presentation.ts";
-import type { Result } from "./decode.ts";
 import { createAppearance } from "./appearance.ts";
 import { initialCamera } from "./camera.ts";
+import { mapResult } from "./decode.ts";
+import type { Result } from "./decode.ts";
+import { analyzerValue, displayControls, displayValue } from "./presentation.ts";
 import { createScene, initialScene } from "./scene.ts";
 import type { SceneInput } from "./scene.ts";
 import type { SavedView } from "./view.ts";

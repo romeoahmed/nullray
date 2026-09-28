@@ -1,5 +1,6 @@
-import { requestDevice } from "../../src/gpu/device.ts";
 import { test as baseTest } from "vitest";
+
+import { requestDevice } from "../../src/gpu/device.ts";
 
 /** Check all queued error scopes and unexpected loss after a completed workload; call once, before disposal. */
 export function checkDevice(device: GPUDevice): () => Promise<void> {

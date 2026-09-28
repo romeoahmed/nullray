@@ -1,16 +1,17 @@
-import { test, readPixels } from "../tests/support/gpu.ts";
 import { server } from "vitest/browser";
+
 import { createOptics } from "../src/gpu/optics/engine.ts";
 import type { OpticalImage } from "../src/gpu/optics/engine.ts";
-import { createScene, initialScene } from "../src/scene/scene.ts";
-import type { SceneInput } from "../src/scene/scene.ts";
 import { initialAppearance } from "../src/scene/appearance.ts";
 import type { SourceAppearance } from "../src/scene/appearance.ts";
-import { presets } from "../src/scene/presets.ts";
-import { gpuContext } from "./context.ts";
-import { imageCoverage } from "./capture.ts";
 import { initialJet } from "../src/scene/jet.ts";
 import { initialPlasma } from "../src/scene/plasma.ts";
+import { presets } from "../src/scene/presets.ts";
+import { createScene, initialScene } from "../src/scene/scene.ts";
+import type { SceneInput } from "../src/scene/scene.ts";
+import { test, readPixels } from "../tests/support/gpu.ts";
+import { imageCoverage } from "./capture.ts";
+import { gpuContext } from "./context.ts";
 
 const blueFlow = presets.find((preset) => preset.name === "Blue accretion flow");
 if (!blueFlow) {

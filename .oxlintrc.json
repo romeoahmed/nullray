@@ -44,8 +44,15 @@
   },
   "overrides": [
     {
+      "files": ["*.config.mjs"],
+      "rules": {
+        "jsdoc/check-tag-names": ["error", { "typed": false }]
+      }
+    },
+    {
       "files": [
         "*.config.ts",
+        "*.config.mjs",
         "tests/cpu/**/*.ts",
         "tests/reference/**/*.ts",
         "benchmarks/cpu*.bench.ts"

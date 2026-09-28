@@ -1,6 +1,6 @@
-import source from "../wgsl/passes/polarimeter.wgsl?raw";
 import { compileShader } from "../device.ts";
 import type { OpticalImage } from "../optics/engine.ts";
+import source from "../wgsl/passes/polarimeter.wgsl?raw";
 
 /**
  * Create a detector pass that reuses physical Stokes images.

@@ -1,5 +1,6 @@
-import { createRenderClient } from "../../src/runtime/client.ts";
 import { expect, test } from "vitest";
+
+import { createRenderClient } from "../../src/runtime/client.ts";
 import type { RenderEvent, RenderRequest } from "../../src/runtime/protocol.ts";
 import { initialSession } from "../../src/scene/session.ts";
 

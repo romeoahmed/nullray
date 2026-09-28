@@ -33,7 +33,9 @@ Quantize geometry/source boundaries before preparation. Free fall integrates by 
 
 The [client](../../src/runtime/client.ts) assigns increasing revisions and coalesces updates on animation frames. Snapshots contain presentation/runtime state; omitted scene/appearance fields retain their previous values. The [worker](../../src/runtime/worker/main.ts) reconstructs changed inputs.
 
-Only one frame completion is outstanding. New intent may arrive meanwhile; renderer identity and revision checks reject stale frames, inspections and exports. Worker phases are idle, starting, ready, failed and disposed. Superseded initialization releases its context before retry; recoverable device failure reuses the canvas, while a crashed worker requires a fresh client/canvas.
+[Presentation projection](../../src/scene/presentation.ts) copies only detector/display fields from a structurally wider saved view. This keeps scene preparation and typed-array buffers out of the presentation payload. Control transforms receive the accepted session explicitly, and each control synchronization reads it once.
+
+Only one frame completion is outstanding. New intent may arrive meanwhile; renderer identity and revision checks reject stale frames, inspections and exports. Worker phases are idle, starting, ready, failed and disposed. Superseded initialization releases its context before retry; recoverable device failure reuses the canvas, while a crashed worker requires a fresh client/canvas. Uncaptured GPU errors and device loss enter the same failed state. The device subscription is disposed before intentional device destruction; caller-owned error scopes still require explicit checking.
 
 Client states are active, failed and disposed. A crash terminates ownership and pending intent. Failed/disposed clients ignore work and cannot retry. Scoped initialization releases a worker if canvas transfer or the initial message fails.
 
@@ -89,7 +91,7 @@ The path pass writes foreground I/Q/U, destination metadata, asymptotic directio
 | Bloom pyramid                                           | Size-dependent; filtered result reused while detector image is unchanged |
 | Inspection/export staging                               | Temporary buffers retained through readback, then released               |
 
-I/Q/U share sample/reset state. Detector edits rerun polarimetry; exposure, white balance and bloom reuse the physical image. HDR reconfigures presentation. Jet spectra are rebuilt only when density, field, mass, electron cutoff or observing frequency changes.
+I/Q/U share sample/reset state. One device-local [history factory](../../src/gpu/imaging/accumulation.ts) compiles accumulation and coverage pipelines once; the three histories own independent uniforms, textures and disposal. Detector edits rerun polarimetry; exposure, white balance and bloom reuse the physical image. HDR reconfigures presentation. Jet spectra are rebuilt only when density, field, mass, electron cutoff or observing frequency changes.
 
 ## Persistence, export and inspection
 

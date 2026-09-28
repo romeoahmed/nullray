@@ -20,6 +20,17 @@ export interface Presentation {
   readonly diagnostic: (typeof viewChoices.diagnostic)[number];
 }
 
+/** Copy only detector/display inputs; structurally wider views may contain prepared scene buffers. */
+export function presentationOf({
+  exposureEV,
+  whiteBalance,
+  bloom,
+  diagnostic,
+  analyzer,
+}: Presentation): Presentation {
+  return { exposureEV, whiteBalance, bloom, diagnostic, analyzer };
+}
+
 /** Closed display ranges; action names map directly to their persisted field. */
 export const displayControls = {
   exposure: { field: "exposureEV", minimum: -6, maximum: 6 },

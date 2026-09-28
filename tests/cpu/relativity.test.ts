@@ -1,5 +1,15 @@
-import { expect, test } from "vitest";
 import * as fc from "fast-check";
+import { expect, test } from "vitest";
+
+import { chartPrimitives, chartSign } from "../../src/physics/atlas.ts";
+import {
+  advanceGeodesic,
+  conditionOrbit,
+  createGeodesic,
+  orbitPoint,
+  orbitTangent,
+  regularOrbit,
+} from "../../src/physics/geodesic.ts";
 import {
   fromCartesian,
   combine,
@@ -12,6 +22,7 @@ import {
   toCartesian,
 } from "../../src/physics/geometry.ts";
 import type { FourVector, KerrChart } from "../../src/physics/geometry.ts";
+import { motionFromTangent, motionRadialPotential } from "../../src/physics/motion.ts";
 import {
   boostFrame,
   coordinateObserver,
@@ -20,19 +31,9 @@ import {
   principalFrame,
   staticObserver,
 } from "../../src/physics/observer.ts";
-import { motionFromTangent, motionRadialPotential } from "../../src/physics/motion.ts";
-import {
-  advanceGeodesic,
-  conditionOrbit,
-  createGeodesic,
-  orbitPoint,
-  orbitTangent,
-  regularOrbit,
-} from "../../src/physics/geodesic.ts";
-import { chartPrimitives, chartSign } from "../../src/physics/atlas.ts";
+import { plasmaCutoff } from "../../src/physics/plasma.ts";
 import { referenceGeodesic } from "../reference/hamiltonian.ts";
 import { polarizationScreen, walkerPenrose } from "../reference/polarization.ts";
-import { plasmaCutoff } from "../../src/physics/plasma.ts";
 
 test("vacuum and refracted sphere paths agree with independent metric Hamiltonian trajectories", () => {
   for (const { space, plasma } of [
