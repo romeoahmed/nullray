@@ -41,9 +41,6 @@ export async function createPolarimeter(device: GPUDevice) {
       analyzer: number | null,
       diagnostic: "image" | "polarization" | "angle",
     ): GPUTexture {
-      if (lifetime.disposed) {
-        throw new Error("The polarimeter is disposed.");
-      }
       if (analyzer === null && diagnostic === "image") {
         return image.radiance;
       }

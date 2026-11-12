@@ -1,6 +1,4 @@
-// The current @types/web and @types/webworker feature unions omit tier 2. This
-// assertion bridges only that declaration gap; the adapter is checked at runtime.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+// @types/web and @types/webworker do not declare tier 2 yet; the adapter is checked at runtime.
 const textureFormatsTier2 = "texture-formats-tier2" as GPUFeatureName;
 
 /** Native features shared by rendering and comparable GPU benchmarks. */

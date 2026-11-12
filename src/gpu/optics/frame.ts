@@ -1,4 +1,5 @@
 import type { SpacetimeBlock } from "../../physics/atlas.ts";
+import { chartSign } from "../../physics/geometry.ts";
 import { heatingProfile, plasmaProfile } from "../../physics/plasma.ts";
 import type { Scene } from "../../scene/scene.ts";
 import type { OpticalSettings } from "./engine.ts";
@@ -18,8 +19,6 @@ function blockWords(block: SpacetimeBlock): readonly [number, number, number, nu
       return [4, 0, 1, 0];
     case "disconnected":
       return [5, 0, 1, 0];
-    default:
-      throw new Error("Unknown spacetime block.");
   }
 }
 
@@ -43,10 +42,7 @@ export function writeOpticalFrame(
 ): void {
   const { geometry: g, frame, block } = scene.prepared;
   values.set([scene.space.spin, scene.space.charge, scene.disk.inner, scene.disk.outer]);
-  values.set(
-    [g.point.radius, g.point.inclination, g.point.azimuth, g.point.chart === "ingoing" ? 1 : -1],
-    4,
-  );
+  values.set([g.point.radius, g.point.inclination, g.point.azimuth, chartSign(g.point.chart)], 4);
   values.set([...frame.velocity, ...frame.radial, ...frame.polar, ...frame.azimuthal], 8);
   values.set([...scene.camera.right, 0, ...scene.camera.up, 0, ...scene.camera.forward, 0], 24);
   values.set(

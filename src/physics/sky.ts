@@ -13,6 +13,16 @@ export interface Star {
   readonly flux: number;
 }
 
+/** Unit direction and flux from J2000 coordinates in radians and apparent V magnitude. */
+function star(ra: number, dec: number, magnitude: number, temperature: number): Star {
+  const radial = Math.cos(dec);
+  return {
+    direction: [radial * Math.cos(ra), radial * Math.sin(ra), Math.sin(dec)],
+    temperature,
+    flux: 4e-5 * 10 ** (-0.4 * magnitude),
+  };
+}
+
 /**
  * Convert the bundled bright HYG catalogue into caller-owned source records.
  *
@@ -22,18 +32,16 @@ export interface Star {
  * zero point. Dataset attribution and selection are recorded in NOTICE.md.
  */
 export function createStars(): readonly Star[] {
-  return brightStars.map(([, ra, dec, magnitude, colorIndex]) => {
-    const radial = Math.cos(dec);
-    const temperature =
+  return brightStars.map(([, ra, dec, magnitude, colorIndex]) =>
+    star(
+      ra,
+      dec,
+      magnitude,
       colorIndex === null
         ? 6500
-        : 4600 * (1 / (0.92 * colorIndex + 1.7) + 1 / (0.92 * colorIndex + 0.62));
-    return {
-      direction: [radial * Math.cos(ra), radial * Math.sin(ra), Math.sin(dec)],
-      temperature,
-      flux: 4e-5 * 10 ** (-0.4 * magnitude),
-    };
-  });
+        : 4600 * (1 / (0.92 * colorIndex + 1.7) + 1 / (0.92 * colorIndex + 0.62)),
+    ),
+  );
 }
 
 /**
@@ -69,12 +77,7 @@ export function decodeFaintStars(data: ArrayBuffer): readonly Star[] {
     ) {
       throw new RangeError("Invalid faint-star catalogue record.");
     }
-    const radial = Math.cos(dec);
-    stars.push({
-      direction: [radial * Math.cos(ra), radial * Math.sin(ra), Math.sin(dec)],
-      temperature,
-      flux: 4e-5 * 10 ** (-0.4 * magnitude),
-    });
+    stars.push(star(ra, dec, magnitude, temperature));
   }
   return stars;
 }

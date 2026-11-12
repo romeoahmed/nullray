@@ -12,12 +12,8 @@ import type { Vec3 } from "./vector.ts";
  * This camera calibration does not change source temperature or physical redshift.
  *
  * @param temperature - Reference temperature in kelvin, from 2500 through 12000.
- * @throws RangeError - If the reference temperature is nonfinite or outside that range.
  */
 export function blackbodyWhiteBalance(temperature: number): Vec3 {
-  if (!Number.isFinite(temperature) || temperature < 2500 || temperature > 12000) {
-    throw new RangeError("White balance must lie between 2500 K and 12000 K.");
-  }
   const xyz = blackbodyXYZ(temperature);
   const [r, g, b] = xyzToLinearRGB(xyz);
   return [
@@ -36,14 +32,8 @@ export function blackbodyWhiteBalance(temperature: number): Vec3 {
  *
  * @param wavelength - Positive finite wavelength in metres.
  * @param temperature - Nonnegative finite temperature in kelvin; zero emits no radiation.
- * @throws RangeError - If the input-domain checks fail.
  */
 export function planck(wavelength: number, temperature: number): number {
-  if (!(wavelength > 0) || !(temperature >= 0) || !Number.isFinite(wavelength + temperature)) {
-    throw new RangeError(
-      "Planck radiation requires positive finite wavelength and nonnegative finite temperature.",
-    );
-  }
   if (temperature === 0) {
     return 0;
   }
@@ -56,7 +46,7 @@ export function planck(wavelength: number, temperature: number): number {
 /**
  * Integrate a blackbody against the 360–830 nm CIE samples by trapezoidal quadrature.
  *
- * @param temperature - Nonnegative temperature in kelvin, subject to {@link planck} validation.
+ * @param temperature - Nonnegative finite temperature in kelvin.
  * @returns Unnormalized XYZ radiance, including the nanometre-to-metre integration factor.
  */
 export function blackbodyXYZ(temperature: number): Vec3 {

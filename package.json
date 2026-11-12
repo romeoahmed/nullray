@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "check": "oxlint && tsc --project tsconfig.node.json && tsc --project src/runtime/worker/tsconfig.json && pnpm check:css",
+    "check": "oxlint && tsc -p tsconfig.node.json && tsc -p src/runtime/worker && pnpm check:css",
     "check:css": "stylelint 'src/**/*.css'",
     "test": "vitest run --project cpu",
     "test:gpu": "vitest run --project gpu",
@@ -20,22 +20,22 @@
     "bench:gpu": "vitest bench --run --project 'gpu*'"
   },
   "devDependencies": {
-    "@types/node": "^26.6.3",
-    "@types/web": "^0.0.357",
-    "@types/webworker": "^0.0.81",
-    "@vitest/browser-playwright": "^5.0.2",
+    "@types/node": "^26.6.6",
+    "@types/web": "^0.0.363",
+    "@types/webworker": "^0.0.85",
+    "@vitest/browser-playwright": "^5.1.0",
     "fast-check": "^4.10.2",
-    "oxfmt": "^0.70.0",
-    "oxlint": "^1.85.0",
-    "oxlint-tsgolint": "^7.0.2003",
-    "playwright": "^1.63.0",
-    "stylelint": "^17.15.0",
-    "stylelint-config-standard": "^40.0.0",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "oxlint-tsgolint": "^7.0.2006",
+    "playwright": "^1.65.0",
+    "stylelint": "^18.0.0",
+    "stylelint-config-standard": "^41.0.0",
     "typescript": "~7.0.2",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
   },
   "engines": {
-    "node": ">=24.21.0"
+    "node": ">=26.13.0"
   }
 }

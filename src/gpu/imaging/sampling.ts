@@ -14,12 +14,8 @@ export const sampleCounts = { live: 1, settle: 16, photograph: 64 } as const;
  *
  * @param index - Zero-based integer below the mode's sample count.
  * @returns Horizontal/vertical offsets in pixel units relative to the pixel center.
- * @throws RangeError - If the sample index is outside the sequence.
  */
 export function sampleOffset(mode: SamplingMode, index: number): readonly [number, number] {
-  if (!Number.isInteger(index) || index < 0 || index >= sampleCounts[mode]) {
-    throw new RangeError("The sample index must belong to the current image sequence.");
-  }
   if (mode === "live") {
     return [0, 0];
   }

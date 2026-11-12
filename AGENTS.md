@@ -26,12 +26,12 @@ For documentation-only edits, run `pnpm exec oxfmt --check README.md docs AGENTS
 ## Implementation
 
 - Keep validated inputs in `src/scene/`, pure calculations in `src/physics/`, GPU ownership in `src/gpu/`, worker scheduling in `src/runtime/`, and browser interaction in `src/ui/`.
-- Prefer readonly records, explicit inputs, discriminated unions and exhaustive handling. Validate external data as `unknown`; casts and brands do not validate it. Keep loops and local mutation in numerical hot paths; document writes to caller-owned storage.
+- Prefer readonly records, explicit inputs, discriminated unions and exhaustive handling. Validate external data as `unknown` once, in `src/scene/`; casts and brands do not validate it. Do not re-check typed values behind that boundary or add `default` branches to exhaustive switches. Keep loops and local mutation in numerical hot paths; document writes to caller-owned storage.
 - Use native ESM and type-only imports under the existing compiler/environment boundaries. Edit unshipped schema-1 formats directly and remove obsolete branches.
 - Route coupled physical changes and camera placement through scene validation. Navigation does not imply observer velocity; camera-only edits must reuse the free-fall endpoint.
 - Give resources explicit owners and cleanup. Reject stale asynchronous results; preserve revisions and bounded worker submissions. Canvas transfer is permanent, so remount with a fresh element.
 - Native pixels are the default. Honor fixed scales; only explicit Auto adapts playback. Raster policy must not change optical validity or tolerance.
-- Write English declaration contracts and local algorithm reasoning using the [comment conventions](docs/engineering/development.md#comments-and-declaration-documentation). Keep WGSL explicit; Oxfmt/Oxlint do not validate it.
+- Write English declaration contracts and local algorithm reasoning using the [comment conventions](docs/engineering/development.md#comments). Keep WGSL explicit; Oxfmt/Oxlint do not validate it.
 
 ## Numerical invariants
 

@@ -117,6 +117,8 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
     }
   });
   const percent = new Intl.NumberFormat("en", { style: "percent", maximumSignificantDigits: 2 });
+  const hdr = () =>
+    session.view.display === "hdr" || (session.view.display === "auto" && highRange.matches);
   const snapshot = (): SavedView => ({
     ...session.view,
     time: completed?.time ?? session.view.time,
@@ -136,16 +138,16 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
     photoPanel.hidden = session.motion !== "refining";
     const samples = frame?.samples ?? 0;
     const state = !initialized
-      ? "Acquiring light"
+      ? "Starting"
       : session.motion === "playing"
-        ? "Live · source evolving"
+        ? "Live"
         : session.motion === "refining"
           ? samples === 64
             ? "Photograph complete"
-            : "Exposing photograph"
+            : "Photographing"
           : frame && samples >= frame.targetSamples
             ? "Paused · image settled"
-            : "Paused · settling light";
+            : "Paused · settling";
     observation.textContent = state;
     progress.value = samples;
     photoLabel.textContent =
@@ -153,7 +155,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         ? "Updating photograph…"
         : samples === 64
           ? "Photograph ready"
-          : `Refining light · ${samples} / 64`;
+          : `Refining · ${samples} / 64`;
     save.disabled = samples !== 64 || !frame?.coverage || exporting;
     if (frame?.coverage) {
       const value = frame.coverage;
@@ -165,7 +167,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
       coverage.textContent =
         completed?.samples === 64
           ? "Applying changes to the photograph…"
-          : "Averaging 64 samples per pixel. Changing the scene restarts refinement.";
+          : "64 samples per pixel. Changing the scene restarts.";
     }
     if (initialized) {
       const summary = `Kerr–Newman · a ${view.scene.space.spin.toFixed(2)} · q ${view.scene.space.charge.toFixed(2)}`;
@@ -173,7 +175,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         status.textContent = summary;
       }
     }
-    syncReadouts(view, view.display === "hdr" || (view.display === "auto" && highRange.matches));
+    syncReadouts(view, hdr());
   }
 
   function receive(event: RenderEvent) {
@@ -187,7 +189,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
               `${point.block} ${point.universe}${point.side === 0 ? "" : `/${point.side}`}`,
           )
           .filter((domain, index, route) => domain !== route[index - 1]);
-        rayStatus.textContent = `${event.path.kind} · ${event.path.equatorialCrossings} equatorial crossings in the recorded path. ${domains.join(" → ")}. Green: accepted ray steps; radii outside the map are clipped. Horizon intersections are bracketed between samples.`;
+        rayStatus.textContent = `${event.path.kind} · ${event.path.equatorialCrossings} equatorial crossings · ${domains.join(" → ")}. Green: accepted steps, clipped to the map.`;
         break;
       }
       case "inspect-error":
@@ -198,7 +200,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         completed = undefined;
         syncStatus();
         retry.hidden = true;
-        status.textContent = "Preparing the light field…";
+        status.textContent = "Starting…";
         break;
       case "frame":
         completed = event;
@@ -213,7 +215,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         exporting = false;
         syncStatus();
         status.textContent = event.message;
-        observation.textContent = "Observation interrupted";
+        observation.textContent = "Stopped";
         retry.hidden = false;
         save.disabled = true;
         break;
@@ -227,7 +229,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         link.href = photoURL;
         link.download = "nullray.png";
         link.click();
-        exportStatus.textContent = "PNG download requested · SDR Display P3.";
+        exportStatus.textContent = "Saved as an SDR Display P3 PNG.";
         syncStatus();
         break;
       }
@@ -244,7 +246,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
   inspectRay.addEventListener(
     "click",
     () => {
-      rayStatus.textContent = "Tracing the central detector ray…";
+      rayStatus.textContent = "Tracing the center ray…";
       client.inspect();
     },
     { signal },
@@ -254,7 +256,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
     () => {
       pickingRay = true;
       canvas.style.cursor = "crosshair";
-      rayStatus.textContent = "Click the image to trace that detector direction.";
+      rayStatus.textContent = "Click the image to pick a ray.";
       settings.hidePopover();
     },
     { signal },
@@ -274,7 +276,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
         (event.clientX - bounds.left) / bounds.width,
         (event.clientY - bounds.top) / bounds.height,
       ]);
-      rayStatus.textContent = "Tracing the selected detector ray…";
+      rayStatus.textContent = "Tracing the picked ray…";
       settings.showPopover();
     },
     { signal, capture: true },
@@ -294,9 +296,7 @@ export function mountApp(root: HTMLElement, restored?: Session): () => Session {
     { signal },
   );
   const update = (time?: number) => {
-    const hdr =
-      session.view.display === "hdr" || (session.view.display === "auto" && highRange.matches);
-    revision = client.update(session, hdr, !document.hidden, width, height, time);
+    revision = client.update(session, hdr(), !document.hidden, width, height, time);
     exporting = false;
     exportStatus.textContent = "";
     syncStatus();

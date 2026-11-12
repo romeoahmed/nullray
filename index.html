@@ -6,7 +6,7 @@
     <meta name="theme-color" content="oklch(9% 0.01 270)" />
     <meta
       name="description"
-      content="Explore light, gravity, and a thermal disk around a Kerr–Newman black hole."
+      content="Trace light around a rotating, charged black hole in your browser."
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Nullray — Light in curved space</title>
@@ -39,17 +39,13 @@
         </div>
       </header>
       <aside class="observation" aria-label="Observation">
-        <p class="eyebrow">FIELD OBSERVATION <span aria-hidden="true">/ 01</span></p>
         <p id="observation-name">Thermal disk</p>
-        <p id="observation-state" class="hint">Acquiring light</p>
+        <p id="observation-state" class="hint">Starting</p>
       </aside>
 
       <section id="controls" class="panel settings" popover="auto" aria-label="Scene settings">
         <div class="panel-heading">
-          <div>
-            <p class="eyebrow">OBSERVATION CONTROLS</p>
-            <h2>Shape the observation</h2>
-          </div>
+          <h2>Settings</h2>
           <button
             type="button"
             class="icon-button"
@@ -86,7 +82,7 @@
             />
           </div>
           <p id="spacetime-hint" class="hint">
-            Horizon pair: a² + q² &lt; 1 · Extremal: = 1 · Naked: &gt; 1.
+            a² + q² &lt; 1: two horizons · = 1: extremal · &gt; 1: naked singularity.
           </p>
           <div class="control">
             <label for="exposure">Exposure</label
@@ -164,8 +160,8 @@
               ><input id="fov" type="range" min="5" max="120" step="0.5" />
             </div>
             <p id="distance-hint" class="hint">
-              Distances use rɢ = GM/c². Negative radius explores the extended geometry. Moving the
-              camera does not give the observer a physical velocity.
+              Radii are in rɢ = GM/c²; negative values enter the extended geometry. Moving the
+              camera never changes the observer's velocity.
             </p>
           </fieldset>
         </details>
@@ -211,8 +207,8 @@
               ><input id="sky-brightness" type="range" min="0" max="64" step="0.1" />
             </div>
             <p id="emission-hint" class="hint">
-              Temperature sets the thermal peak. Thickness and optical depth shape the glowing
-              atmosphere. Structure adds shearing clouds at their emission time.
+              Temperature sets the disk color. Thickness and optical depth shape its atmosphere;
+              structure adds sheared clouds.
             </p>
           </fieldset>
         </details>
@@ -249,8 +245,8 @@
                 ><input id="jet-density" type="range" min="4" max="12" step="0.1" />
               </div>
               <p class="hint">
-                Transparent synchrotron outflow in a tangled magnetic field. The prescribed source
-                uses 1,000 G and a mass of one million Suns.
+                Optically thin synchrotron emission from a tangled 1,000 G field around a
+                million-solar-mass hole.
               </p>
             </div>
           </fieldset>
@@ -279,8 +275,8 @@
               </select>
             </div>
             <p class="hint">
-              100% uses native display pixels. Auto adapts during playback and returns to native
-              detail when paused. Photographs always use native resolution.
+              100% is native pixels. Auto adapts only during playback. Photographs are always
+              native.
             </p>
             <div class="control">
               <label for="display-mode">Display</label
@@ -347,8 +343,8 @@
                 <input id="plasma-heating" type="range" min="0" max="9" step="0.1" />
               </div>
               <p class="hint">
-                A single radio band, displayed as brightness temperature. Heating changes the
-                density and bends the rays; white represents 6500 K before exposure.
+                One radio band shown as brightness temperature (white = 6500 K before exposure).
+                Heating lowers the density and bends the rays.
               </p>
             </div>
           </fieldset>
@@ -389,8 +385,8 @@
                 aria-label="Kerr–Newman radius and latitude map"
               ></svg>
               <figcaption>
-                Coordinate map · cyan: horizons · gold: stationary limits · red: singularity ·
-                white: observer. Shading marks the negative-radius sheet.
+                Cyan: horizons · gold: stationary limits · red: singularity · white: observer ·
+                shaded: negative radius.
               </figcaption>
             </figure>
             <p id="topology-status" class="hint"></p>
@@ -403,10 +399,7 @@
 
       <section id="views-panel" class="panel library" popover="auto" aria-label="Views">
         <div class="panel-heading">
-          <div>
-            <p class="eyebrow">CHOOSE A STARTING POINT</p>
-            <h2>Explore the extremes</h2>
-          </div>
+          <h2>Views</h2>
           <button
             type="button"
             class="icon-button"
@@ -417,7 +410,6 @@
             ×
           </button>
         </div>
-        <p class="hint">Six perspectives on light in curved space.</p>
         <div id="presets" class="preset-grid"></div>
         <details>
           <summary>Saved views <span>On this browser</span></summary>
@@ -427,7 +419,7 @@
               id="saved-name"
               type="text"
               maxlength="80"
-              placeholder="A place to return to"
+              placeholder="Name"
               autocomplete="off"
             />
             <button id="save-view" type="button">Save current view</button>
@@ -447,10 +439,7 @@
 
       <section id="about" class="panel about" popover="auto" aria-label="About the model">
         <div class="panel-heading">
-          <div>
-            <p class="eyebrow">THE MODEL</p>
-            <h2>Follow the light.</h2>
-          </div>
+          <h2>About</h2>
           <button
             type="button"
             class="icon-button"
@@ -462,23 +451,19 @@
           </button>
         </div>
         <p>
-          Follow light through Kerr–Newman spacetime: across a glowing disk, past relativistic jets,
-          and toward distant stars.
-        </p>
-        <p>
-          Gravity forms the shadow and repeated images. The material and its evolving structure are
-          prescribed sources; the spacetime does not react to them.
+          Nullray traces light backward through Kerr–Newman spacetime to a thermal disk,
+          relativistic jets and the stars. Gravity alone forms the shadow and the repeated images.
         </p>
         <p class="hint">
-          An optical prototype. Fine arcs and stellar images can remain undersampled. The diagnostic
-          views mark unfinished rays in pink.
+          An optical prototype: the matter is prescribed, not simulated, and fine arcs or stellar
+          images can be undersampled. Diagnostic views mark unfinished rays in pink.
         </p>
         <hr />
         <p class="section-label">At the canvas</p>
         <p>
           <kbd>Arrows</kbd> turn · <kbd>+</kbd> / <kbd>−</kbd> approach<br /><kbd>Space</kbd> pause
           · <kbd>R</kbd> reset · <kbd>H</kbd> image only<br />
-          Pause to let the image settle. Photograph captures a full-resolution still.
+          Pause to settle the image; Photograph renders a 64-sample still.
         </p>
       </section>
 
@@ -488,7 +473,7 @@
         </div>
         <section id="photo-status" class="photo-card" aria-label="Photograph" hidden>
           <div class="photo-heading">
-            <strong id="photo-label">Refining light</strong
+            <strong id="photo-label">Refining</strong
             ><button id="export-photo" type="button" disabled>Save photograph</button>
           </div>
           <progress
@@ -520,17 +505,14 @@
         <p id="navigation-hint" class="navigation-hint"></p>
       </div>
       <footer class="telemetry">
-        <p id="status" role="status">Preparing the light field…</p>
+        <p id="status" role="status">Starting…</p>
         <button id="retry" type="button" hidden>Retry renderer</button>
         <p id="render-detail"></p>
       </footer>
 
       <dialog id="view-dialog" aria-labelledby="view-title">
         <header class="panel-heading">
-          <div>
-            <p class="eyebrow">A MOMENT IN SPACETIME</p>
-            <h2 id="view-title">View link</h2>
-          </div>
+          <h2 id="view-title">View link</h2>
           <button
             type="button"
             class="icon-button"
@@ -541,7 +523,7 @@
             ×
           </button>
         </header>
-        <p>Open the same scene, camera, and frozen moment of light.</p>
+        <p>Opens this scene, camera and moment.</p>
         <label for="view-link">Link</label
         ><input id="view-link" type="text" readonly spellcheck="false" autofocus />
         <div class="dialog-actions">

@@ -37,12 +37,8 @@ export function fromComponents(value: Vec3, axes: readonly [Vec3, Vec3, Vec3]): 
  * @param motion - Finite right/up/forward weights; magnitude does not scale displacement.
  * @param distance - Signed placement distance in M.
  * @returns Updated inputs, or the original scene for a no-op.
- * @throws RangeError - If distance is nonfinite or a nonzero motion cannot be normalized.
  */
 export function translateCamera(scene: Scene, motion: Vec3, distance: number): SceneInput {
-  if (!Number.isFinite(distance)) {
-    throw new RangeError("Navigation distance must be finite.");
-  }
   if (distance === 0 || motion.every((value) => value === 0)) {
     return scene;
   }

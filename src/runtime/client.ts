@@ -1,4 +1,5 @@
 import { presentationOf } from "../scene/presentation.ts";
+import { sceneInput } from "../scene/scene.ts";
 import type { Session } from "../scene/session.ts";
 import type { RenderEvent, RenderRequest } from "./protocol.ts";
 
@@ -65,12 +66,11 @@ export function createRenderClient(
       return;
     }
     const { session, hdr, visible, width, height, time } = requested;
-    const { space, observer, camera, disk, jet, plasma } = session.view.scene;
     send({
       type: "update",
       revision,
       ...(previous?.view.scene !== session.view.scene
-        ? { scene: { space, observer, camera, disk, jet, plasma } }
+        ? { scene: sceneInput(session.view.scene) }
         : {}),
       ...(previous?.view.appearance !== session.view.appearance
         ? { appearance: session.view.appearance }

@@ -22,7 +22,6 @@ const samplingMode = (
       : "live";
 
 const port = self as DedicatedWorkerGlobalScope;
-const lifetime = new AbortController();
 let phase: "idle" | "starting" | "ready" | "failed" | "disposed" = "idle";
 let renderer: Renderer | undefined;
 let canvas: OffscreenCanvas | undefined;
@@ -44,8 +43,9 @@ let intent: RenderIntent = {
   height: 0,
   revision: 0,
 };
-let initialization: AbortController | undefined;
-let initializationTail = Promise.resolve();
+/** Failure, retry and disposal each start a new generation; older attempts discard their result. */
+let generation = 0;
+let initializing = Promise.resolve();
 
 /** Prepare source inputs on the worker and commit one complete rendering intent. */
 function prepareIntent(
@@ -86,8 +86,7 @@ function fail(error: unknown) {
     return;
   }
   phase = "failed";
-  initialization?.abort();
-  initialization = undefined;
+  generation++;
   const old = renderer;
   renderer = undefined;
   old?.dispose();
@@ -134,6 +133,9 @@ async function draw(now: number) {
   }
   pending = true;
   const submittedRevision = revision;
+  const sampling = samplingMode(motion, presentation.diagnostic);
+  const stale = () =>
+    renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready";
   if (motion === "playing" && previousTick !== undefined) {
     time += Math.min(0.25, (now - previousTick) / 1000) * 10;
   }
@@ -149,11 +151,7 @@ async function draw(now: number) {
     const started = performance.now();
     const count = submitted.render(scene, {
       appearance,
-      exposureEV: presentation.exposureEV,
-      whiteBalance: presentation.whiteBalance,
-      bloom: presentation.bloom,
-      view: presentation.diagnostic,
-      analyzer: presentation.analyzer,
+      presentation,
       resolutionScale: resolutionScale(
         resolution,
         motion === "playing",
@@ -163,10 +161,10 @@ async function draw(now: number) {
       ),
       hdr,
       time: submittedTime,
-      sampling: samplingMode(motion, presentation.diagnostic),
+      sampling,
     });
     await submitted.finished();
-    if (renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready") {
+    if (stale()) {
       return;
     }
     if (motion === "playing" && resolution === "auto") {
@@ -188,7 +186,7 @@ async function draw(now: number) {
     if (inspect) {
       try {
         const path = await submitted.inspect(inspect.point);
-        if (renderer === submitted && intent.revision === submittedRevision && phase === "ready") {
+        if (!stale()) {
           emit({ type: "ray-path", revision: submittedRevision, path });
         }
       } catch (error) {
@@ -196,12 +194,12 @@ async function draw(now: number) {
           emit({ type: "inspect-error", revision: submittedRevision, message: message(error) });
         }
       }
-      if (renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready") {
+      if (stale()) {
         return;
       }
     }
     const coverage = count === 64 ? await submitted.coverage() : undefined;
-    if (renderer !== submitted || intent.revision !== submittedRevision || phase !== "ready") {
+    if (stale()) {
       return;
     }
     samples = count;
@@ -211,7 +209,7 @@ async function draw(now: number) {
       revision: submittedRevision,
       time: submittedTime,
       samples: count,
-      targetSamples: sampleCounts[samplingMode(motion, presentation.diagnostic)],
+      targetSamples: sampleCounts[sampling],
       width: canvas?.width ?? 0,
       height: canvas?.height ?? 0,
       ...(coverage ? { coverage } : {}),
@@ -226,52 +224,48 @@ async function draw(now: number) {
   }
 }
 
-async function initialize() {
+function initialize() {
   if (!canvas || phase === "starting" || phase === "disposed") {
     return;
   }
   phase = "starting";
-  const attempt = new AbortController();
-  initialization = attempt;
-  const preceding = initializationTail;
-  const completion = Promise.withResolvers<void>();
-  initializationTail = completion.promise;
+  const surface = canvas;
+  const attempt = ++generation;
   emit({ type: "starting" });
-  try {
-    // A superseded initializer must release the shared canvas context before
-    // another initializer can acquire it and eventually configure a new device.
-    await preceding;
-    if (lifetime.signal.aborted || initialization !== attempt) {
+  // Attempts run one after another: a superseded attempt must release the canvas
+  // context before the next one configures a new device on it.
+  initializing = initializing.then(async () => {
+    if (attempt !== generation) {
       return;
     }
-    const value = await createRenderer(canvas, AbortSignal.any([lifetime.signal, attempt.signal]));
-    if (lifetime.signal.aborted || initialization !== attempt) {
-      value.dispose();
-      return;
-    }
-    initialization = undefined;
-    renderer = value;
-    phase = "ready";
-    samples = 0;
-    pixelBudget = initialPixelBudget;
-    liveFrames = 0;
-    liveMilliseconds = 0;
-    completedRevision = -1;
-    previousTick = undefined;
-    void value.failure.then((error) => {
-      if (renderer === value) {
+    try {
+      const value = await createRenderer(surface);
+      if (attempt !== generation) {
+        value.dispose();
+        return;
+      }
+      renderer = value;
+      phase = "ready";
+      samples = 0;
+      pixelBudget = initialPixelBudget;
+      liveFrames = 0;
+      liveMilliseconds = 0;
+      completedRevision = -1;
+      previousTick = undefined;
+      void value.failure.then((error) => {
+        if (renderer === value) {
+          fail(error);
+        }
+        return undefined;
+      });
+      schedule();
+    } catch (error) {
+      if (attempt === generation) {
         fail(error);
       }
-      return undefined;
-    });
-    schedule();
-  } catch (error) {
-    if (initialization === attempt) {
-      fail(error);
     }
-  } finally {
-    completion.resolve();
-  }
+    return undefined;
+  });
 }
 
 async function exportPhoto(requestedRevision: number) {
@@ -304,11 +298,8 @@ port.addEventListener("message", ({ data }: MessageEvent<RenderRequest>) => {
   try {
     switch (data.type) {
       case "initialize":
-        if (canvas) {
-          throw new Error("The render surface is already owned by this worker.");
-        }
         canvas = data.canvas;
-        void initialize();
+        initialize();
         break;
       case "update": {
         const next = prepareIntent(intent, data);
@@ -338,7 +329,7 @@ port.addEventListener("message", ({ data }: MessageEvent<RenderRequest>) => {
       }
       case "retry":
         if (phase === "failed") {
-          void initialize();
+          initialize();
         }
         break;
       case "export":
@@ -352,7 +343,7 @@ port.addEventListener("message", ({ data }: MessageEvent<RenderRequest>) => {
         break;
       case "dispose": {
         phase = "disposed";
-        lifetime.abort();
+        generation++;
         cancelAnimationFrame(scheduled);
         const old = renderer;
         renderer = undefined;

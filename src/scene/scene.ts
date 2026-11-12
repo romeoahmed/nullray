@@ -1,4 +1,4 @@
-import { horizons } from "../physics/geometry.ts";
+import { horizonRadii } from "../physics/geometry.ts";
 import type { KerrChart } from "../physics/geometry.ts";
 import type { Jet } from "../physics/jet.ts";
 import { heatingProfile, plasmaCutoff, plasmaProfile } from "../physics/plasma.ts";
@@ -52,6 +52,25 @@ export interface SceneInput {
   readonly plasma?: Plasma | null;
 }
 
+/**
+ * {@link SceneInput} whose nested records are still undecoded.
+ *
+ * @remarks
+ * Scalars must already be numbers. {@link createScene} decodes chart, motion,
+ * camera, jet and plasma itself, so typed inputs and parsed links share one path.
+ */
+export interface SceneSource {
+  readonly space: Spacetime;
+  readonly observer: Pick<ObserverInput, "radius" | "inclination" | "azimuth" | "fieldOfView"> & {
+    readonly chart?: unknown;
+    readonly motion?: unknown;
+  };
+  readonly camera?: unknown;
+  readonly disk?: Disk;
+  readonly jet?: unknown;
+  readonly plasma?: unknown;
+}
+
 const validated = Symbol("Scene");
 
 /**
@@ -73,6 +92,11 @@ export interface Scene extends SceneInput {
 
 export type SceneResult = Result<Scene>;
 
+/** Copy the physical inputs without prepared buffers, for messages and serialization. */
+export function sceneInput({ space, observer, camera, disk, jet, plasma }: Scene): SceneInput {
+  return { space, observer, camera, disk, jet, plasma };
+}
+
 /** Round a nonnegative radius outward to f32 so an inner edge does not round below its input. */
 function outwardFloat(value: number): number {
   const rounded = Math.fround(value);
@@ -92,14 +116,16 @@ function outwardFloat(value: number): number {
  * Supports naked/interior placement within the implemented optical domain.
  * Acceptance does not certify complete ray coverage for every detector pixel.
  *
- * @param input - Structurally typed inputs; unknown persisted data must be decoded first.
+ * @param input - Typed inputs, or parsed data whose scalars are known to be numbers.
  * @param previous - Optional accepted scene for reusing unchanged observer/profile work.
  * @returns A complete scene or a domain error; neither input nor previous buffers are mutated.
  */
-export function createScene(input: SceneInput, previous?: Scene): SceneResult {
+export function createScene(input: SceneSource, previous?: Scene): SceneResult {
   const space = { spin: Math.fround(input.space.spin), charge: Math.fround(input.space.charge) };
-  const motion = decodePhysicalObserver(input.observer.motion ?? { kind: "zamo" });
-  const chart = input.observer.chart ?? "ingoing";
+  // Defaults replace only omitted fields; an explicit null stays invalid.
+  const { chart = "ingoing", motion: motionInput = { kind: "zamo" } } = input.observer;
+  const { camera: cameraInput = initialCamera } = input;
+  const motion = decodePhysicalObserver(motionInput);
   if (!motion || (chart !== "ingoing" && chart !== "outgoing")) {
     return { ok: false, error: "Invalid physical observer model or coordinate chart." };
   }
@@ -148,19 +174,10 @@ export function createScene(input: SceneInput, previous?: Scene): SceneResult {
       };
     }
   }
-  if (jet) {
-    const structure = horizons(space);
-    const outer =
-      structure.kind === "pair" || structure.kind === "single"
-        ? structure.outer
-        : structure.kind === "extremal"
-          ? structure.radius
-          : 0;
-    if (jet.inner <= outer) {
-      return { ok: false, error: "The jet launch surface must lie outside the outer horizon." };
-    }
+  if (jet && jet.inner <= (horizonRadii(space).at(-1) ?? 0)) {
+    return { ok: false, error: "The jet launch surface must lie outside the outer horizon." };
   }
-  const camera = createCamera(input.camera ?? initialCamera);
+  const camera = createCamera(cameraInput);
   if (!camera) {
     return { ok: false, error: "Camera axes must be finite, nonzero, and independent." };
   }

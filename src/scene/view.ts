@@ -1,10 +1,6 @@
 import { createAppearance, initialAppearance } from "./appearance.ts";
 import type { SourceAppearance } from "./appearance.ts";
-import { createCamera } from "./camera.ts";
 import { finite, oneOf, record } from "./decode.ts";
-import { decodeJet } from "./jet.ts";
-import { decodePlasma } from "./plasma.ts";
-import { decodePhysicalObserver } from "./preparation.ts";
 import { analyzerValue, displayValue, viewChoices } from "./presentation.ts";
 import type { Presentation } from "./presentation.ts";
 import { createScene, initialScene } from "./scene.ts";
@@ -104,27 +100,21 @@ export function decodeView(fragment: string): ViewResult {
     return invalid;
   }
   const { spin, charge } = data.space;
-  const { radius, inclination, azimuth, fieldOfView, chart } = data.observer;
-  const motion = decodePhysicalObserver(data.observer.motion);
+  const { radius, inclination, azimuth, fieldOfView, chart, motion } = data.observer;
   const { inner, outer } = data.disk;
-  const jet = decodeJet(data.jet);
-  const plasma = decodePlasma(data.plasma);
+  const { camera, jet, plasma } = data;
   const { exposureEV, whiteBalance, display, time, diagnostic, bloom, navigation, analyzer } = data;
-  const camera = createCamera(data.camera);
   if (
-    jet === undefined ||
-    plasma === undefined ||
+    // Schema 1 stores every field; scene construction would otherwise default a missing one.
+    [chart, motion, camera, jet, plasma].includes(undefined) ||
     !finite(spin) ||
     !finite(charge) ||
     !finite(radius) ||
     !finite(inclination) ||
     !finite(azimuth) ||
     !finite(fieldOfView) ||
-    !motion ||
-    (chart !== "ingoing" && chart !== "outgoing") ||
     !finite(inner) ||
     !finite(outer) ||
-    !camera ||
     !oneOf(navigation, viewChoices.navigation) ||
     !displayValue("bloom", bloom) ||
     !analyzerValue(analyzer) ||

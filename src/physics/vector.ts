@@ -16,15 +16,8 @@ export function linear(a: Vec3, x: number, b: Vec3, y: number): Vec3 {
   return [x * a[0] + y * b[0], x * a[1] + y * b[1], x * a[2] + y * b[2]];
 }
 
-/**
- * Return a fresh Euclidean unit vector in the input frame.
- *
- * @throws RangeError - If the Euclidean length is zero or nonfinite.
- */
+/** Return a fresh Euclidean unit vector; the caller supplies a finite, nonzero input. */
 export function normalize(v: Vec3): Vec3 {
   const length = Math.hypot(...v);
-  if (!(length > 0) || !Number.isFinite(length)) {
-    throw new RangeError("A direction must have finite, nonzero length.");
-  }
   return [v[0] / length, v[1] / length, v[2] / length];
 }

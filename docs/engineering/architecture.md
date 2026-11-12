@@ -25,7 +25,7 @@ Domain code has no GPU handles, DOM, persistence, clocks or random state. Readon
 
 [createScene](../../src/scene/scene.ts) validates coupled physical inputs atomically. [prepareScene](../../src/scene/preparation.ts) builds the observer endpoint, tetrad, block, chart-time offset and disk profile. Failure rejects the action and restores accepted UI values.
 
-Quantize geometry/source boundaries before preparation. Free fall integrates by proper time. Camera/source edits reuse the endpoint; unchanged spacetime/radii reuse the disk profile. There is no global physical cache.
+Quantize geometry/source boundaries before preparation. Free fall integrates by proper time. Camera/source edits reuse the endpoint; unchanged spacetime/radii reuse the disk profile. There is no global physical cache; the only module-level memo is the parameter-free synchrotron kernel table.
 
 [Session](../../src/scene/session.ts) separates saved views from playback/resolution. [Schema-1 views](../../src/scene/view.ts) retain physical, camera, source, detector/display and epoch inputs; derived state, GPU history and playback/resolution choices are excluded. Restore pauses at the saved epoch. Shared [presentation choices](../../src/scene/presentation.ts) keep decoding, controls and actions consistent.
 

@@ -23,18 +23,19 @@ _Blue accretion flow — 2560 × 1440, 64 samples per pixel. Both photographs us
 
 </details>
 
-## Explore
+## What it does
 
-- **Light and matter.** Gravitational lensing, Doppler and gravitational frequency shifts, thermal disks, prescribed synchrotron jets, and a catalogue-based sky.
-- **Different observers.** Change spin, charge and physical motion; compare static, freely falling and custom-velocity views. Camera navigation is independent of observer velocity.
-- **Beyond the exterior.** Inspect ray paths and explore interior blocks, negative-radius domains and naked singularities. Try vacuum linear polarization or the monochromatic plasma-refraction preview.
-- **Photographs and saved views.** Pause, refine, export a PNG, or share the scene as a link. Rendering runs on a dedicated worker.
+- **Lensing and frequency shifts.** Light is traced backward through Kerr–Newman spacetime to a thermal disk, synchrotron jets and a catalogue sky, with Doppler and gravitational shifts applied once.
+- **Physical observers.** Choose static, zero-angular-momentum, freely falling or custom-velocity observers. Moving the camera never changes the observer's velocity.
+- **The extended geometry.** Place the observer between horizons, at negative radius or beside a naked singularity, and inspect where any ray ends.
+- **Polarization and plasma.** View vacuum linear polarization, or a single-frequency preview of refraction in cold plasma.
+- **Photographs and links.** Pause to settle the image, export a 64-sample PNG, or share the scene as a link.
 
-Nullray is an optical prototype. Matter is prescribed rather than fluid-simulated; complete maximal-extension coverage and critical-image accuracy remain open. The [coverage ledger](docs/validation/coverage.md) records implemented behavior and validation gaps.
+Nullray is an optical prototype. Matter is prescribed, not fluid-simulated, and the spacetime does not react to it. Complete maximal-extension coverage and critical-image accuracy remain open; the [coverage ledger](docs/validation/coverage.md) lists what is implemented and what is not verified.
 
 ## Get started
 
-Use **Node.js 26+**, **pnpm**, and a recent browser with a compatible WebGPU adapter. The renderer requires subgroups, texture formats tier 2 and WGSL read/write storage textures; see the [full browser requirements](docs/engineering/development.md#native-browser-baseline).
+You need **Node.js 26+**, **pnpm** and a recent browser with WebGPU. The renderer requires subgroups, texture formats tier 2 and WGSL read-write storage textures; see the [browser baseline](docs/engineering/development.md#native-browser-baseline).
 
 ```sh
 git clone https://github.com/romeoahmed/nullray.git
@@ -43,33 +44,33 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open the local URL printed by Vite. Choose a preset under **Views**, drag to orbit, and scroll to zoom. With the canvas focused, **Space** pauses and **H** hides the controls. Pause settles to 16 samples; **Photograph → Save photograph** exports a 64-sample still.
+Open the URL Vite prints, then pick a preset under **Views**.
 
-Native device pixels are the default. Lower scales and **Auto** are available for playback; photographs always use native resolution.
+| Input                | Action                                 |
+| -------------------- | -------------------------------------- |
+| Drag / arrow keys    | Orbit, or turn the camera in free mode |
+| Scroll, pinch, + / − | Approach or retreat                    |
+| W A S D, Q / E       | Move in free mode                      |
+| Space                | Play or pause                          |
+| H                    | Hide or show the controls              |
+| R                    | Reset the view                         |
+
+Playback uses native device pixels; lower scales and **Auto** are optional. Pausing settles to 16 samples per pixel, and **Photograph** always renders 64 samples at native resolution.
 
 ## Development
 
 ```sh
 pnpm build       # Static checks and production bundle
 pnpm test        # CPU tests and physical references
-pnpm test:gpu    # Browser GPU checks
-pnpm test:ui     # Browser interaction and worker lifetime
+pnpm test:gpu    # GPU checks in Chromium
+pnpm test:ui     # Interaction and worker lifetime
 ```
 
-See [development](docs/engineering/development.md) for browser installation and all commands, [architecture](docs/engineering/architecture.md) for code ownership, and [validation](docs/validation/methods.md) for numerical checks and benchmarks. Bug reports are most useful with a shared view, browser/GPU details and reproduction steps.
+| Read                                             | For                                      |
+| ------------------------------------------------ | ---------------------------------------- |
+| [Development](docs/engineering/development.md)   | All commands, configuration, conventions |
+| [Architecture](docs/engineering/architecture.md) | Code ownership and runtime contracts     |
+| [Physics](docs/physics/spacetime.md)             | Conventions and equations                |
+| [Validation](docs/validation/methods.md)         | How results are checked                  |
 
-## Credits
-
-Created by [Romeo Ahmed](https://github.com/romeoahmed). Nullray builds on published relativity and radiative-transfer work cited alongside the [physical models](docs/README.md).
-
-| Contribution                     | Source                                                                                                                           |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Star catalogue                   | David Nash / Astronexus — [HYG Database 4.4](https://codeberg.org/astronexus/hyg)                                                |
-| Colour-matching data             | International Commission on Illumination — [CIE 1931 observer](https://doi.org/10.25039/CIE.DS.xvudnb9b)                         |
-| Tone-mapping foundation          | The Khronos Group — [PBR Neutral](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral), adapted highlight shoulder |
-| Scattering-atmosphere values     | N. A. Silant’ev, G. A. Alekseeva and Yu. K. Ananjevskaja — [Milne atmosphere table](https://doi.org/10.1093/mnras/stz123)        |
-| Visual and rendering inspiration | baopinshui — [NPGS](https://github.com/baopinshui/NPGS); no code or assets adapted                                               |
-
-## License
-
-Original code and documentation are licensed under [MIT](LICENSE). Third-party data and adapted components retain their own licenses; [NOTICE.md](NOTICE.md) records attribution, modifications and data provenance, with bundled license text in [licenses/](licenses/). The example photographs are shared under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), with attribution in [NOTICE.md](NOTICE.md#example-photographs).
+A useful bug report includes a shared view link, the browser and GPU, and the steps to reproduce.

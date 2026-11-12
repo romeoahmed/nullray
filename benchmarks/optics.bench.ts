@@ -7,7 +7,7 @@ import type { SourceAppearance } from "../src/scene/appearance.ts";
 import { initialJet } from "../src/scene/jet.ts";
 import { initialPlasma } from "../src/scene/plasma.ts";
 import { presets } from "../src/scene/presets.ts";
-import { createScene, initialScene } from "../src/scene/scene.ts";
+import { createScene, initialScene, sceneInput } from "../src/scene/scene.ts";
 import type { SceneInput } from "../src/scene/scene.ts";
 import { test, readPixels } from "../tests/support/gpu.ts";
 import { imageCoverage } from "./capture.ts";
@@ -80,14 +80,7 @@ test.for(workloads)(
         height,
         samplesPerPixel: 1,
         appearance,
-        scene: {
-          space: scene.value.space,
-          observer: scene.value.observer,
-          camera: scene.value.camera,
-          disk: scene.value.disk,
-          jet: scene.value.jet,
-          plasma: scene.value.plasma,
-        },
+        scene: sceneInput(scene.value),
         coverage: imageCoverage(pixels),
         scope:
           "One native optical sample on reused resources; initialization, readback, bloom and presentation are outside timing. Results are comparative measurements, not performance gates.",

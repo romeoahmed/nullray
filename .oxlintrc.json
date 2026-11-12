@@ -1,79 +1,26 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "jsdoc", "vitest"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
   "categories": {
     "correctness": "error",
-    "suspicious": "warn",
-    "perf": "warn"
-  },
-  "env": {
-    "browser": true
+    "suspicious": "error",
+    "perf": "error"
   },
   "rules": {
     "curly": "error",
     "eqeqeq": "error",
-    "import/no-unassigned-import": [
-      "error",
-      {
-        "allow": ["**/*.css"]
-      }
-    ],
-    "jsdoc/check-tag-names": [
-      "error",
-      {
-        "typed": true,
-        "definedTags": ["remarks"]
-      }
-    ],
-    "jsdoc/no-blank-blocks": "error",
-    "jsdoc/require-param-description": "error",
-    "jsdoc/require-returns-description": "error",
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
     "typescript/consistent-type-imports": "error",
     "typescript/no-explicit-any": "error",
-    "typescript/no-misused-promises": "error",
-    "typescript/no-unsafe-argument": "error",
-    "typescript/no-unsafe-assignment": "error",
-    "typescript/no-unsafe-call": "error",
-    "typescript/no-unsafe-member-access": "error",
-    "typescript/no-unsafe-return": "error",
-    "typescript/switch-exhaustiveness-check": "error",
-    "vitest/expect-expect": "off",
-    "vitest/no-conditional-expect": "off",
-    "vitest/no-standalone-expect": "off",
-    "vitest/require-to-throw-message": "off"
+    "typescript/consistent-return": "off",
+    "typescript/switch-exhaustiveness-check": [
+      "error",
+      { "considerDefaultExhaustiveForUnions": true }
+    ]
   },
-  "overrides": [
-    {
-      "files": ["*.config.mjs"],
-      "rules": {
-        "jsdoc/check-tag-names": ["error", { "typed": false }]
-      }
-    },
-    {
-      "files": [
-        "*.config.ts",
-        "*.config.mjs",
-        "tests/cpu/**/*.ts",
-        "tests/reference/**/*.ts",
-        "benchmarks/cpu*.bench.ts"
-      ],
-      "env": {
-        "node": true,
-        "browser": false
-      }
-    },
-    {
-      "files": ["src/runtime/worker/**/*.ts"],
-      "env": {
-        "browser": false,
-        "worker": true
-      }
-    }
-  ],
   "options": {
     "typeAware": true,
     "typeCheck": true,
-    "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   }
 }

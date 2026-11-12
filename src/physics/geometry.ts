@@ -13,6 +13,17 @@ export type FourVector = readonly [number, number, number, number];
 /** Ingoing and outgoing charts cover different horizon components of the extension. */
 export type KerrChart = "ingoing" | "outgoing";
 
+/** Coordinate sign: +1 ingoing, −1 outgoing. It is independent of a block's time orientation. */
+export const chartSign = (chart: KerrChart): 1 | -1 => (chart === "ingoing" ? 1 : -1);
+
+/** Sine and cosine of a polar angle, exact on both axes and on the equator. */
+export function polarTrig(theta: number): readonly [sine: number, cosine: number] {
+  return [
+    theta === 0 || theta === Math.PI ? 0 : Math.sin(theta),
+    theta === Math.PI / 2 ? 0 : Math.cos(theta),
+  ];
+}
+
 /**
  * Oblate coordinates at one event in the selected regular chart.
  *
@@ -39,13 +50,10 @@ export type Horizons =
  * Classify the roots of Δ without clamping a horizonless geometry.
  *
  * @returns Regular horizon radii in M, distinguishing the singular Schwarzschild zero root.
- * @throws RangeError - If the squared spin/charge magnitude is nonfinite.
+ * Requires finite parameters, which scene construction guarantees.
  */
 export function horizons({ spin: a, charge: q }: Spacetime): Horizons {
   const squared = a * a + q * q;
-  if (!Number.isFinite(squared)) {
-    throw new RangeError("Spacetime parameters must have finite squared magnitude.");
-  }
   if (squared > 1) {
     return { kind: "none" };
   }
@@ -57,6 +65,21 @@ export function horizons({ spin: a, charge: q }: Spacetime): Horizons {
   }
   const outer = 1 + Math.sqrt(1 - squared);
   return { kind: "pair", outer, inner: squared / outer };
+}
+
+/** Regular horizon radii in M, ordered outward; empty for a horizonless geometry. */
+export function horizonRadii(space: Spacetime): readonly number[] {
+  const structure = horizons(space);
+  switch (structure.kind) {
+    case "none":
+      return [];
+    case "single":
+      return [structure.outer];
+    case "extremal":
+      return [structure.radius];
+    case "pair":
+      return [structure.inner, structure.outer];
+  }
 }
 
 /**
@@ -105,19 +128,13 @@ export interface KerrGeometry {
 export function kerrGeometry(space: Spacetime, point: KerrPoint): KerrGeometry | undefined {
   const { spin: a, charge: q } = space;
   const { radius: r, inclination: theta, azimuth: phi } = point;
-  if (
-    ![a, q, r, theta, phi].every(Number.isFinite) ||
-    theta < 0 ||
-    theta > Math.PI ||
-    (point.chart !== "ingoing" && point.chart !== "outgoing")
-  ) {
+  if (![a, q, r, theta, phi].every(Number.isFinite) || theta < 0 || theta > Math.PI) {
     return undefined;
   }
-  const sine = theta === 0 || theta === Math.PI ? 0 : Math.sin(theta);
-  const cosine = theta === Math.PI / 2 ? 0 : Math.cos(theta);
+  const [sine, cosine] = polarTrig(theta);
   const cp = Math.cos(phi);
   const sp = Math.sin(phi);
-  const sign = point.chart === "ingoing" ? 1 : -1;
+  const sign = chartSign(point.chart);
   const sigma = r * r + (a * cosine) ** 2;
   const delta = r * r - 2 * r + a * a + q * q;
   if (!(sigma > 0) || !Number.isFinite(sigma + delta)) {
@@ -203,9 +220,8 @@ export function toCartesian(
   tangent: FourVector,
 ): FourVector {
   const { radius: r, inclination: theta } = geometry.point;
-  const sign = geometry.point.chart === "ingoing" ? 1 : -1;
-  const sine = theta === 0 || theta === Math.PI ? 0 : Math.sin(theta);
-  const cosine = theta === Math.PI / 2 ? 0 : Math.cos(theta);
+  const sign = chartSign(geometry.point.chart);
+  const [sine, cosine] = polarTrig(theta);
   const radial = tangent[1] - sign * space.spin * sine * sine * tangent[3];
   const polar = r * tangent[2] - sign * space.spin * sine * cosine * tangent[3];
   const azimuthal = sign * space.spin * cosine * tangent[2] + r * sine * tangent[3];
@@ -235,9 +251,8 @@ export function fromCartesian(
   if (theta === 0 || theta === Math.PI) {
     return undefined;
   }
-  const sign = geometry.point.chart === "ingoing" ? 1 : -1;
-  const sine = Math.sin(theta);
-  const cosine = theta === Math.PI / 2 ? 0 : Math.cos(theta);
+  const sign = chartSign(geometry.point.chart);
+  const [sine, cosine] = polarTrig(theta);
   const radial = sign * (contract(geometry.principal, tangent) - tangent[0]);
   const polar = contract(geometry.polar, tangent);
   const azimuthal = contract(geometry.azimuthal, tangent);

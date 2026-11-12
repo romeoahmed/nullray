@@ -23,12 +23,8 @@ export interface DiskProfile {
  *
  * @param inner - Positive finite inner radius in M.
  * @param outer - Finite outer radius in M, strictly larger than `inner`.
- * @throws RangeError - If the radial interval is invalid.
  */
 export function diskColumnNormalization(inner: number, outer: number): number {
-  if (!(inner > 0 && outer > inner) || !Number.isFinite(outer)) {
-    throw new RangeError("A disk column requires ordered positive finite radii.");
-  }
   const ratio = (outer - inner) / inner;
   // x(1-x)^2 / (1 + ratio*x)^2 has a single interior maximum.
   const x = 2 / (3 + ratio + Math.hypot(3 + ratio, 2 * Math.sqrt(ratio)));
@@ -74,7 +70,7 @@ function orbitGradient(space: Spacetime, r: number) {
  * @param outer - Finite outer source edge in M, strictly beyond the inner edge.
  * @param size - Integer sample count of at least two, including both edges.
  * @returns Fresh caller-owned flux and peak-normalized temperature arrays.
- * @throws RangeError - If the interval, sampling, emitter evaluation, or flux normalization fails.
+ * @throws RangeError - If emitter evaluation or flux normalization fails inside the annulus.
  */
 export function createDiskProfile(
   space: Spacetime,
@@ -82,14 +78,6 @@ export function createDiskProfile(
   outer: number,
   size = 512,
 ): DiskProfile {
-  if (
-    !(inner > 0 && outer > inner) ||
-    !Number.isFinite(outer) ||
-    !Number.isSafeInteger(size) ||
-    size < 2
-  ) {
-    throw new RangeError("A disk profile requires ordered finite radii and at least two samples.");
-  }
   const flux = new Float64Array(size);
   const temperature = new Float32Array(size);
   const logRange = Math.log(outer / inner);

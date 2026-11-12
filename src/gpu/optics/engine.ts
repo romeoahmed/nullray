@@ -48,7 +48,7 @@ export interface Optics {
    *
    * @remarks
    * Uses the last encoded frame. Keep frame uniforms and targets unchanged until
-   * the promise settles; rejects if no live frame exists or the point is invalid.
+   * the promise settles; rejects if no frame has been encoded.
    */
   inspect(point?: readonly [number, number]): Promise<RayPath>;
   /**
@@ -131,9 +131,8 @@ export async function createOptics(device: GPUDevice): Promise<Optics> {
   const table = createBlackbodyTable();
   const blackbody = buffer(table.data.byteLength, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
   device.queue.writeBuffer(blackbody, 0, table.data);
-  const catalogue = celestial;
-  const stars = buffer(catalogue.byteLength, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
-  device.queue.writeBuffer(stars, 0, catalogue);
+  const stars = buffer(celestial.byteLength, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+  device.queue.writeBuffer(stars, 0, celestial);
   const disk = buffer(512 * 4, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
   const jetTable = buffer(256 * 16, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
   const field = owned.adopt(await createStructureField(device), (value) => value.dispose());
@@ -174,11 +173,8 @@ export async function createOptics(device: GPUDevice): Promise<Optics> {
   const lifetime = owned.move();
   return {
     async inspect(point = [0.5, 0.5]) {
-      if (lifetime.disposed || !target) {
+      if (!target) {
         throw new Error("Render a frame before inspecting a ray.");
-      }
-      if (!point.every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) {
-        throw new RangeError("The detector point must lie inside the image.");
       }
       values[50] = ((point[0] - 0.5) * target.image.radiance.width) / target.image.radiance.height;
       values[51] = point[1] - 0.5;
@@ -244,9 +240,6 @@ export async function createOptics(device: GPUDevice): Promise<Optics> {
       return { kind, points, equatorialCrossings: integers[3] ?? 0 };
     },
     encode(encoder, scene, width, height, { appearance, time, view, jitter }) {
-      if (lifetime.disposed) {
-        throw new Error("The optical renderer is disposed.");
-      }
       if (
         !target ||
         target.image.radiance.width !== width ||

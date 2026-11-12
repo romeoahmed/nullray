@@ -10,7 +10,7 @@ import { blackbodyXYZ, xyzToLinearRGB } from "./radiation.ts";
  * limit below the grid and a saturated cumulative integral above it.
  * The returned closure owns the table and expects positive x.
  */
-function synchrotronCumulative(): (x: number) => number {
+function createSynchrotronCumulative(): (x: number) => number {
   const lower = -20,
     upper = Math.log(100),
     count = 512;
@@ -58,6 +58,9 @@ function synchrotronCumulative(): (x: number) => number {
   };
 }
 
+/** The kernel depends on no source parameter, so one table serves every jet spectrum. */
+let synchrotronCumulative: ((x: number) => number) | undefined;
+
 /**
  * Tabulate finite-cutoff synchrotron emission for isotropic p = 3 electrons.
  *
@@ -76,7 +79,7 @@ export function createJetTable(
   jet: Jet,
   frequencyGHz?: number,
 ): { readonly data: Float32Array<ArrayBuffer>; readonly scale: number } {
-  const cumulative = synchrotronCumulative();
+  const cumulative = (synchrotronCumulative ??= createSynchrotronCumulative());
   const normalization = blackbodyXYZ(6500)[1];
   const electronSquared = 2.307077552e-19;
   const cyclotron = 2.799248987e6 * jet.field;

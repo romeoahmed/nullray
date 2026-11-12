@@ -26,15 +26,12 @@ test("settled pixel quadrature spreads unique samples and integrates affine radi
   );
 });
 
-test("image sample sequences stay inside the detector pixel and reject exhausted work", () => {
+test("image sample sequences stay inside the detector pixel", () => {
   for (const mode of ["live", "settle", "photograph"] as const) {
     for (let i = 0; i < sampleCounts[mode]; i++) {
       expect(sampleOffset(mode, i).every((x) => Number.isFinite(x) && x > -0.5 && x < 0.5)).toBe(
         true,
       );
-    }
-    for (const index of [-1, 0.5, sampleCounts[mode], NaN]) {
-      expect(() => sampleOffset(mode, index)).toThrow(RangeError);
     }
   }
 });

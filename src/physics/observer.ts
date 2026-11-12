@@ -1,4 +1,4 @@
-import { combine, contract, inner, lower } from "./geometry.ts";
+import { chartSign, combine, contract, inner, lower } from "./geometry.ts";
 import type { FourVector, KerrGeometry } from "./geometry.ts";
 import type { Vec3 } from "./vector.ts";
 
@@ -19,7 +19,7 @@ export interface ObserverFrame {
 /** A horizon-regular reference frame; its accelerated motion is not free fall. */
 export function principalFrame(geometry: KerrGeometry): ObserverFrame {
   const { principal: k, factor: f } = geometry;
-  const sign = geometry.point.chart === "ingoing" ? 1 : -1;
+  const sign = chartSign(geometry.point.chart);
   return {
     velocity: [1 + f / 2, (-f * k[1]) / 2, (-f * k[2]) / 2, (-f * k[3]) / 2],
     radial: [

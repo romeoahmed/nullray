@@ -42,9 +42,6 @@
     .observation {
       inset-block-start: 78px;
       padding: 8px 12px;
-      & .eyebrow {
-        display: none;
-      }
       & #observation-name {
         font-size: 14px;
       }

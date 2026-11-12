@@ -7,3 +7,4 @@ playwright-report/
 *.local
 .DS_Store
 .vitest/
+.claude/

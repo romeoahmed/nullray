@@ -1,12 +1,6 @@
-import {
-  chartPrimitives,
-  chartSign,
-  crossExtremalHorizon,
-  crossHorizon,
-  initialBlock,
-} from "./atlas.ts";
+import { chartPrimitives, crossExtremalHorizon, crossHorizon, initialBlock } from "./atlas.ts";
 import type { SpacetimeBlock } from "./atlas.ts";
-import { combine, horizons, kerrGeometry } from "./geometry.ts";
+import { chartSign, combine, horizons, kerrGeometry } from "./geometry.ts";
 import type { FourVector, KerrChart, KerrGeometry, KerrPoint } from "./geometry.ts";
 import { motionFromTangent } from "./motion.ts";
 import type { MotionConstants } from "./motion.ts";
@@ -67,8 +61,8 @@ export interface Geodesic {
  * @param block - Starting source domain; defaults to the placement convention.
  * @param plasma - Optional stationary separable profile for massless refracted rays.
  * @returns A new path borrowing the supplied spacetime, block, and plasma records.
- * The caller supplies matching geometry and physically normalized tangent data.
- * @throws RangeError - If a plasma profile is paired with massive motion.
+ * The caller supplies matching geometry and physically normalized tangent data;
+ * a plasma profile applies only to massless rays.
  */
 export function createGeodesic(
   space: Spacetime,
@@ -79,9 +73,6 @@ export function createGeodesic(
   block = initialBlock(space, geometry.point.radius, geometry.point.chart),
   plasma: PlasmaProfile | null = null,
 ): Geodesic {
-  if (plasma && massSquared !== 0) {
-    throw new RangeError("A material ray profile cannot describe a massive observer.");
-  }
   const initial = motionFromTangent(space, geometry, tangent, massSquared);
   const radius = geometry.point.radius;
   const inverse = Math.abs(radius) > 1;
@@ -612,8 +603,8 @@ export function orbitStep(
  *
  * @param duration - Signed Mino interval, or proper time in M for a massive path.
  * @returns The terminal classification, retained path, and signed elapsed parameter.
- * Only `complete` means the requested interval finished.
- * @throws RangeError - If the interval, tolerance, attempt budget, or proper-time mode is invalid.
+ * Only `complete` means the requested interval finished. Proper-time stepping
+ * requires a massive path.
  */
 export function advanceGeodesic(
   initial: Geodesic,
@@ -629,18 +620,6 @@ export function advanceGeodesic(
   readonly elapsed: number;
 } {
   const { tolerance = 1e-10, maxSteps = 10000, parameter = "mino" } = options;
-  if (
-    !Number.isFinite(duration) ||
-    !(tolerance > 0) ||
-    !Number.isFinite(tolerance) ||
-    !Number.isSafeInteger(maxSteps) ||
-    maxSteps < 1 ||
-    (parameter === "proper" && initial.constants.massSquared !== 1)
-  ) {
-    throw new RangeError(
-      "Geodesic work requires a finite interval, positive tolerance, and positive step budget.",
-    );
-  }
   let path = initial;
   let elapsed = 0;
   const direction = Math.sign(duration);

@@ -44,8 +44,4 @@ Optics remain f32. Hardware filtering serves the material lattice, celestial mip
 
 ## Formatting
 
-No formatter is configured. Oxfmt/Oxlint do not support WGSL. The consulted W3C specifications do not designate a formatter.
-
-[wgsl-analyzer](https://github.com/wgsl-analyzer/wgsl-analyzer) is a community editor-tooling candidate. Its Node/WASM derivative [@wasm-fmt/wgslfmt](https://github.com/wasm-fmt/wgslfmt) 0.1.0 failed a local idempotence check: repeatedly formatting `fn f() { var x = 1; x += 1; }` grew spaces before `+=`. That version was not adopted; this result does not establish the behavior of newer analyzer releases. [Tint's WGSL writer](https://dawn.googlesource.com/dawn/+/refs/heads/main/src/tint/lang/wgsl/writer/) generates compiler output rather than preserving authored source/comments.
-
-Before adopting a formatter, check idempotence, comments/directives, operator grouping, extension syntax and assembled modules. Compile and execute affected GPU paths. Formatting alone is not numerical validation, and no shader DSL is needed solely for formatting.
+No WGSL formatter is configured; Oxfmt and Oxlint do not read WGSL. Before adopting one, check idempotence, comments, directives and operator grouping on the assembled modules, then compile and execute the affected GPU paths. Formatting is not numerical validation.

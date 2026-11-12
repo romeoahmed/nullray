@@ -47,7 +47,7 @@
       color: inherit;
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 9px;
       cursor: pointer;
     }
   }
@@ -87,10 +87,14 @@
     font-size: 13px;
     list-style: none;
     &::after {
-      content: "+";
-      margin-inline-start: auto;
-      color: var(--accent);
-      font-size: 17px;
+      content: "";
+      inline-size: 7px;
+      block-size: 7px;
+      margin-inline: auto 6px;
+      border: solid var(--accent);
+      border-width: 0 1.5px 1.5px 0;
+      rotate: 45deg;
+      transition: rotate 140ms;
     }
     & span {
       color: var(--muted);
@@ -98,7 +102,7 @@
     }
   }
   details[open] > summary::after {
-    content: "−";
+    rotate: 225deg;
   }
   details .controls-grid {
     padding: 8px 3px 20px;

@@ -33,7 +33,10 @@ export async function createAccumulationFactory(device: GPUDevice) {
           readonly output: GPUTexture;
         }
       | undefined;
-    owned.defer(() => target?.resources.dispose());
+    owned.defer(() => {
+      target?.resources.dispose();
+      target = undefined;
+    });
     const lifetime = owned.move();
     return {
       /**
@@ -42,26 +45,10 @@ export async function createAccumulationFactory(device: GPUDevice) {
        * @remarks
        * Submit before another encode updates the shared uniform. Resizing requires
        * index zero. The returned texture is borrowed, overwritten on later encodes,
-       * and destroyed on resize/disposal. Invalid sequencing throws RangeError.
+       * and destroyed on resize/disposal.
        */
       encode(encoder: GPUCommandEncoder, radiance: GPUTexture, index: number): GPUTexture {
-        if (lifetime.disposed) {
-          throw new Error("Photographic history has been disposed.");
-        }
-        if (
-          !Number.isInteger(index) ||
-          index < 0 ||
-          index >= 64 ||
-          (index !== 0 && index !== samples)
-        ) {
-          throw new RangeError(
-            "Photographic samples must start at zero and advance sequentially through 63.",
-          );
-        }
         const { width, height } = radiance;
-        if (index !== 0 && (!target || target.width !== width || target.height !== height)) {
-          throw new RangeError("Resizing photographic history requires a new sample sequence.");
-        }
         if (!target || target.width !== width || target.height !== height) {
           using resources = new DisposableStack();
           const texture = (format: GPUTextureFormat) =>
@@ -111,7 +98,7 @@ export async function createAccumulationFactory(device: GPUDevice) {
       },
       /** Submit a readback after the caller has submitted all encoded history writes. */
       coverage() {
-        if (!target || samples === 0 || lifetime.disposed) {
+        if (!target) {
           throw new Error("No photographic history is available.");
         }
         return readCoverage(target.history, samples);

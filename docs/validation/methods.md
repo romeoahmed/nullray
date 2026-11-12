@@ -14,7 +14,7 @@ Checks establish bounded contracts. [Coverage](coverage.md) maps them to product
 | Image formation or display     | Quantitative output/missing-weight checks and visual inspection                                |
 | Documentation only             | Formatting, relative links and anchors, formula consistency, commands and honest status labels |
 
-Use [development commands](../engineering/development.md#setup-and-commands). Required GPU checks need native execution; report missing prerequisites and skipped checks.
+Use [development commands](../engineering/development.md#commands). Required GPU checks need native execution; report missing prerequisites and skipped checks.
 
 ## Small, complementary test layers
 
@@ -22,11 +22,11 @@ Prefer observable results. Use focused white-box probes for physical invariants,
 
 Do not freeze incidental counts, allocation sizes, ordering or error text. Exact assertions suit catalogue provenance, energy signs, schema discriminants and specified storage limits. Do not replace meaningful references with “finite/nonzero” checks.
 
-Use [fast-check](https://fast-check.dev/docs/core-blocks/runners/) on bounded domains and short state sequences. Construct valid coupled inputs; add explicit axis, horizon, signed-zero and invalid-boundary cases. Preserve shrinking, seed/path and concrete counterexamples for [replay](https://fast-check.dev/docs/tutorials/quick-start/read-test-reports/). GPU properties reuse resources but reset each case and read back completed sequences.
+Use [fast-check](https://fast-check.dev/docs/core-blocks/runners/) on bounded domains and short state sequences. Construct valid coupled inputs; add explicit axis, horizon and signed-zero cases. Test rejection only at external boundaries (links, storage, files), not for internal preconditions. Preserve shrinking, seed/path and concrete counterexamples for [replay](https://fast-check.dev/docs/tutorials/quick-start/read-test-reports/). GPU properties reuse resources but reset each case and read back completed sequences.
 
 [Browser assertions](https://playwright.dev/docs/best-practices) use accessible roles and awaited outcomes. Check revision/lifetime behavior at the worker boundary; sleeps and private call counts do not prove GPU completion. Always clean up mounts, persistence changes, workers and devices.
 
-[GPU support](../../tests/support/gpu.ts) owns devices, error scopes and readback. Device loss and unavailable hardware fail explicitly. `test:ui` covers interaction; `test:visual` produces manual-review captures. Passing capture completion does not approve pixels. Lint and Vitest CI policy reject focused tests.
+[GPU support](../../tests/support/gpu.ts) owns devices, error scopes and readback. Device loss and unavailable hardware fail explicitly. `test:ui` covers interaction; `test:visual` produces manual-review captures. Passing capture completion does not approve pixels.
 
 ## Reference independence
 

@@ -1,4 +1,4 @@
-import { horizons, stationaryLimits } from "../physics/geometry.ts";
+import { horizonRadii, stationaryLimits } from "../physics/geometry.ts";
 import type { RayPath } from "../physics/ray-path.ts";
 import type { Scene } from "../scene/scene.ts";
 
@@ -15,7 +15,6 @@ const y = (theta: number) => 28 + (theta / Math.PI) * 156;
  */
 export function drawTopology(target: SVGSVGElement, scene: Scene, ray?: RayPath): void {
   const { space, prepared } = scene;
-  const structure = horizons(space);
   const radius = prepared.geometry.point.radius;
   const extent = Math.max(2.5, Math.abs(space.spin), Math.abs(space.charge));
   const x = (r: number) => 174 + (r / extent) * 144;
@@ -58,15 +57,7 @@ export function drawTopology(target: SVGSVGElement, scene: Scene, ray?: RayPath)
       add("path", { d, class: "stationary-surface" });
     }
   }
-  const radii =
-    structure.kind === "pair"
-      ? [structure.inner, structure.outer]
-      : structure.kind === "single"
-        ? [structure.outer]
-        : structure.kind === "extremal"
-          ? [structure.radius]
-          : [];
-  for (const r of radii) {
+  for (const r of horizonRadii(space)) {
     add("path", { d: `M${x(r)},${y(0)}V${y(Math.PI)}`, class: "horizon-surface" });
   }
   if (space.spin === 0) {

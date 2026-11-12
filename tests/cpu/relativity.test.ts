@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { expect, test } from "vitest";
 
-import { chartPrimitives, chartSign } from "../../src/physics/atlas.ts";
+import { chartPrimitives } from "../../src/physics/atlas.ts";
 import {
   advanceGeodesic,
   conditionOrbit,
@@ -21,6 +21,7 @@ import {
   stationaryLimits,
   toCartesian,
 } from "../../src/physics/geometry.ts";
+import { chartSign } from "../../src/physics/geometry.ts";
 import type { FourVector, KerrChart } from "../../src/physics/geometry.ts";
 import { motionFromTangent, motionRadialPotential } from "../../src/physics/motion.ts";
 import {

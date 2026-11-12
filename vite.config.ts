@@ -1,6 +1,4 @@
 import { defineConfig } from "vite";
 
-export default defineConfig({
-  build: { target: "esnext", modulePreload: { polyfill: false } },
-  css: { transformer: "lightningcss" },
-});
+// The application ships native syntax (explicit resource management included) without lowering.
+export default defineConfig({ build: { target: "esnext" } });

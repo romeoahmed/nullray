@@ -44,8 +44,6 @@ export function initialBlock(space: Spacetime, radius: number, chart: KerrChart)
       return radius < structure.inner
         ? { kind: "interior", universe: 0, side: 1 }
         : { kind: chart === "ingoing" ? "black-hole" : "white-hole", universe: 0 };
-    default:
-      throw new RangeError("Unknown horizon topology.");
   }
 }
 
@@ -70,9 +68,6 @@ export function crossHorizon(
       case "black-hole":
       case "white-hole":
         return { kind: "exterior", universe: block.universe, side };
-      case "interior":
-      case "naked":
-      case "disconnected":
       default:
         throw new RangeError("An outer horizon must adjoin an exterior block.");
     }
@@ -87,9 +82,6 @@ export function crossHorizon(
         kind: radialSign < 0 ? "black-hole" : "white-hole",
         universe: block.universe + (radialSign > 0 ? 1 : 0),
       };
-    case "exterior":
-    case "naked":
-    case "disconnected":
     default:
       throw new RangeError("An inner horizon must adjoin an interior block.");
   }
@@ -113,10 +105,6 @@ export function crossExtremalHorizon(
       return { kind: "interior", universe: block.universe - (radialSign > 0 ? 1 : 0), side };
     case "interior":
       return { kind: "exterior", universe: block.universe + (radialSign > 0 ? 1 : 0), side };
-    case "black-hole":
-    case "white-hole":
-    case "naked":
-    case "disconnected":
     default:
       throw new RangeError("A degenerate horizon joins an exterior and an interior block.");
   }
@@ -156,6 +144,3 @@ export function chartPrimitives(
   const tortoise = radius + Math.log(Math.abs(delta)) + (2 - q * q) * integral;
   return Number.isFinite(integral + tortoise) ? [a * integral, tortoise] : undefined;
 }
-
-/** Coordinate sign; it is independent of the time orientation of a block. */
-export const chartSign = (chart: KerrChart): 1 | -1 => (chart === "ingoing" ? 1 : -1);

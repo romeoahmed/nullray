@@ -9,7 +9,7 @@ import {
   orbitTangent,
   regularOrbit,
 } from "../physics/geodesic.ts";
-import { horizons, kerrGeometry } from "../physics/geometry.ts";
+import { horizonRadii, kerrGeometry } from "../physics/geometry.ts";
 import type { KerrGeometry } from "../physics/geometry.ts";
 import {
   boostFrame,
@@ -148,8 +148,6 @@ function observerEndpoint(space: Spacetime, geometry: KerrGeometry, placement: O
         },
       } as const;
     }
-    default:
-      return fail("Unknown observer model.");
   }
 }
 
@@ -219,8 +217,6 @@ function sameObserver(left: Observer, right: Observer): boolean {
         a.properTime === b.properTime &&
         a.velocity.every((value, axis) => value === b.velocity[axis])
       );
-    default:
-      throw new Error("Unknown observer model.", { cause: a satisfies never });
   }
 }
 
@@ -252,14 +248,7 @@ export function prepareScene(
     return observer;
   }
   const { geometry } = observer.value;
-  const structure = horizons(space);
-  const outer =
-    structure.kind === "pair" || structure.kind === "single"
-      ? structure.outer
-      : structure.kind === "extremal"
-        ? structure.radius
-        : 0;
-  if (!(source.inner > outer)) {
+  if (!(source.inner > (horizonRadii(space).at(-1) ?? 0))) {
     return fail("The emitting annulus must lie in the positive-radius exterior.");
   }
   const { radius, inclination } = geometry.point;

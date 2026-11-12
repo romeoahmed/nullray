@@ -26,16 +26,13 @@ export async function createCelestialData(): Promise<Float32Array<ArrayBuffer>> 
  * @param field - Borrowed lattice bindings kept alive through generation completion.
  * @param size - Power-of-two face size from 1 through 1024 texels.
  * @returns A caller-owned f16 texture after GPU completion; f32 work storage is released.
- * Invalid sizes or GPU failures reject, with the output destroyed on generation failure.
+ * GPU failures reject, with the output destroyed on generation failure.
  */
 export async function createSkyTexture(
   device: GPUDevice,
   field: StructureField,
   size = 256,
 ): Promise<GPUTexture> {
-  if (!Number.isSafeInteger(size) || size < 1 || size > 1024 || (size & (size - 1)) !== 0) {
-    throw new RangeError("Sky face size must be a power of two between 1 and 1024.");
-  }
   const module = await compileShader(device, `${fieldSource}\n${skySource}`, "spectral sky");
   const reductionLayout = device.createBindGroupLayout({
     entries: [

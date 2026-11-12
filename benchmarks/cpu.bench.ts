@@ -9,14 +9,9 @@ import { createBlackbodyTable } from "../src/physics/radiation.ts";
 import { createStars, decodeFaintStars } from "../src/physics/sky.ts";
 import { createStarTree } from "../src/physics/stars.ts";
 import { turnCamera } from "../src/scene/camera.ts";
-import { createScene, initialScene } from "../src/scene/scene.ts";
+import { createScene, initialScene, sceneInput } from "../src/scene/scene.ts";
 import type { Scene, SceneInput } from "../src/scene/scene.ts";
 
-/** Keep persisted benchmark inputs independent of derived caches and typed-array layout. */
-function sceneInputs(scene: Scene): SceneInput {
-  const { space, observer, camera, disk, jet, plasma } = scene;
-  return { space, observer, camera, disk, jet, plasma };
-}
 function prepare(input: SceneInput, previous?: Scene): Scene {
   const result = createScene(input, previous);
   if (!result.ok) {
@@ -36,7 +31,7 @@ const catalogue = [...createStars(), ...decodeFaintStars(Uint8Array.from(bytes).
 const workloads = [
   {
     name: "scene",
-    inputs: { previous: sceneInputs(initialScene), observerAzimuth: 0.1 },
+    inputs: { previous: sceneInput(initialScene), observerAzimuth: 0.1 },
     scope: "Change observer azimuth; reuse unchanged source profile.",
     run: () =>
       prepare(
@@ -46,7 +41,7 @@ const workloads = [
   },
   {
     name: "freefall-camera",
-    inputs: { previous: sceneInputs(falling), cameraTurn: [0.1, 0.2], fieldOfView: 0.5 },
+    inputs: { previous: sceneInput(falling), cameraTurn: [0.1, 0.2], fieldOfView: 0.5 },
     scope: "Turn the camera and widen the field of view at an already prepared free-fall event.",
     run: () =>
       prepare(
@@ -99,7 +94,7 @@ test.for(workloads)("$name preparation", async (workload, { bench, annotate }) =
     result instanceof Float32Array
       ? new Uint8Array(result.buffer, result.byteOffset, result.byteLength)
       : JSON.stringify({
-          inputs: sceneInputs(result),
+          inputs: sceneInput(result),
           event: result.prepared.geometry.point,
           velocity: result.prepared.frame.velocity,
         });

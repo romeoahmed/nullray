@@ -1,12 +1,11 @@
 import { blackbodyWhiteBalance } from "../../physics/radiation.ts";
-import { displayValue } from "../../scene/presentation.ts";
 
 /**
  * Create an SDR Display P3 PNG exporter using the presentation shader.
  *
  * @remarks
- * Borrows the device/module. Each export validates display ranges and readback
- * capacity, then submits the snapshot before its first await. Temporary GPU
+ * Borrows the device/module. Each export checks readback capacity, then submits
+ * the snapshot before its first await. Temporary GPU
  * resources are released on success or failure. Keep the device alive through
  * completion; the caller enforces any required photographic sample count.
  *
@@ -21,18 +20,16 @@ export async function createPhotoExporter(device: GPUDevice, module: GPUShaderMo
   const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
   return async (
     radiance: GPUTexture,
-    exposureEV: number,
-    bloom = radiance,
-    strength = 0,
-    whiteBalance?: number,
-    photographic = true,
+    scattered: GPUTexture,
+    display: {
+      readonly exposureEV: number;
+      /** Fraction of scattered light mixed into the direct image. */
+      readonly bloom: number;
+      /** Neutral blackbody in kelvin; undefined selects the uncalibrated scientific scale. */
+      readonly whiteBalance: number | undefined;
+    },
   ): Promise<Blob> => {
-    if (!displayValue("bloom", strength)) {
-      throw new RangeError("Bloom must be between zero and one.");
-    }
-    if (!displayValue("exposure", exposureEV)) {
-      throw new RangeError("Photo exposure must be between −6 and +6 EV.");
-    }
+    const { exposureEV, bloom, whiteBalance } = display;
     const { width, height } = radiance;
     const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
     if (bytesPerRow * height > device.limits.maxBufferSize) {
@@ -67,7 +64,14 @@ export async function createPhotoExporter(device: GPUDevice, module: GPUShaderMo
     device.queue.writeBuffer(
       uniform,
       0,
-      new Float32Array([2 ** exposureEV, 1, strength, 0, ...calibration, photographic ? 1 : 0]),
+      new Float32Array([
+        2 ** exposureEV,
+        1,
+        bloom,
+        0,
+        ...calibration,
+        whiteBalance === undefined ? 0 : 1,
+      ]),
     );
     const bindings = device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
@@ -75,7 +79,7 @@ export async function createPhotoExporter(device: GPUDevice, module: GPUShaderMo
         { binding: 0, resource: radiance.createView() },
         { binding: 1, resource: sampler },
         { binding: 2, resource: { buffer: uniform } },
-        { binding: 3, resource: bloom.createView() },
+        { binding: 3, resource: scattered.createView() },
       ],
     });
     const encoder = device.createCommandEncoder();

@@ -33,8 +33,6 @@ function observationName({ scene }: SavedView): string {
         : scene.jet
           ? "Disk & polar outflow"
           : "Thermal disk";
-    default:
-      throw new Error("Unknown spacetime block.", { cause: scene.prepared.block satisfies never });
   }
 }
 
@@ -48,8 +46,6 @@ function describeHorizons(structure: Horizons): string {
       return "Horizon r = 2";
     case "none":
       return "Naked singularity · no horizons";
-    default:
-      throw new Error("Unknown horizon structure.", { cause: structure satisfies never });
   }
 }
 

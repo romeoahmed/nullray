@@ -1,10 +1,8 @@
 import { blackbodyWhiteBalance } from "../physics/radiation.ts";
 import type { RayPath } from "../physics/ray-path.ts";
 import type { Vec3 } from "../physics/vector.ts";
-import { initialAppearance } from "../scene/appearance.ts";
 import type { SourceAppearance } from "../scene/appearance.ts";
 import type { Presentation } from "../scene/presentation.ts";
-import { displayValue } from "../scene/presentation.ts";
 import type { Scene } from "../scene/scene.ts";
 import { compileShader, requestDevice, watchDevice } from "./device.ts";
 import { createAccumulationFactory } from "./imaging/accumulation.ts";
@@ -17,7 +15,7 @@ import type { SamplingMode } from "./imaging/sampling.ts";
 import { createOptics } from "./optics/engine.ts";
 import type { OpticalImage } from "./optics/engine.ts";
 import fullscreen from "./wgsl/imaging/fullscreen.wgsl?raw";
-import presentation from "./wgsl/passes/present.wgsl?raw";
+import presentSource from "./wgsl/passes/present.wgsl?raw";
 
 const opticalView = (value: Presentation["diagnostic"]) =>
   value === "polarization" || value === "angle" ? "image" : value;
@@ -38,8 +36,8 @@ export interface Renderer {
    * Record nonnegative integer device-pixel dimensions; zero suspends rendering.
    *
    * @remarks
-   * A uniform reduction enforces the device texture limit. Invalid dimensions
-   * throw RangeError. Raster allocation occurs on the next render.
+   * A uniform reduction enforces the device texture limit. Raster allocation
+   * occurs on the next render.
    */
   resize(width: number, height: number): void;
   /** Resolve after submitted GPU work completes, allowing bounded frame scheduling. */
@@ -68,38 +66,27 @@ export interface Renderer {
 
 /** Optical/source controls and display choices for one submitted frame. */
 export interface RenderSettings {
-  readonly appearance?: SourceAppearance;
-  /** Scale per raster axis in (0, 1], default 1; Photograph overrides it with native pixels. */
-  readonly resolutionScale?: number;
-  readonly exposureEV: number;
-  readonly whiteBalance?: number;
-  readonly bloom?: number;
+  readonly appearance: SourceAppearance;
+  readonly presentation: Presentation;
+  /** Scale per raster axis in (0, 1]; Photograph overrides it with native pixels. */
+  readonly resolutionScale: number;
   readonly hdr: boolean;
   /** Observer epoch in geometric time units; navigation does not advance this clock. */
   readonly time: number;
   readonly sampling: SamplingMode;
-  readonly view: Presentation["diagnostic"];
-  readonly analyzer?: number | null;
 }
 
 /**
  * Acquire a device and own an OffscreenCanvas rendering context.
  *
  * @param canvas - Transferred canvas whose previous renderer has already been disposed.
- * @param signal - Optional cancellation checked before acquisition and before publication.
- * @returns The renderer owner; initialization failure or observed cancellation rejects
- * and releases acquired resources. Dispose the owner when the worker replaces it.
+ * @returns The renderer owner; initialization failure rejects and releases acquired resources. Dispose the owner when the worker replaces it.
  */
-export async function createRenderer(
-  canvas: OffscreenCanvas,
-  signal?: AbortSignal,
-): Promise<Renderer> {
-  signal?.throwIfAborted();
+export async function createRenderer(canvas: OffscreenCanvas): Promise<Renderer> {
   const device = await requestDevice();
   using owned = new DisposableStack();
   owned.defer(() => device.destroy());
   const health = owned.use(watchDevice(device));
-  signal?.throwIfAborted();
   const context = canvas.getContext("webgpu");
   if (!context) {
     throw new Error("Unable to create a WebGPU canvas.");
@@ -108,7 +95,7 @@ export async function createRenderer(
   const format = "rgba16float";
   const displayModule = await compileShader(
     device,
-    `${fullscreen}\n${presentation}`,
+    `${fullscreen}\n${presentSource}`,
     "presentation",
   );
   const display = await device.createRenderPipelineAsync({
@@ -151,7 +138,7 @@ export async function createRenderer(
         readonly bloom: number;
         readonly sampling: SamplingMode;
         readonly view: Presentation["diagnostic"];
-        readonly analyzer?: number | null;
+        readonly analyzer: number | null;
       }
     | undefined;
   let scattered: GPUTexture | undefined;
@@ -162,7 +149,6 @@ export async function createRenderer(
   let boundBloom: GPUTexture | undefined;
   let displayBindings: GPUBindGroup | undefined;
   let stokes: Pick<OpticalImage, "radiance" | "q" | "u"> | undefined;
-  signal?.throwIfAborted();
   const lifetime = owned.move();
   return {
     inspect(point) {
@@ -173,39 +159,19 @@ export async function createRenderer(
       return device.queue.onSubmittedWorkDone();
     },
     coverage() {
-      if (previous?.sampling === "live" || !previous || samples === 0 || lifetime.disposed) {
+      if (!previous || previous.sampling === "live") {
         throw new Error("No refined image is available.");
       }
       coverage ??= accumulation.coverage();
       return coverage;
     },
     exportPNG() {
-      if (
-        !displayed ||
-        previous?.sampling !== "photograph" ||
-        samples !== 64 ||
-        lifetime.disposed
-      ) {
+      if (!displayed || previous?.sampling !== "photograph" || samples !== 64) {
         throw new Error("Refine a still image before exporting it.");
       }
-      return exportPhoto(
-        displayed,
-        previous.exposureEV,
-        scattered ?? displayed,
-        previous.bloom,
-        previous.whiteBalance,
-        previous.view === "image" && !previous.scene.plasma,
-      );
+      return exportPhoto(displayed, scattered ?? displayed, previous);
     },
     resize(pixelWidth, pixelHeight) {
-      if (
-        !Number.isSafeInteger(pixelWidth) ||
-        !Number.isSafeInteger(pixelHeight) ||
-        pixelWidth < 0 ||
-        pixelHeight < 0
-      ) {
-        throw new RangeError("Canvas dimensions must be nonnegative integer device pixels.");
-      }
       const scale = Math.min(
         1,
         device.limits.maxTextureDimension2D / Math.max(1, pixelWidth, pixelHeight),
@@ -213,29 +179,10 @@ export async function createRenderer(
       requestedWidth = Math.floor(pixelWidth * scale);
       requestedHeight = Math.floor(pixelHeight * scale);
     },
-    render(
-      scene,
-      {
-        exposureEV,
-        whiteBalance,
-        hdr,
-        time,
-        sampling,
-        view,
-        analyzer = null,
-        appearance = initialAppearance,
-        bloom = 0,
-        resolutionScale = 1,
-      },
-    ) {
+    render(scene, { appearance, presentation, resolutionScale, hdr, time, sampling }) {
+      const { exposureEV, whiteBalance, bloom, analyzer, diagnostic: view } = presentation;
       if (lifetime.disposed || requestedWidth === 0 || requestedHeight === 0) {
         return 0;
-      }
-      if (!displayValue("exposure", exposureEV)) {
-        throw new RangeError("Exposure must be between −6 and +6 EV.");
-      }
-      if (!displayValue("bloom", bloom)) {
-        throw new RangeError("Bloom must be between zero and one.");
       }
       const strength = view === "image" ? bloom : 0;
       const temperature = view === "image" && !scene.plasma ? whiteBalance : undefined;
@@ -255,11 +202,6 @@ export async function createRenderer(
           throw new Error("This browser does not support the requested display mode.");
         }
         outputHDR = hdr;
-      }
-      if (!Number.isFinite(resolutionScale) || resolutionScale <= 0 || resolutionScale > 1) {
-        throw new RangeError(
-          "Exploration resolution scale must be greater than zero and at most one.",
-        );
       }
       const scale = sampling === "photograph" ? 1 : resolutionScale;
       const nextWidth = Math.max(1, Math.floor(requestedWidth * scale));

@@ -1,49 +1,39 @@
 import { playwright } from "@vitest/browser-playwright";
-import { defineConfig, defineProject, mergeConfig } from "vitest/config";
+import { defineConfig, defineProject } from "vitest/config";
 
-import viteConfig from "./vite.config.ts";
-
-export default mergeConfig(
-  viteConfig,
-  defineConfig({
+/** Browser projects share one physical GPU: run them in order, one file at a time. */
+const browserProject = (name: string, order: number, benchmark: string[] = []) =>
+  defineProject({
     test: {
-      // Inline projects inherit this opt-out; only CPU and GPU own benchmarks.
-      benchmark: { include: [] },
-      projects: [
-        {
-          test: {
-            name: "cpu",
-            include: ["tests/cpu/**/*.test.ts"],
-            // Node runs erasable TypeScript directly, without module-runner overhead in benchmarks.
-            experimental: { viteModuleRunner: false },
-            benchmark: { include: ["benchmarks/cpu*.bench.ts"] },
-          },
-        },
-        ...["gpu", "browser", "visual"].map((name, index) =>
-          defineProject({
-            test: {
-              name,
-              include: [`tests/${name}/**/*.test.ts`],
-              // These projects share the physical GPU, even when selected together.
-              sequence: { groupOrder: index + 1 },
-              fileParallelism: false,
-              ...(name === "gpu" && {
-                benchmark: {
-                  include: ["benchmarks/!(cpu*).bench.ts"],
-                  retainSamples: true,
-                },
-              }),
-              // Construct fresh instances: Vitest assigns names during project expansion.
-              browser: {
-                enabled: true,
-                headless: true,
-                provider: playwright({ launchOptions: { channel: "chromium" } }),
-                instances: [{ browser: "chromium" }],
-              },
-            },
-          }),
-        ),
-      ],
+      name,
+      include: [`tests/${name}/**/*.test.ts`],
+      sequence: { groupOrder: order },
+      fileParallelism: false,
+      benchmark: { include: benchmark, retainSamples: true },
+      browser: {
+        enabled: true,
+        headless: true,
+        provider: playwright({ launchOptions: { channel: "chromium" } }),
+        instances: [{ browser: "chromium" }],
+      },
     },
-  }),
-);
+  });
+
+export default defineConfig({
+  test: {
+    projects: [
+      {
+        test: {
+          name: "cpu",
+          include: ["tests/cpu/**/*.test.ts"],
+          // Node runs erasable TypeScript directly.
+          experimental: { viteModuleRunner: false },
+          benchmark: { include: ["benchmarks/cpu*.bench.ts"] },
+        },
+      },
+      browserProject("gpu", 1, ["benchmarks/!(cpu*).bench.ts"]),
+      browserProject("browser", 2),
+      browserProject("visual", 3),
+    ],
+  },
+});

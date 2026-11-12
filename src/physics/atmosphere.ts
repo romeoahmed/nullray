@@ -11,13 +11,8 @@ import { milne } from "../data/milne.ts";
  *
  * @param size - Integer row count of at least two, including μ = 0 and μ = 1.
  * @returns Caller-owned f32 storage for the thermal angular closure.
- * @throws RangeError - If the sample count is invalid.
- * @throws Error - If the bundled atmosphere table is incomplete.
  */
 export function createAtmosphereTable(size = 256): Float32Array<ArrayBuffer> {
-  if (!Number.isSafeInteger(size) || size < 2) {
-    throw new RangeError("An atmosphere table needs at least two angular samples.");
-  }
   let integral = 0;
   for (let i = 1; i < milne.length; i++) {
     const before = milne[i - 1];

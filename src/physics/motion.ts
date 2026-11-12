@@ -1,4 +1,4 @@
-import { contract, lower } from "./geometry.ts";
+import { chartSign, contract, lower, polarTrig } from "./geometry.ts";
 import type { FourVector, KerrGeometry } from "./geometry.ts";
 import type { Spacetime } from "./spacetime.ts";
 import type { Vec3 } from "./vector.ts";
@@ -47,9 +47,8 @@ export function motionFromTangent(
 ): MotionInitial {
   const momentum = lower(geometry, tangent);
   const { radius: r, inclination: theta } = geometry.point;
-  const sine = theta === 0 || theta === Math.PI ? 0 : Math.sin(theta);
-  const cosine = theta === Math.PI / 2 ? 0 : Math.cos(theta);
-  const sign = geometry.point.chart === "ingoing" ? 1 : -1;
+  const [sine, cosine] = polarTrig(theta);
+  const sign = chartSign(geometry.point.chart);
   const energy = -momentum[0];
   const nMomentum = sign * (contract(geometry.principal, momentum) - momentum[0]);
   const thetaMomentum = contract(geometry.polar, momentum);

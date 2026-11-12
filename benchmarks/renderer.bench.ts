@@ -4,6 +4,7 @@ import { server } from "vitest/browser";
 import { sampleCounts } from "../src/gpu/imaging/sampling.ts";
 import type { SamplingMode } from "../src/gpu/imaging/sampling.ts";
 import { createRenderer } from "../src/gpu/renderer.ts";
+import { presentationOf } from "../src/scene/presentation.ts";
 import { presets } from "../src/scene/presets.ts";
 import { checkDevice } from "../tests/support/gpu.ts";
 import { gpuContext } from "./context.ts";
@@ -26,11 +27,8 @@ test.for(workloads)("$name presentation", async ({ name, view, mode }, { bench }
   const sampling: SamplingMode = mode === "display" ? "settle" : mode;
   const settings = {
     appearance: view.appearance,
-    exposureEV: view.exposureEV,
-    whiteBalance: view.whiteBalance,
-    bloom: view.bloom,
+    presentation: presentationOf(view),
     hdr: false,
-    view: view.diagnostic,
     resolutionScale: 0.5,
     sampling,
     time: 0,
@@ -64,7 +62,10 @@ test.for(workloads)("$name presentation", async ({ name, view, mode }, { bench }
           ...settings,
           // Display edits retain the exact optical history and emission epoch.
           time: mode === "display" ? 0 : epoch,
-          exposureEV: mode === "display" ? view.exposureEV - (epoch % 2) * 0.1 : view.exposureEV,
+          presentation: {
+            ...settings.presentation,
+            exposureEV: mode === "display" ? view.exposureEV - (epoch % 2) * 0.1 : view.exposureEV,
+          },
         });
         // oxlint-disable-next-line no-await-in-loop
         await renderer.finished();

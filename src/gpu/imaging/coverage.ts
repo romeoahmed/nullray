@@ -19,15 +19,12 @@ export interface Coverage {
  * completion, and releases temporary buffers on success or failure. The caller
  * must submit prior history writes and keep the device alive until settlement.
  *
- * @returns A reusable reader; invalid counts or GPU readback failures reject.
+ * @returns A reusable reader; GPU readback failures reject.
  */
 export async function createCoverageReader(device: GPUDevice) {
   const module = await compileShader(device, source, "sampling coverage");
   const pipeline = await device.createComputePipelineAsync({ layout: "auto", compute: { module } });
   return async (history: GPUTexture, samplesPerPixel: number): Promise<Coverage> => {
-    if (!Number.isSafeInteger(samplesPerPixel) || samplesPerPixel < 1 || samplesPerPixel > 64) {
-      throw new RangeError("Coverage readback requires 1–64 accumulated samples.");
-    }
     using owned = new DisposableStack();
     const buffer = (size: number, usage: GPUBufferUsageFlags) =>
       owned.adopt(device.createBuffer({ size, usage }), (value) => value.destroy());

@@ -111,9 +111,6 @@ export async function createBloom(device: GPUDevice) {
      * resize/disposal. Keep inputs alive until submitted work completes.
      */
     encode(encoder: GPUCommandEncoder, radiance: GPUTexture): GPUTexture {
-      if (lifetime.disposed) {
-        throw new Error("Bloom resources have been disposed.");
-      }
       if (target?.width !== radiance.width || target.height !== radiance.height) {
         const next = createTarget(radiance.width, radiance.height);
         target?.resources.dispose();

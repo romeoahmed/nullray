@@ -1,8 +1,10 @@
+import type { Jet } from "../physics/jet.ts";
 import { oneOf } from "../scene/decode.ts";
 import { initialJet } from "../scene/jet.ts";
 import { initialPlasma } from "../scene/plasma.ts";
 import type { PhysicalObserver } from "../scene/preparation.ts";
 import { viewChoices } from "../scene/presentation.ts";
+import type { Observer } from "../scene/scene.ts";
 import type { Action, Session } from "../scene/session.ts";
 import { element } from "./elements.ts";
 
@@ -183,31 +185,37 @@ export function bindControls(
     },
     (value) => `${value.toFixed(2)} M`,
   );
-  range(
+  const observerRange = (
+    id: string,
+    read: (observer: Observer) => number,
+    write: (value: number) => Partial<Observer>,
+    format: (value: number) => string,
+  ) =>
+    range(
+      id,
+      ({ view }) => read(view.scene.observer),
+      ({ view }, value) => ({
+        type: "scene",
+        value: { ...view.scene, observer: { ...view.scene.observer, ...write(value) } },
+      }),
+      format,
+    );
+  observerRange(
     "inclination",
-    ({ view }) => degrees(view.scene.observer.inclination),
-    ({ view }, value) => ({
-      type: "scene",
-      value: { ...view.scene, observer: { ...view.scene.observer, inclination: radians(value) } },
-    }),
+    (observer) => degrees(observer.inclination),
+    (value) => ({ inclination: radians(value) }),
     (value) => `${value.toFixed(1)}°`,
   );
-  range(
+  observerRange(
     "distance",
-    ({ view }) => view.scene.observer.radius,
-    ({ view }, value) => ({
-      type: "scene",
-      value: { ...view.scene, observer: { ...view.scene.observer, radius: value } },
-    }),
+    (observer) => observer.radius,
+    (radius) => ({ radius }),
     (value) => `${value.toFixed(1)} rɢ`,
   );
-  range(
+  observerRange(
     "fov",
-    ({ view }) => degrees(view.scene.observer.fieldOfView),
-    ({ view }, value) => ({
-      type: "scene",
-      value: { ...view.scene, observer: { ...view.scene.observer, fieldOfView: radians(value) } },
-    }),
+    (observer) => degrees(observer.fieldOfView),
+    (value) => ({ fieldOfView: radians(value) }),
     (value) => `${value.toFixed(0)}°`,
   );
   range(
@@ -309,46 +317,43 @@ export function bindControls(
     (value) =>
       value === 0 ? "Uniform temperature" : `Up to ${(1 + value).toFixed(1)} × 100,000 K`,
   );
-  range(
+  const jetRange = (
+    id: string,
+    read: (jet: Jet) => number,
+    write: (value: number) => Partial<Jet>,
+    format: (value: number) => string,
+  ) =>
+    range(
+      id,
+      ({ view }) => read(view.scene.jet ?? initialJet),
+      ({ view }, value) => ({
+        type: "scene",
+        value: { ...view.scene, jet: { ...(view.scene.jet ?? initialJet), ...write(value) } },
+      }),
+      format,
+    );
+  jetRange(
     "jet-energy",
-    ({ view }) => Math.log10(view.scene.jet?.gammaMin ?? initialJet.gammaMin),
-    ({ view }, exponent) => ({
-      type: "scene",
-      value: {
-        ...view.scene,
-        jet: { ...(view.scene.jet ?? initialJet), gammaMin: 10 ** exponent },
-      },
-    }),
+    (jet) => Math.log10(jet.gammaMin),
+    (exponent) => ({ gammaMin: 10 ** exponent }),
     (value) => `γ ≥ ${Math.round(10 ** value).toLocaleString("en")}`,
   );
-  range(
+  jetRange(
     "jet-speed",
-    ({ view }) => view.scene.jet?.speed ?? initialJet.speed,
-    ({ view }, speed) => ({
-      type: "scene",
-      value: { ...view.scene, jet: { ...(view.scene.jet ?? initialJet), speed } },
-    }),
+    (jet) => jet.speed,
+    (speed) => ({ speed }),
     (value) => `${value.toFixed(2)} c`,
   );
-  range(
+  jetRange(
     "jet-opening",
-    ({ view }) => degrees(view.scene.jet?.openingAngle ?? initialJet.openingAngle),
-    ({ view }, angle) => ({
-      type: "scene",
-      value: {
-        ...view.scene,
-        jet: { ...(view.scene.jet ?? initialJet), openingAngle: radians(angle) },
-      },
-    }),
+    (jet) => degrees(jet.openingAngle),
+    (angle) => ({ openingAngle: radians(angle) }),
     (value) => `${value.toFixed(0)}°`,
   );
-  range(
+  jetRange(
     "jet-density",
-    ({ view }) => Math.log10(view.scene.jet?.density ?? initialJet.density),
-    ({ view }, exponent) => ({
-      type: "scene",
-      value: { ...view.scene, jet: { ...(view.scene.jet ?? initialJet), density: 10 ** exponent } },
-    }),
+    (jet) => Math.log10(jet.density),
+    (exponent) => ({ density: 10 ** exponent }),
     (value) => `10^${value.toFixed(1)} cm⁻³`,
   );
   range(

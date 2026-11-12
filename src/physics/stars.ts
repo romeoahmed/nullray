@@ -82,7 +82,7 @@ function writeSubtree(
  *
  * @param stars - At most 200,000 sources; finite nonzero directions are normalized.
  * @returns Caller-owned f32 storage, including a dark leaf for an empty catalogue.
- * @throws RangeError - If source count, direction, temperature, or coefficient fails validation.
+ * @throws RangeError - If the catalogue is too large or its total spectral coefficient exceeds 1e6.
  */
 export function createStarTree(stars: readonly Star[]): Float32Array<ArrayBuffer> {
   if (stars.length > 200_000) {
@@ -94,17 +94,6 @@ export function createStarTree(stars: readonly Star[]): Float32Array<ArrayBuffer
   const luminance = new Map<number, number>([[6500, reference]]);
 
   const sources: readonly SpectralPoint[] = stars.map((star) => {
-    if (
-      !Number.isFinite(star.flux) ||
-      star.flux < 0 ||
-      !Number.isFinite(star.temperature) ||
-      star.temperature < 1000 ||
-      star.temperature > 50000
-    ) {
-      throw new RangeError(
-        "A star requires finite nonnegative flux and a color temperature in [1000, 50000] K.",
-      );
-    }
     const [x, y, z] = normalize(star.direction);
     const coefficient =
       star.flux /
@@ -113,9 +102,6 @@ export function createStarTree(stars: readonly Star[]): Float32Array<ArrayBuffer
         (temperature) => blackbodyXYZ(temperature)[1],
       ) /
         reference);
-    if (!Number.isFinite(Math.fround(coefficient))) {
-      throw new RangeError("Stellar flux exceeds f32 storage.");
-    }
     return {
       direction: [Math.fround(x), Math.fround(y), Math.fround(z)],
       coefficient,

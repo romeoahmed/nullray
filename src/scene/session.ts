@@ -52,7 +52,6 @@ export type Transition = Result<Session>;
  * eligibility. The input session is never mutated.
  *
  * @returns The accepted session, or a domain error with no partial state change.
- * @throws Error - If an unrecognized action reaches the exhaustive boundary.
  */
 export function transition(state: Session, action: Action): Transition {
   const { view } = state;
@@ -129,7 +128,5 @@ export function transition(state: Session, action: Action): Transition {
       );
       return mapResult(scene, (value) => replaceView({ scene: value, navigation: "orbit" }));
     }
-    default:
-      throw new Error("Unknown session action.", { cause: action satisfies never });
   }
 }

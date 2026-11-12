@@ -118,11 +118,6 @@ describe("Photographic history", () => {
       unresolvedPixels: 1,
       unresolvedSamples: 1 / 16,
     });
-    for (const index of [-1, 0.5, 3, 64, NaN]) {
-      expect(() => accumulation.encode(device.createCommandEncoder(), radiance, index)).toThrow(
-        RangeError,
-      );
-    }
   });
 });
 
